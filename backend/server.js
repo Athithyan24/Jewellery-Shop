@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import multer from "multer";
+import path from "path";
 
 
 dotenv.config();
@@ -11,11 +13,23 @@ app.use(cors());
 app.use(express.json());
 const PORT = 5000;
 
+const storage = multer.diskStorage({destination: "./uploads/",
+  filename: (req, file, cb) => {
+    cb(null, Date.now()+"-" + file.originalname);
+  }
+});
+const upload = multer({ storage });
+
+app.use("/uploads", express.static("uploads"));
+
 const SECRET_KEY = process.env.SECRET_KEY;
 const MONGO_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGO_URI)
-  .then(() => console.log("Connected to MongoDB Successfully"))
+  .then(async () => {
+    console.log("Connected to MongoDB Successfully");
+    await Products();
+  })
   .catch((err) => console.log("Failed to connect to MongoDB", err));
 
 const userSchema = new mongoose.Schema({
@@ -47,39 +61,68 @@ const customerSchema = new mongoose.Schema({
 });
 const Customer = mongoose.model("Customer", customerSchema);
 
-const Products = async () => {
-  const Workerusers = await User.findOne({ username: "worker" });
-  const products = [
-    "நெக்லஸ்", "காதணி", "மோதிரம்", "தூக்கு", "கொலுசு",
-"சங்கிலி", "வீதிச் சங்கிலி", "மாட்டி", "வளையல்கள்", "மூக்குத்தி",
-"தாயாட்டு", "முத்து மாலை", "அறைங்யான்", "காதணி ஆணி",
-"நெத்தி சுட்டி", "இரண்டாவது காதணி"
-  ];
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+});
 
-  for (const p of products) {
-    await Item.create({
-      product: p,
-      weight: 0,
-      stoneweight: 0,
-      goldrate: 0,
-      amount: 0,
-      pawnpercentage: 0,
-      owner: Workerusers._id
-    });
+const Product = mongoose.model("Product", productSchema);
+
+const Products = async () => {
+  try {
+
+    const products = [
+      "நெக்லஸ்", "காதணி", "மோதிரம்", "தூக்கு", "கொலுசு",
+      "சங்கிலி", "வீதிச் சங்கிலி", "மாட்டி", "வளையல்கள்", "மூக்குத்தி",
+      "தாயாட்டு", "முத்து மாலை", "அறைங்யான்", "காதணி ஆணி",
+      "நெத்தி சுட்டி", "இரண்டாவது காதணி"
+    ];
+
+    for (const p of products) {
+
+      const exists = await Product.findOne({ name: p });
+
+      if (!exists) {
+        await Product.create({ name: p });
+      }
+
+    }
+
+    console.log("Products inserted successfully");
+
+  } catch (error) {
+    console.error("Error inserting products:", error);
   }
 };
 
-const itemSchema = new mongoose.Schema({
-  product: { type: String, required: true },
-  weight: { type: Number},
-  stoneweight: { type: Number},
-  goldrate: { type: Number},
-  amount: { type: Number},
-  pawnpercentage: { type: Number},
-  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true } 
+const loanSchema = new mongoose.Schema({
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Customer",
+    required: true
+  },
+
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Product",
+    required: true
+  },
+
+  weight: Number,
+  stoneweight: Number,
+  goldrate: Number,
+  pawnpercentage: Number,
+
+  loanamount: Number,
+
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-const Item = mongoose.model("Item", itemSchema);
+const Loan = mongoose.model("Loan", loanSchema);
+
+
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -108,6 +151,24 @@ app.get("/api/customers", verifyToken, async (req, res) => {
   }
 })
 
+app.get("/api/products", verifyToken, async (req, res) => {
+  try {
+    const products = await Product.find();
+    res.status(200).json(products);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch products", error });
+  }
+});
+
+app.get("/api/loans", verifyToken, async (req, res) => {
+  try {
+    const loans = await Loan.find().populate("customer").populate("product");
+    res.status(200).json(loans);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch loans", error });
+  }
+});
+
 app.post("/api/login", async(req, res)=>{
     const { username, password } = req.body;
     try {
@@ -133,36 +194,100 @@ app.post("/api/login", async(req, res)=>{
     }
 });
 
-app.post("/api/customers", verifyToken, async (req, res) => {
-   const{name, dob, address, aadhar, aadharimage, recentimage, email, phone} = req.body;
-   if (req.user.role == "worker") 
-    {
-      try {
-        const newCustomer = new Customer({ 
-          name, 
-          dob, 
-          address, 
-          aadhar, 
-          aadharimage, 
-          recentimage, 
-          email, 
-          phone });
-        await newCustomer.save();
+app.post(
+  "/api/customers",
+  verifyToken,
+  upload.fields([
+    { name: "aadharimage", maxCount: 1 },
+    { name: "recentimage", maxCount: 1 }
+  ]),
+  async (req, res) => {
+    try {
 
-        res.status(201).json({ 
-          message: "Customer created successfully", 
-          customer: newCustomer });
+      if (!req.body) {
+        return res.status(400).json({ message: "Form data missing" });
+      }
+
+      const { name, dob, address, aadhar, email, phone } = req.body;
+
+      if (!req.files) {
+        return res.status(400).json({ message: "Images not uploaded" });
+      }
+
+      const aadharimage = req.files["aadharimage"][0].filename;
+      const recentimage = req.files["recentimage"][0].filename;
+
+      const newCustomer = new Customer({
+        name,
+        dob,
+        address,
+        aadhar,
+        aadharimage,
+        recentimage,
+        email,
+        phone
+      });
+
+      await newCustomer.save();
+
+      res.status(201).json({
+        message: "Customer created successfully",
+        customer: newCustomer
+      });
 
     } catch (error) {
-        res.status(500).json({ 
-          message: "Failed to create customer", 
-          error });
+      console.error(error);
+      res.status(500).json({
+        message: "Failed to create customer",
+        error
+      });
     }
   }
-   else {
-      res.status(403).json({ 
-        message: "Access denied: Insufficient permissions" });
-   }
+);
+
+app.post("/api/loans", verifyToken, async (req, res) => {
+  try {
+
+    const {
+      customerId,
+      product,
+      weight,
+      stoneweight,
+      goldrate,
+      pawnpercentage
+    } = req.body;
+
+    const netWeight = weight - stoneweight;
+
+    const goldValue = netWeight * goldrate;
+
+    const loanamount = (goldValue * pawnpercentage) / 100;
+
+    const loan = new Loan({
+      customer: customerId,
+      product,
+      weight,
+      stoneweight,
+      goldrate,
+      pawnpercentage,
+      loanamount
+    });
+
+    await loan.save();
+
+    res.status(201).json({
+      message: "Loan created successfully",
+      loan
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: "Failed to create loan",
+      error
+    });
+
+  }
 });
 
 app.listen(PORT, () => {
