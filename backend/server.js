@@ -49,6 +49,28 @@ const createSuperAdmin = async () => {
 };
 createSuperAdmin();
 
+/* 
+const verifyBankDetailsMock = async (accountnumber, ifsc) => {
+    return new Promise((resolve)=>{
+      setTimeout(()=>{ 
+        if(accountnumber.startsWith("999")){
+          resolve({
+            verified:false,
+            message: "Invalid bank account or IFSC mismatch"
+          });
+        }
+        else{
+          resolve({
+            verified: true,
+            registeredName: "MOCK ACCOUNT HOLDER",
+            message: "Bank account verified successfully"
+          });
+        }
+      },1500);
+    });
+   };
+   */
+
 const customerSchema = new mongoose.Schema({
     name: { type: String, required: true },
     dob: { type: Date, required: true },
@@ -204,26 +226,29 @@ app.post(
   async (req, res) => {
     try {
 
-      if (!req.body) {
+      if (!req.body) { 
         return res.status(400).json({ message: "Form data missing" });
       }
 
-      const { name, dob, address, aadhar, email, phone } = req.body;
+      const { name, dob, address, aadhar,  email, phone } = req.body;
 
-      if (!req.files) {
+      if (!req.files || !req.files["aadharimage"] || !req.files["recentimage"]) {
         return res.status(400).json({ message: "Images not uploaded" });
       }
 
-      const aadharimage = req.files["aadharimage"][0].filename;
-      const recentimage = req.files["recentimage"][0].filename;
+      /*const bankCheck = await verifyBankDetailsMock(accountnumber, ifsc);
+
+      if (!bankCheck.verified) {
+        return res.status(400).json({ message: bankCheck.message });
+      */
 
       const newCustomer = new Customer({
         name,
         dob,
         address,
         aadhar,
-        aadharimage,
-        recentimage,
+        aadharimage: req.files["aadharimage"][0].filename,
+        recentimage: req.files["recentimage"][0].filename,
         email,
         phone
       });
@@ -234,12 +259,12 @@ app.post(
         message: "Customer created successfully",
         customer: newCustomer
       });
-
-    } catch (error) {
+}
+     catch (error) {
       console.error(error);
       res.status(500).json({
         message: "Failed to create customer",
-        error
+        error:error.message || error
       });
     }
   }

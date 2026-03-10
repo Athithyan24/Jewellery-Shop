@@ -10,8 +10,8 @@ function App() {
     <>
       <header className="App-header flex  items-center justify-center bg-amber-300">
         <h1 className=" 
-      justify-center text-5xl h-15  uppercase font-bold
-      font-serif text-red-500">Jewellery Shop</h1>
+      justify-center text-5xl h-18 content-center  uppercase font-bold
+      font-serif text-red-500">இன்ஃபோசென்x ஐடி அடகுக் கடை</h1>
       </header>
         <BrowserRouter>
         

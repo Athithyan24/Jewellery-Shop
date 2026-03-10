@@ -3,34 +3,34 @@ import axios from "axios";
 
 const TABS = [
   {
-    id: "transaction",
-    label: "Transaction",
+    id: "பரிவர்த்தனைகளின்",
+    label: "பரிவர்த்தனைகள்",
     colorClass: "bg-white cursor-pointer hover:bg-gray-100 text-black mr-1",
-    endpoint: "/api/transactions",
+    endpoint: "/api/பரிவர்த்தனைகளின்",
   },
   {
-    id: "customers",
-    label: "Customers",
+    id: "வாடிக்கையாளர்களின்",
+    label: "வாடிக்கையாளர்கள்",
     colorClass: "bg-white cursor-pointer hover:bg-gray-100 mx-1 text-black",
-    endpoint: "/api/customers",
+    endpoint: "/api/வாடிக்கையாளர்களின்",
   },
   {
-    id: "loans",
-    label: "Loans",
+    id: "கடன்களின்",
+    label: "கடன்கள்",
     colorClass: "bg-white cursor-pointer hover:bg-gray-100 mx-1 text-black",
-    endpoint: "/api/loans",
+    endpoint: "/api/கடன்களின்",
   },
   {
-    id: "settings",
-    label: "Settings",
+    id: "அமைப்பு",
+    label: "அமைப்புகள்",
     colorClass: "bg-white cursor-pointer hover:bg-gray-100 mx-1 text-black",
-    endpoint: "/api/settings",
+    endpoint: "/api/அமைப்பு",
   },
   {
-    id: "profile",
-    label: "Profile",
+    id: "சுய",
+    label: "சுயவிவரம்",
     colorClass: "bg-white cursor-pointer hover:bg-gray-100 mx-1 text-black",
-    endpoint: "/api/profile",
+    endpoint: "/api/சுய",
   },
 ];
 
@@ -41,6 +41,8 @@ export default function AdminPage() {
   const [CustomerModal, setCustomerModal] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [LoanModal, setLoanModal] = useState(false);
+  const [PayLoanModal, setPayLoanModal] = useState(false);
+  const [SelectedTypeModal, setSelectedTypeModal] = useState(false);
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [products, setProducts] = useState([]);
@@ -54,6 +56,8 @@ export default function AdminPage() {
     dob: "",
     address: "",
     aadhar: "",
+    accountnumber: "",
+    ifsc: "",
     aadharimage: "",
     recentimage: "",
     email: "",
@@ -201,14 +205,14 @@ export default function AdminPage() {
       try {
         const token = localStorage.getItem("token");
         const currentTab = TABS.find((t) => t.id === activeTab);
-        if (activeTab === "customers") {
+        if (activeTab === "வாடிக்கையாளர்களின்") {
           await fetchCustomers();
-        } else if (activeTab === "loans") {
+        } else if (activeTab === "கடன்களின்") {
           await fetchLoans();
         }
         await new Promise((resolve) => setTimeout(resolve, 600));
         setTabData(
-          `Data fetched securely for the ${currentTab.label} dashboard.`,
+          `${currentTab.label} டேஷ்போர்டிற்கான தரவு பாதுகாப்பாக பெறப்பட்டது.`,
         );
       } catch (error) {
         console.error("Error fetching tab data:", error);
@@ -242,7 +246,7 @@ export default function AdminPage() {
 
         <div className="p-8 min-h-100">
           <h2 className="text-3xl font-bold text-gray-800 mb-6 capitalize">
-            {activeTab} Management
+            {activeTab} விவரங்கள்
           </h2>
 
           {isLoading ? (
@@ -254,28 +258,28 @@ export default function AdminPage() {
               <p className="mb-4">{tabData}</p>
 
               {/* Only show the table if we are on the customers tab and the modal is CLOSED */}
-              {activeTab === "customers" && !CustomerModal && (
+              {activeTab === "வாடிக்கையாளர்களின்" && !CustomerModal && (
                 <div className="mt-6 overflow-x-auto">
                   <table className="min-w-full bg-white border border-gray-200">
                     <thead className="bg-gray-500 border-b border-gray-200">
                       <tr>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Profile
+                          புகைப்படம்
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Name
+                          பெயர்
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Phone
+                          தொலைபேசி எண்
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Aadhar Number
+                          ஆதார் எண்
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Address
+                          முகவரி
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Options
+                          விருப்பங்கள்
                         </th>
                       </tr>
                     </thead>
@@ -311,7 +315,7 @@ export default function AdminPage() {
                                   fetchProducts();
                                 }}
                                 className="bg-green-500 cursor-pointer text-white px-3 py-1 rounded-md font-semibold hover:bg-green-700 transition">
-                                Take Loan
+                                கடன் வாங்கு
                               </button>
                             </td>
                           </tr>
@@ -330,41 +334,41 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {activeTab === "customers" && role === "worker" && (
+              {activeTab === "வாடிக்கையாளர்களின்" && role === "worker" && (
                 <>
                   <button
                     onClick={() => setCustomerModal(true)}
                     className="mt-4 cursor-pointer bg-blue-100 text-blue-700 px-4 py-2 rounded-md font-semibold hover:bg-blue-200 transition">
-                    + Add New Customer
+                    + புதிய வாடிக்கையாளர்கள்
                   </button>
                 </>
               )}
 
-              {activeTab === "loans" && (
+              {activeTab === "கடன்களின்" && (
                 <div className="p-6 overflow-x-auto">
                   <table className="min-w-full bg-white border border-gray-200">
                     <thead className="bg-blue-600 border-b border-gray-200">
                       <tr>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Date
+                          தேதி
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Customer
+                          வாடிக்கையாளர்
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Product
+                          அடகு பொருள்
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Gold Rate
+                          தங்கம் விலை
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Pawn %
+                          அடகு %
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Loan Amount
+                          கடன் தொகை
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          Action
+                          நடவடிக்கை எடு
                         </th>
                       </tr>
                     </thead>
@@ -407,16 +411,25 @@ export default function AdminPage() {
                             <td className="py-3 px-4 text-sm font-bold text-green-600">
                               ₹{loan.loanamount?.toFixed(2)}
                             </td>
-                            <td className="py-3 px-4 text-sm">
-                              <button
-                                onClick={() => {
-                                  setSelectedLoan(loan);
-                                  setReceiptModal(true);
-                                }}
-                                className="bg-blue-500 hover:bg-blue-700 text-white py-1 px-3 rounded"
-                              >
-                                View Receipt
-                              </button>
+                            <td className="p-3 px-4 text-sm">
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedLoan(loan);
+                                    setReceiptModal(true);
+                                  }}
+                                  className="bg-blue-500 hover:bg-blue-700 text-white py-1 px-3 rounded">
+                                  ரசீதை பெறவும்
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedLoan(loan);
+                                    setPayLoanModal(true);
+                                  }}
+                                  className="bg-red-500 hover:bg-red-700 text-white py-1 px-3 rounded">
+                                  கடனை செலுத்துங்கள்
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -435,7 +448,7 @@ export default function AdminPage() {
               )}
 
               {CustomerModal &&
-                activeTab === "customers" &&
+                activeTab === "வாடிக்கையாளர்களின்" &&
                 role === "worker" && (
                   <form
                     onSubmit={handleSubmit}
@@ -461,29 +474,43 @@ export default function AdminPage() {
                       />
                       <input
                         name="address"
-                        placeholder="Full Address"
+                        placeholder="Enter Customer's Full Address"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
                       />
                       <input
                         name="aadhar"
-                        placeholder="Aadhar Number"
+                        placeholder="Enter Customer's Aadhar Number"
+                        onChange={handleChange}
+                        className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                        required
+                      />
+                      {/* <input
+                        name="accountnumber"
+                        placeholder="Enter Customer's Account Number"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
                       />
                       <input
+                        name="ifsc"
+                        placeholder="Enter Customer's IFSC Code"
+                        onChange={handleChange}
+                        className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                        required
+                      /> */}
+                      <input
                         name="email"
                         type="email"
-                        placeholder="Email Address"
+                        placeholder="Enter Customer's Email Address"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
                       />
                       <input
                         name="phone"
-                        placeholder="Phone Number"
+                        placeholder="Enter Customer's Phone Number"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
@@ -640,106 +667,236 @@ export default function AdminPage() {
           )}
         </section>
       </div>
-        {ReceiptModal && selectedLoan && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 print:bg-white print:fixed print:inset-0">
-            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg print:shadow-none print:w-full print:max-w-none print:p-0">
-              
-              <div id="printable-receipt" className="border-2 border-gray-800 p-6 rounded-xl print:border-none print:p-0">
-                <div className="text-center mb-6 border-b-2 border-gray-300 pb-4 print:border-black">
-                  <h2 className="text-3xl font-extrabold text-gray-900 uppercase tracking-wider">
-                    InfoZenx IT Pawn Bill
-                  </h2>
-                  <p className="text-gray-600 mt-1">Nagercoil, Kanyakumari (District)</p>
-                  <p className="text-gray-600">Phone: +91 98765 43210</p>
-                </div>
+      {ReceiptModal && selectedLoan && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 print:bg-white print:fixed print:inset-0">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg print:shadow-none print:w-full print:max-w-none print:p-0">
+            <div
+              id="printable-receipt"
+              className="border-2 border-gray-800 p-6 rounded-xl print:border-none print:p-0">
+              <div className="text-center mb-6 border-b-2 border-gray-300 pb-4 print:border-black">
+                <h2 className="text-3xl font-extrabold text-gray-900 uppercase tracking-wider">
+                  InfoZenx IT Pawn Bill
+                </h2>
+                <p className="text-gray-600 mt-1">
+                  Nagercoil, Kanyakumari (District)
+                </p>
+                <p className="text-gray-600">Phone: +91 98765 43210</p>
+              </div>
 
-                <div className="flex justify-between mb-6 text-sm">
-                  <div>
-                    <p className="text-gray-500">Receipt No:</p>
-                    <p className="font-bold text-gray-800">
-                      #{selectedLoan._id.slice(-6).toUpperCase()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-gray-500">Date:</p>
-                    <p className="font-bold text-gray-800">
-                      {new Date(selectedLoan.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
+              <div className="flex justify-between mb-6 text-sm">
+                <div>
+                  <p className="text-gray-500">Receipt No:</p>
+                  <p className="font-bold text-gray-800">
+                    #{selectedLoan._id.slice(-6).toUpperCase()}
+                  </p>
                 </div>
-                <div className="flex">
+                <div className="text-right">
+                  <p className="text-gray-500">Date:</p>
+                  <p className="font-bold text-gray-800">
+                    {new Date(selectedLoan.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex">
                 <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200 print:bg-transparent print:border-black">
-                  <h4 className="font-bold text-gray-800 mb-2 border-b border-gray-200 pb-1 print:border-black">Customer Details</h4>
-                  <p><span className="font-semibold w-24 inline-block">Name:</span> {selectedLoan.customer?.name}</p>
-                  <p><span className="font-semibold w-24 inline-block">Phone:</span> {selectedLoan.customer?.phone}</p>
-                  <p><span className="font-semibold w-24 inline-block">Address:</span> {selectedLoan.customer?.address}</p>
+                  <h4 className="font-bold text-gray-800 mb-2 border-b border-gray-200 pb-1 print:border-black">
+                    Customer Details
+                  </h4>
+                  <p>
+                    <span className="font-semibold w-24 inline-block">
+                      Name:
+                    </span>{" "}
+                    {selectedLoan.customer?.name}
+                  </p>
+                  <p>
+                    <span className="font-semibold w-24 inline-block">
+                      Phone:
+                    </span>{" "}
+                    {selectedLoan.customer?.phone}
+                  </p>
+                  <p>
+                    <span className="font-semibold w-24 inline-block">
+                      Address:
+                    </span>{" "}
+                    {selectedLoan.customer?.address}
+                  </p>
                 </div>
                 <div className="align-self-start ml-6">
-                  <img src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`} alt="Customer" className="w-30 h-30 rounded-full object-cover" />
-                </div>
-                </div>
-
-                <table className="w-full mb-6 text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b-2 border-gray-800">
-                      <th className="py-2 text-left">Item Description</th>
-                      <th className="py-2 text-right">Gross Wt</th>
-                      <th className="py-2 text-right">Stone Wt</th>
-                      <th className="py-2 text-right">Net Wt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-gray-200 print:border-black">
-                      <td className="py-3 font-semibold">{selectedLoan.product?.name || "Gold Item"}</td>
-                      <td className="py-3 text-right">{selectedLoan.weight}g</td>
-                      <td className="py-3 text-right">{selectedLoan.stoneweight}g</td>
-                      <td className="py-3 text-right">
-                        {(selectedLoan.weight - selectedLoan.stoneweight).toFixed(2)}g
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                <div className="flex justify-between items-end mt-8">
-                  <div className="text-sm text-gray-600">
-                    <p>Gold Rate: ₹{selectedLoan.goldrate}/g</p>
-                    <p>Pawn Margin: {selectedLoan.pawnpercentage}%</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">Total Loan Amount</p>
-                    <p className="text-3xl font-black text-gray-900 border-b-4 border-double border-gray-900 inline-block px-4">
-                      ₹{selectedLoan.loanamount?.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-12 flex justify-between text-center text-sm font-semibold text-gray-500">
-                  <div className="border-t border-gray-400 w-32 pt-2 print:border-black">Customer Signature</div>
-                  <div className="border-t border-gray-400 w-32 pt-2 print:border-black">Authorized Signatory</div>
+                  <img
+                    src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`}
+                    alt="Customer"
+                    className="w-30 h-30 rounded-full object-cover"
+                  />
                 </div>
               </div>
 
-              <div className="mt-6 flex gap-4 print:hidden">
-                <button
-                  onClick={() => window.print()}
-                  className="bg-blue-600 cursor-pointer flex-1 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition flex justify-center items-center gap-2"
-                >
-                  🖨️ Print Receipt
-                </button>
-                <button
-                  onClick={() => {
-                    setReceiptModal(false);
-                    setSelectedLoan(null);
-                  }}
-                  className="bg-gray-200 cursor-pointer flex-1 text-gray-800 px-6 py-3 rounded-lg font-bold hover:bg-gray-300 transition"
-                >
-                  Close
-                </button>
+              <table className="w-full mb-6 text-sm border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-800">
+                    <th className="py-2 text-left">Item Description</th>
+                    <th className="py-2 text-right">Gross Wt</th>
+                    <th className="py-2 text-right">Stone Wt</th>
+                    <th className="py-2 text-right">Net Wt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-200 print:border-black">
+                    <td className="py-3 font-semibold">
+                      {selectedLoan.product?.name || "Gold Item"}
+                    </td>
+                    <td className="py-3 text-right">{selectedLoan.weight}g</td>
+                    <td className="py-3 text-right">
+                      {selectedLoan.stoneweight}g
+                    </td>
+                    <td className="py-3 text-right">
+                      {(selectedLoan.weight - selectedLoan.stoneweight).toFixed(
+                        2,
+                      )}
+                      g
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="flex justify-between items-end mt-8">
+                <div className="text-sm text-gray-600">
+                  <p>Gold Rate: ₹{selectedLoan.goldrate}/g</p>
+                  <p>Pawn Margin: {selectedLoan.pawnpercentage}%</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">
+                    Total Loan Amount
+                  </p>
+                  <p className="text-3xl font-black text-gray-900 border-b-4 border-double border-gray-900 inline-block px-4">
+                    ₹{selectedLoan.loanamount?.toFixed(2)}
+                  </p>
+                </div>
               </div>
+
+              <div className="mt-12 flex justify-between text-center text-sm font-semibold text-gray-500">
+                <div className="border-t border-gray-400 w-32 pt-2 print:border-black">
+                  Customer Signature
+                </div>
+                <div className="border-t border-gray-400 w-32 pt-2 print:border-black">
+                  Authorized Signatory
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-4 print:hidden">
+              <button
+                onClick={() => window.print()}
+                className="bg-blue-600 cursor-pointer flex-1 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition flex justify-center items-center gap-2">
+                🖨️ Print Receipt
+              </button>
+              <button
+                onClick={() => {
+                  setReceiptModal(false);
+                  setSelectedLoan(null);
+                }}
+                className="bg-gray-200 cursor-pointer flex-1 text-gray-800 px-6 py-3 rounded-lg font-bold hover:bg-gray-300 transition">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {PayLoanModal && selectedLoan && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 print:bg-white print:fixed print:inset-0">
+  <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg print:shadow-none print:w-full print:max-w-none print:p-0">
+    
+    {/* Customer Info & Receipt Header */}
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-gray-200 rounded-xl bg-gray-50 p-5 mb-6">
+      <div className="flex items-center gap-4">
+        <img
+          src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`}
+          alt="Customer"
+          className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm"
+        />
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Customer Name</p>
+          <p className="font-bold text-gray-900 text-lg">
+            {selectedLoan.customer?.name}
+          </p>
+        </div>
+      </div>
+      <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-gray-200 pt-3 sm:pt-0">
+        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Receipt No</p>
+        <p className="font-bold text-gray-800 text-lg">
+          #{selectedLoan._id?.slice(-6).toUpperCase()}
+        </p>
+      </div>
+    </div>
+
+    {/* Total Loan Amount */}
+    <div className="flex flex-col items-end mb-8">
+      <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">
+        Total Loan Amount
+      </p>
+      <p className="text-4xl font-black text-gray-900 border-b-4 border-double border-gray-300 pb-1">
+        ₹{selectedLoan.loanamount?.toFixed(2)}
+      </p>
+    </div>
+
+    {/* Payment Form */}
+    <form className="mt-2">
+      <div className="space-y-4">
+        <select
+          name="payType"
+          className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
+          defaultValue=""
+          onChange={(e) => setSelectedTypeModal(e.target.value === "Initial Pay")}
+          required
+        >
+          <option value="" disabled>Select Pay Type</option>
+          <option value="Full Pay" >Full Pay</option>
+          <option value="Initial Pay">Initial Pay</option>
+        </select>
+
+        {SelectedTypeModal && (
+          <div className="space-y-4">
+            <input
+              name="Estimated Amount"
+              type="number"
+              step="0.01"
+              placeholder="Enter Pay Amount ₹"
               
+              className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition"
+              required
+            />
+            <div className="bg-green-50 border border-green-200 p-4 rounded-lg text-center">
+              <p className="text-xs text-red-600 font-bold uppercase tracking-widest mb-1">
+                Estimated Loan Pay Amount
+              </p>
+              <p className="text-3xl font-bold text-green-900">
+                ₹{estimatedAmount > 0 ? estimatedAmount.toFixed(2) : "0.00"}
+              </p>
             </div>
           </div>
         )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-4 mt-8">
+        <button
+          type="button"
+          onClick={() => setPayLoanModal(false)}
+          className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg flex-1 font-semibold hover:bg-gray-200 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="bg-green-600 text-white px-6 py-3 rounded-lg flex-1 font-semibold hover:bg-green-700 shadow-sm transition"
+        >
+          Pay Amount
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+      )}
     </div>
   );
 }
