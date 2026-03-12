@@ -6,17 +6,17 @@ import mongoose from "mongoose";
 import multer from "multer";
 import path from "path";
 
-
 dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
 const PORT = 5000;
 
-const storage = multer.diskStorage({destination: "./uploads/",
+const storage = multer.diskStorage({
+  destination: "./uploads/",
   filename: (req, file, cb) => {
-    cb(null, Date.now()+"-" + file.originalname);
-  }
+    cb(null, Date.now() + "-" + file.originalname);
+  },
 });
 const upload = multer({ storage });
 
@@ -25,7 +25,8 @@ app.use("/uploads", express.static("uploads"));
 const SECRET_KEY = process.env.SECRET_KEY;
 const MONGO_URI = process.env.MONGO_URI;
 
-mongoose.connect(MONGO_URI)
+mongoose
+  .connect(MONGO_URI)
   .then(async () => {
     console.log("Connected to MongoDB Successfully");
     await Products();
@@ -35,16 +36,31 @@ mongoose.connect(MONGO_URI)
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['superadmin', 'worker'], default: 'worker' }
+  role: { type: String, enum: ["superadmin", "worker"], default: "worker" },
 });
 const User = mongoose.model("User", userSchema);
 
 const createSuperAdmin = async () => {
-  const adminExists = await User.findOne({ username: "admin" },{username: "worker"});
+  const adminExists = await User.findOne(
+    { username: "admin" },
+    { username: "worker" },
+  );
   if (!adminExists) {
-    await User.create({ username: "admin", password: "adminpassword", role: "superadmin", shoptype: "Headquarters" });
-    await User.create({ username: "worker", password: "workerpassword", role: "worker", shoptype: "Headquarters" });
-    console.log("Super Admin account created! Username: admin | Password: adminpassword");
+    await User.create({
+      username: "admin",
+      password: "adminpassword",
+      role: "superadmin",
+      shoptype: "Headquarters",
+    });
+    await User.create({
+      username: "worker",
+      password: "workerpassword",
+      role: "worker",
+      shoptype: "Headquarters",
+    });
+    console.log(
+      "Super Admin account created! Username: admin | Password: adminpassword",
+    );
   }
 };
 createSuperAdmin();
@@ -72,14 +88,14 @@ const verifyBankDetailsMock = async (accountnumber, ifsc) => {
    */
 
 const customerSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    dob: { type: Date, required: true },
-    address: { type: String, required: true },
-    aadhar: { type: String, required: true, unique: true },
-    aadharimage: { type: String, required: true },
-    recentimage: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    phone: { type: String, required: true }
+  name: { type: String, required: true },
+  dob: { type: Date, required: true },
+  address: { type: String, required: true },
+  aadhar: { type: String, required: true, unique: true },
+  aadharimage: { type: String, required: true },
+  recentimage: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  phone: { type: String, required: true },
 });
 const Customer = mongoose.model("Customer", customerSchema);
 
@@ -91,26 +107,34 @@ const Product = mongoose.model("Product", productSchema);
 
 const Products = async () => {
   try {
-
     const products = [
-      "நெக்லஸ்", "காதணி", "மோதிரம்", "தூக்கு", "கொலுசு",
-      "சங்கிலி", "வீதிச் சங்கிலி", "மாட்டி", "வளையல்கள்", "மூக்குத்தி",
-      "தாயாட்டு", "முத்து மாலை", "அறைங்யான்", "காதணி ஆணி",
-      "நெத்தி சுட்டி", "இரண்டாவது காதணி"
+      "நெக்லஸ்",
+      "காதணி",
+      "மோதிரம்",
+      "தூக்கு",
+      "கொலுசு",
+      "சங்கிலி",
+      "வீதிச் சங்கிலி",
+      "மாட்டி",
+      "வளையல்கள்",
+      "மூக்குத்தி",
+      "தாயாட்டு",
+      "முத்து மாலை",
+      "அறைங்யான்",
+      "காதணி ஆணி",
+      "நெத்தி சுட்டி",
+      "இரண்டாவது காதணி",
     ];
 
     for (const p of products) {
-
       const exists = await Product.findOne({ name: p });
 
       if (!exists) {
         await Product.create({ name: p });
       }
-
     }
 
     console.log("Products inserted successfully");
-
   } catch (error) {
     console.error("Error inserting products:", error);
   }
@@ -120,13 +144,13 @@ const loanSchema = new mongoose.Schema({
   customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Customer",
-    required: true
+    required: true,
   },
 
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",
-    required: true
+    required: true,
   },
 
   weight: Number,
@@ -138,11 +162,31 @@ const loanSchema = new mongoose.Schema({
 
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 const Loan = mongoose.model("Loan", loanSchema);
+
+const payLoanSchema = new mongoose.Schema({
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Customer",
+    required: true,
+  },
+  loan: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Loan",
+    required: true,
+  },
+  amountPaid: Number,
+  paymentDate: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+const PayLoan = mongoose.model("PayLoan", payLoanSchema);
 
 
 
@@ -164,14 +208,16 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+
+
 app.get("/api/customers", verifyToken, async (req, res) => {
-  try{
+  try {
     const customers = await Customer.find();
     res.status(200).json(customers);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch customers", error });
   }
-})
+});
 
 app.get("/api/products", verifyToken, async (req, res) => {
   try {
@@ -191,29 +237,74 @@ app.get("/api/loans", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/login", async(req, res)=>{
-    const { username, password } = req.body;
-    try {
-        const existingUser = await User.findOne({ username, password });
-        if (existingUser) {
-            const token = jwt.sign(
-                { userId: existingUser._id, role: existingUser.role }, 
-                SECRET_KEY, 
-                { expiresIn: "9h" }
-            );
-            res.status(200).json({ 
-                message: "Login successful", 
-                token,
-                role: existingUser.role,
-                user: existingUser.username, 
-               });
-        } else {
-            return res.status(401).json({ message: "Invalid credentials" });
+app.get("/api/payLoan", verifyToken, async(req, res)=>{
+  try{
+    const payLoans = await PayLoan.find().populate("customer").populate(({
+        path: "loan",       
+        populate: {
+          path: "product"   
         }
-        }
-     catch (error) {
-        res.status(500).json({ message: "Server error", error });
+      }));
+    res.status(200).json(payLoans);
+  }
+  catch (error){
+    res.status(500).json({message: "Failed to fetch loans", error})
+  }
+});
+
+
+app.post("/api/payLoan", verifyToken, async (req, res) => {
+  try {
+    const {loanId, amountPaid } = req.body;
+
+    const loan = await Loan.findById(loanId);
+    if (!loan) {
+      return res.status(404).json({ message: "Loan not found" });
     }
+
+    const newPayLoan = new PayLoan({
+      customer: loan.customer,
+      loan: loanId,
+      amountPaid,
+    });
+
+    await newPayLoan.save();
+
+    res.status(201).json({
+      message: "Payment recorded successfully",
+      payLoan: newPayLoan,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Failed to record payment",
+      error: error.message || error,
+    });
+  }
+});
+
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const existingUser = await User.findOne({ username, password });
+    if (existingUser) {
+      const token = jwt.sign(
+        { userId: existingUser._id, role: existingUser.role },
+        SECRET_KEY,
+        { expiresIn: "9h" },
+      );
+      res.status(200).json({
+        message: "Login successful",
+        token,
+        role: existingUser.role,
+        user: existingUser.username,
+      });
+    } else {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
 });
 
 app.post(
@@ -221,18 +312,21 @@ app.post(
   verifyToken,
   upload.fields([
     { name: "aadharimage", maxCount: 1 },
-    { name: "recentimage", maxCount: 1 }
+    { name: "recentimage", maxCount: 1 },
   ]),
   async (req, res) => {
     try {
-
-      if (!req.body) { 
+      if (!req.body) {
         return res.status(400).json({ message: "Form data missing" });
       }
 
-      const { name, dob, address, aadhar,  email, phone } = req.body;
+      const { name, dob, address, aadhar, email, phone } = req.body;
 
-      if (!req.files || !req.files["aadharimage"] || !req.files["recentimage"]) {
+      if (
+        !req.files ||
+        !req.files["aadharimage"] ||
+        !req.files["recentimage"]
+      ) {
         return res.status(400).json({ message: "Images not uploaded" });
       }
 
@@ -250,36 +344,34 @@ app.post(
         aadharimage: req.files["aadharimage"][0].filename,
         recentimage: req.files["recentimage"][0].filename,
         email,
-        phone
+        phone,
       });
 
       await newCustomer.save();
 
       res.status(201).json({
         message: "Customer created successfully",
-        customer: newCustomer
+        customer: newCustomer,
       });
-}
-     catch (error) {
+    } catch (error) {
       console.error(error);
       res.status(500).json({
         message: "Failed to create customer",
-        error:error.message || error
+        error: error.message || error,
       });
     }
-  }
+  },
 );
 
 app.post("/api/loans", verifyToken, async (req, res) => {
   try {
-
     const {
       customerId,
       product,
       weight,
       stoneweight,
       goldrate,
-      pawnpercentage
+      pawnpercentage,
     } = req.body;
 
     const netWeight = weight - stoneweight;
@@ -295,26 +387,23 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       stoneweight,
       goldrate,
       pawnpercentage,
-      loanamount
+      loanamount,
     });
 
     await loan.save();
 
     res.status(201).json({
       message: "Loan created successfully",
-      loan
+      loan,
     });
-
   } catch (error) {
-
     res.status(500).json({
       message: "Failed to create loan",
-      error
+      error,
     });
-
   }
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });

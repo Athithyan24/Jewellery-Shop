@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-
+import upi from './assets/upi.png'
 const TABS = [
   {
     id: "பரிவர்த்தனைகளின்",
@@ -51,6 +51,10 @@ export default function AdminPage() {
   const [ReceiptModal, setReceiptModal] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
 
+  const [payAmount, setPayAmount] = useState("");
+  const [selectedPaidLoan, setSelectedPaidLoan] = useState(null);
+  const [paidLoan, setPaidLoan] = useState([]);
+
   const [form, setForm] = useState({
     name: "",
     dob: "",
@@ -93,6 +97,20 @@ export default function AdminPage() {
       ...form,
       [name]: files ? files[0] : value,
     });
+  };
+
+  const fetchPaidLoanDetails = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/payLoan", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      setPaidLoan(res.data);
+      console.log("PaidLoans: ", paidLoan);
+    } catch (error) {
+      console.error("Error fetching PaidLoanDetails:", error);
+    }
   };
 
   const fetchProducts = async () => {
@@ -169,6 +187,33 @@ export default function AdminPage() {
     }
   };
 
+  const handlePayLoanSubmit = async (e) => {
+    e.preventDefault();
+    const payAmount = e.target.payAmount.value;
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/payLoan",
+        {
+          loanId: selectedLoan._id,
+          amountPaid: parseFloat(payAmount),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        },
+      );
+
+      alert(res.data.message);
+      setPayLoanModal(false);
+    } catch (err) {
+      console.error("Server Error:", err.response?.data || err.message);
+      alert(
+        "Error: " + (err.response?.data?.message || "Something went wrong"),
+      );
+    }
+  };
+
   const handleLoanSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -209,6 +254,8 @@ export default function AdminPage() {
           await fetchCustomers();
         } else if (activeTab === "கடன்களின்") {
           await fetchLoans();
+        } else if (activeTab === "சுய") {
+          await fetchPaidLoanDetails();
         }
         await new Promise((resolve) => setTimeout(resolve, 600));
         setTabData(
@@ -338,7 +385,7 @@ export default function AdminPage() {
                 <>
                   <button
                     onClick={() => setCustomerModal(true)}
-                    className="mt-4 cursor-pointer bg-blue-100 text-blue-700 px-4 py-2 rounded-md font-semibold hover:bg-blue-200 transition">
+                    className="mt-4 cursor-pointer bg-green-100 text-green-700 px-4 py-2 rounded-md font-semibold hover:bg-green-200 transition">
                     + புதிய வாடிக்கையாளர்கள்
                   </button>
                 </>
@@ -362,7 +409,7 @@ export default function AdminPage() {
                           தங்கம் விலை
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
-                          அடகு %
+                          அடகு%
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-semibold text-white">
                           கடன் தொகை
@@ -412,23 +459,28 @@ export default function AdminPage() {
                               ₹{loan.loanamount?.toFixed(2)}
                             </td>
                             <td className="p-3 px-4 text-sm">
-                              <div className="flex flex-col gap-2">
-                                <button
-                                  onClick={() => {
-                                    setSelectedLoan(loan);
-                                    setReceiptModal(true);
-                                  }}
-                                  className="bg-blue-500 hover:bg-blue-700 text-white py-1 px-3 rounded">
-                                  ரசீதை பெறவும்
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedLoan(loan);
-                                    setPayLoanModal(true);
-                                  }}
-                                  className="bg-red-500 hover:bg-red-700 text-white py-1 px-3 rounded">
-                                  கடனை செலுத்துங்கள்
-                                </button>
+                              <div className="flex">
+                                <div className="flex flex-col gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedLoan(loan);
+                                      setReceiptModal(true);
+                                    }}
+                                    className="bg-blue-500 hover:bg-blue-700 text-white py-1 px-3 rounded">
+                                    ரசீதை பெறவும்
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedLoan(loan);
+                                      setPayLoanModal(true);
+                                    }}
+                                    className="bg-red-500 hover:bg-red-700 text-white py-1 px-3 rounded">
+                                    கடனை செலுத்துங்கள்
+                                  </button>
+                                </div>
+                                <div className="content-center mx-10 cursor-pointer">
+                                  <img src={upi} className="w-10 hover:scale-110 transition duration-150"/>
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -447,6 +499,89 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {activeTab === "சுய" && role === "worker" && (
+                <div className="p-6 overflow-x-auto">
+                  <table className="min-w-full bg-white border border-gray-200">
+                    <thead className="bg-blue-600 border-b border-gray-200">
+                      <tr>
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-white">
+                          தேதி
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-white">
+                          பணம் செலுத்திய தேதி
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-white">
+                          பெயர்
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-white">
+                          வாடிக்கையாளர் படம்
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-white">
+                          அடகு பொருள்
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-white">
+                          கடன் தொகை
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-white">
+                          நடவடிக்கை எடு
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paidLoan.length > 0 ? (
+                        paidLoan.map((pl) => (
+                          <tr
+                            key={pl._id}
+                            className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4 text-sm text-gray-800">
+                              {pl.loan?.createdAt
+                                ? new Date(
+                                    pl.loan.createdAt,
+                                  ).toLocaleDateString()
+                                : "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-800">
+                              {new Date(pl.paymentDate).toLocaleDateString()}
+                            </td>
+
+                            <td className="py-3 px-4 text-sm font-bold text-gray-800">
+                              {pl.customer?.name || "Unknown"}
+                            </td>
+
+                            <td className="py-3 px-4 text-sm text-gray-800">
+                              {pl.customer?.recentimage && (
+                                <img
+                                  src={`http://localhost:5000/uploads/${pl.customer.recentimage}`}
+                                  alt="Customer"
+                                  className="w-10 h-10 rounded-full object-cover border border-gray-300"
+                                />
+                              )}
+                            </td>
+                            <td className="p-3 px-4 text-sm">
+                              {pl.loan?.product.name}
+                            </td>
+                            <td className="px-4 text-sm p-3">
+                              ₹{pl.loan?.loanamount?.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-bold text-green-600">
+                              ₹{pl.amountPaid?.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="6"
+                            className="py-4 text-center text-gray-500">
+                            No paid loans found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               {CustomerModal &&
                 activeTab === "வாடிக்கையாளர்களின்" &&
                 role === "worker" && (
@@ -454,38 +589,46 @@ export default function AdminPage() {
                     onSubmit={handleSubmit}
                     className="mt-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
                     <h3 className="text-xl font-bold text-gray-800 mb-4">
-                      New Customer Details
+                      புதிய வாடிக்கையாளர் விவரங்கள்
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                      <p className="text-sm font-semibold mb-1 text-green-600">Customer Name</p>
                       <input
                         name="name"
                         placeholder="Full Name"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
-                      />
+                      /></div>
+                      <div>
+                        <p className="text-sm font-semibold text-green-600 mb-1">Date of Birth</p>
                       <input
                         name="dob"
                         type="date"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
-                      />
+                      /></div>
+                      <div>
+                        <p className="text-sm font-semibold text-green-600 mb-1">Address</p>
                       <input
                         name="address"
-                        placeholder="Enter Customer's Full Address"
+                        placeholder="Enter"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
-                      />
+                      /></div>
+                      <div>
+                        <p className="text-sm font-semibold text-green-600 mb-1">Aadhar Number</p>
                       <input
                         name="aadhar"
                         placeholder="Enter Customer's Aadhar Number"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
-                      />
+                      /></div>
                       {/* <input
                         name="accountnumber"
                         placeholder="Enter Customer's Account Number"
@@ -500,6 +643,8 @@ export default function AdminPage() {
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
                       /> */}
+                      <div>
+                        <p className="text-sm font-semibold text-green-600 mb-1">Email</p>
                       <input
                         name="email"
                         type="email"
@@ -507,18 +652,20 @@ export default function AdminPage() {
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
-                      />
+                      /></div>
+                      <div>
+                        <p className="text-sm font-semibold text-green-600 mb-1">Phone Number</p>
                       <input
                         name="phone"
                         placeholder="Enter Customer's Phone Number"
                         onChange={handleChange}
                         className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         required
-                      />
+                      /></div>
 
                       {/* File Inputs */}
                       <div className="flex flex-col">
-                        <label className="text-sm font-semibold text-gray-600 mb-1">
+                        <label className="text-sm font-semibold text-green-600 mb-1">
                           Aadhar Image
                         </label>
                         <input
@@ -531,7 +678,7 @@ export default function AdminPage() {
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-sm font-semibold text-gray-600 mb-1">
+                        <label className="text-sm font-semibold text-green-600 mb-1">
                           Recent Photo
                         </label>
                         <input
@@ -549,13 +696,13 @@ export default function AdminPage() {
                     <div className="mt-6 flex gap-3">
                       <button
                         type="submit"
-                        className="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">
+                        className="bg-green-600 text-white px-6 py-2 rounded font-semibold hover:bg-green-700 transition">
                         Save Customer
                       </button>
                       <button
                         type="button"
                         onClick={() => setCustomerModal(false)}
-                        className="bg-gray-300 text-gray-700 px-6 py-2 rounded font-semibold hover:bg-gray-400 transition">
+                        className="bg-red-500 text-white px-6 py-2 rounded font-semibold hover:bg-red-400 transition">
                         Cancel
                       </button>
                     </div>
@@ -674,8 +821,8 @@ export default function AdminPage() {
               id="printable-receipt"
               className="border-2 border-gray-800 p-6 rounded-xl print:border-none print:p-0">
               <div className="text-center mb-6 border-b-2 border-gray-300 pb-4 print:border-black">
-                <h2 className="text-3xl font-extrabold text-gray-900 uppercase tracking-wider">
-                  InfoZenx IT Pawn Bill
+                <h2 className="text-xl font-extrabold text-gray-900 uppercase tracking-wider">
+                  இன்ஃபோசென்x ஐடி அடகுக் கடை பில் ரசீது
                 </h2>
                 <p className="text-gray-600 mt-1">
                   Nagercoil, Kanyakumari (District)
@@ -685,13 +832,13 @@ export default function AdminPage() {
 
               <div className="flex justify-between mb-6 text-sm">
                 <div>
-                  <p className="text-gray-500">Receipt No:</p>
+                  <p className="text-gray-500">ரசீது எண்:</p>
                   <p className="font-bold text-gray-800">
                     #{selectedLoan._id.slice(-6).toUpperCase()}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-gray-500">Date:</p>
+                  <p className="text-gray-500">தேதி:</p>
                   <p className="font-bold text-gray-800">
                     {new Date(selectedLoan.createdAt).toLocaleDateString()}
                   </p>
@@ -700,23 +847,23 @@ export default function AdminPage() {
               <div className="flex">
                 <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200 print:bg-transparent print:border-black">
                   <h4 className="font-bold text-gray-800 mb-2 border-b border-gray-200 pb-1 print:border-black">
-                    Customer Details
+                    வாடிக்கையாளர் விவரங்கள்
                   </h4>
                   <p>
-                    <span className="font-semibold w-24 inline-block">
-                      Name:
+                    <span className="font-semibold w-20 inline-block">
+                      பெயர்:
                     </span>{" "}
                     {selectedLoan.customer?.name}
                   </p>
                   <p>
-                    <span className="font-semibold w-24 inline-block">
-                      Phone:
+                    <span className="font-semibold w-30 inline-block">
+                      தொலைபேசி:
                     </span>{" "}
                     {selectedLoan.customer?.phone}
                   </p>
                   <p>
                     <span className="font-semibold w-24 inline-block">
-                      Address:
+                      முகவரி:
                     </span>{" "}
                     {selectedLoan.customer?.address}
                   </p>
@@ -733,10 +880,10 @@ export default function AdminPage() {
               <table className="w-full mb-6 text-sm border-collapse">
                 <thead>
                   <tr className="border-b-2 border-gray-800">
-                    <th className="py-2 text-left">Item Description</th>
-                    <th className="py-2 text-right">Gross Wt</th>
-                    <th className="py-2 text-right">Stone Wt</th>
-                    <th className="py-2 text-right">Net Wt</th>
+                    <th className="py-2 text-left">பொருள் விளக்கம்</th>
+                    <th className="py-2 text-right">மொத்த Wt</th>
+                    <th className="py-2 text-right">கல் எடை</th>
+                    <th className="py-2 text-right">நிகர எடை</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -758,27 +905,58 @@ export default function AdminPage() {
                 </tbody>
               </table>
 
-              <div className="flex justify-between items-end mt-8">
+              <div className="flex justify-between mt-8">
                 <div className="text-sm text-gray-600">
-                  <p>Gold Rate: ₹{selectedLoan.goldrate}/g</p>
-                  <p>Pawn Margin: {selectedLoan.pawnpercentage}%</p>
+                  <p>தங்கம் விலை: ₹{selectedLoan.goldrate}/g</p>
+                  <p>அடகு சதவீதம்: {selectedLoan.pawnpercentage}%</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">
-                    Total Loan Amount
-                  </p>
-                  <p className="text-3xl font-black text-gray-900 border-b-4 border-double border-gray-900 inline-block px-4">
-                    ₹{selectedLoan.loanamount?.toFixed(2)}
-                  </p>
+                <div className="flex-row">
+                  <div className="text-right">
+                    <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">
+                      மொத்த கடன் தொகை
+                    </p>
+                    <p className="text-3xl font-black text-gray-900 border-b-4 border-double border-gray-900 inline-block px-4">
+                      ₹{selectedLoan.loanamount?.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">
+                      செலுத்தப்பட்ட மொத்த கடன் தொகை
+                    </p>
+                    {(() => {
+                      const relatedPayments = paidLoan.filter(
+                        (pl) => pl.loan?._id === selectedLoan._id,
+                      );
+
+                      if (relatedPayments.length === 0) {
+                        return (
+                          <p className="text-xl font-black text-gray-900 border-b-4 border-double border-gray-900 inline-block px-4">
+                            ₹0.00
+                          </p>
+                        );
+                      }
+
+                      const totalPaid = relatedPayments.reduce(
+                        (sum, pl) => sum + (pl.amountPaid || 0),
+                        0,
+                      );
+
+                      return (
+                        <p className="text-xl font-black text-gray-900 border-b-4 border-double border-gray-900 inline-block px-4">
+                          ₹{totalPaid.toFixed(2)}
+                        </p>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
 
               <div className="mt-12 flex justify-between text-center text-sm font-semibold text-gray-500">
                 <div className="border-t border-gray-400 w-32 pt-2 print:border-black">
-                  Customer Signature
+                  வாடிக்கையாளர் கையொப்பம்
                 </div>
                 <div className="border-t border-gray-400 w-32 pt-2 print:border-black">
-                  Authorized Signatory
+                  உரிமையாளரின் கையொப்பம்
                 </div>
               </div>
             </div>
@@ -787,7 +965,7 @@ export default function AdminPage() {
               <button
                 onClick={() => window.print()}
                 className="bg-blue-600 cursor-pointer flex-1 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition flex justify-center items-center gap-2">
-                🖨️ Print Receipt
+                🖨️ ரசீதை அச்சிடுங்கள்
               </button>
               <button
                 onClick={() => {
@@ -795,107 +973,113 @@ export default function AdminPage() {
                   setSelectedLoan(null);
                 }}
                 className="bg-gray-200 cursor-pointer flex-1 text-gray-800 px-6 py-3 rounded-lg font-bold hover:bg-gray-300 transition">
-                Close
+                மூடு
               </button>
             </div>
           </div>
         </div>
       )}
+
       {PayLoanModal && selectedLoan && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 print:bg-white print:fixed print:inset-0">
-  <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg print:shadow-none print:w-full print:max-w-none print:p-0">
-    
-    {/* Customer Info & Receipt Header */}
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-gray-200 rounded-xl bg-gray-50 p-5 mb-6">
-      <div className="flex items-center gap-4">
-        <img
-          src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`}
-          alt="Customer"
-          className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm"
-        />
-        <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Customer Name</p>
-          <p className="font-bold text-gray-900 text-lg">
-            {selectedLoan.customer?.name}
-          </p>
-        </div>
-      </div>
-      <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-gray-200 pt-3 sm:pt-0">
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Receipt No</p>
-        <p className="font-bold text-gray-800 text-lg">
-          #{selectedLoan._id?.slice(-6).toUpperCase()}
-        </p>
-      </div>
-    </div>
+          <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg print:shadow-none print:w-full print:max-w-none print:p-0">
+            {/* Customer Info & Receipt Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-gray-200 rounded-xl bg-gray-50 p-5 mb-6">
+              <div className="flex items-center gap-4">
+                <img
+                  src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`}
+                  alt="Customer"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm"
+                />
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Customer Name
+                  </p>
+                  <p className="font-bold text-gray-900 text-lg">
+                    {selectedLoan.customer?.name}
+                  </p>
+                </div>
+              </div>
+              <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-gray-200 pt-3 sm:pt-0">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                  Receipt No
+                </p>
+                <p className="font-bold text-gray-800 text-lg">
+                  #{selectedLoan._id?.slice(-6).toUpperCase()}
+                </p>
+              </div>
+            </div>
 
-    {/* Total Loan Amount */}
-    <div className="flex flex-col items-end mb-8">
-      <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">
-        Total Loan Amount
-      </p>
-      <p className="text-4xl font-black text-gray-900 border-b-4 border-double border-gray-300 pb-1">
-        ₹{selectedLoan.loanamount?.toFixed(2)}
-      </p>
-    </div>
-
-    {/* Payment Form */}
-    <form className="mt-2">
-      <div className="space-y-4">
-        <select
-          name="payType"
-          className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
-          defaultValue=""
-          onChange={(e) => setSelectedTypeModal(e.target.value === "Initial Pay")}
-          required
-        >
-          <option value="" disabled>Select Pay Type</option>
-          <option value="Full Pay" >Full Pay</option>
-          <option value="Initial Pay">Initial Pay</option>
-        </select>
-
-        {SelectedTypeModal && (
-          <div className="space-y-4">
-            <input
-              name="Estimated Amount"
-              type="number"
-              step="0.01"
-              placeholder="Enter Pay Amount ₹"
-              
-              className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition"
-              required
-            />
-            <div className="bg-green-50 border border-green-200 p-4 rounded-lg text-center">
-              <p className="text-xs text-red-600 font-bold uppercase tracking-widest mb-1">
-                Estimated Loan Pay Amount
+            {/* Total Loan Amount */}
+            <div className="flex flex-col items-end mb-8">
+              <p className="text-gray-500 uppercase text-xs font-bold tracking-widest mb-1">
+                Total Loan Amount
               </p>
-              <p className="text-3xl font-bold text-green-900">
-                ₹{estimatedAmount > 0 ? estimatedAmount.toFixed(2) : "0.00"}
+              <p className="text-4xl font-black text-gray-900 border-b-4 border-double border-gray-300 pb-1">
+                ₹{selectedLoan.loanamount?.toFixed(2)}
               </p>
             </div>
+
+            {/* Payment Form */}
+            <form onSubmit={handlePayLoanSubmit} className="mt-2">
+              <div className="space-y-4">
+                <select
+                  name="payType"
+                  className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
+                  defaultValue=""
+                  onChange={(e) =>
+                    setSelectedTypeModal(e.target.value === "Initial Pay")
+                  }
+                  required>
+                  <option value="" disabled>
+                    Select Pay Type
+                  </option>
+                  <option value="Full Pay">Full Pay</option>
+                  <option value="Initial Pay">Initial Pay</option>
+                </select>
+
+                {SelectedTypeModal && (
+                  <div className="space-y-4">
+                    <input
+                      name="payAmount"
+                      type="number"
+                      step="0.01"
+                      placeholder="Enter Pay Amount ₹"
+                      onChange={(e) => {
+                        setPayAmount(parseFloat(e.target.value));
+                      }}
+                      className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      required
+                    />
+                    <div className="bg-green-50 border border-green-200 p-4 rounded-lg text-center">
+                      <p className="text-xs text-red-600 font-bold uppercase tracking-widest mb-1">
+                        Estimated Loan Pay Amount
+                      </p>
+                      <p className="text-3xl font-bold text-green-900">
+                        ₹{payAmount > 0 ? payAmount.toFixed(2) : "0.00"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 mt-8">
+                <button
+                  type="button"
+                  onClick={() => setPayLoanModal(false)}
+                  className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg flex-1 font-semibold hover:bg-gray-200 transition">
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg flex-1 font-semibold hover:bg-green-700 shadow-sm transition">
+                  Pay Amount
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-4 mt-8">
-        <button
-          type="button"
-          onClick={() => setPayLoanModal(false)}
-          className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg flex-1 font-semibold hover:bg-gray-200 transition"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="bg-green-600 text-white px-6 py-3 rounded-lg flex-1 font-semibold hover:bg-green-700 shadow-sm transition"
-        >
-          Pay Amount
-        </button>
-      </div>
-    </form>
-
-  </div>
-</div>
+        </div>
       )}
     </div>
   );
