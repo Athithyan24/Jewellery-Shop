@@ -30,6 +30,7 @@ mongoose
   .then(async () => {
     console.log("Connected to MongoDB Successfully");
     await Products();
+    await Banks();
   })
   .catch((err) => console.log("Failed to connect to MongoDB", err));
 
@@ -140,6 +141,75 @@ const Products = async () => {
   }
 };
 
+const bankSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+});
+
+const Bank = mongoose.model("Bank", bankSchema)
+
+const Banks = async () => {
+  try {
+    const banks = [
+      "IOB இந்தியன் ஓவர்சீஸ் வங்கி",
+      "IB இந்திய வங்கி",
+      "SBI பாரத ஸ்டேட் வங்கி",
+      "CB கனரா வங்கி",
+      "BOB பாங்க் ஆப் பரோடா",
+      "NBP பஞ்சாப் நேஷனல் வங்கி",
+      "UBO யூனியன் பாங்க் ஆஃப் இந்தியா",
+      "CBI சென்ட்ரல் பேங்க் ஆஃப் இந்தியா",
+      "BOI பாங்க் ஆப் இந்தியா",
+      "BOM பாங்க் ஆப் மஹாராஷ்டிரா",
+      "UCO யூகோ வங்கி",
+      "எச்டிஎப்சி வங்கி (HDFC Bank)",
+      "ஐசிஐசிஐ வங்கி (ICICI Bank)",
+      "ஆக்சிஸ் வங்கி (Axis Bank)",
+      "கோடக் மஹிந்திரா வங்கி (Kotak Mahindra Bank)",
+      "ஐடிபிஐ வங்கி (IDBI Bank)",
+      "இந்திய ரிசர்வ் வங்கி (RBI) ",
+    ];
+
+    for (const b of banks) {
+      const exists = await Bank.findOne({ name: b });
+
+      if (!exists) {
+        await Bank.create({ name: b });
+      }
+    }
+
+    console.log("Bank inserted successfully");
+  } catch (error) {
+    console.error("Error inserting banks:", error);
+  }
+};
+
+const calculateInterestBreakdown = (principal, createdAt) => {
+  if (!principal || !createdAt) return { tier1: 0, tier2: 0, tier3: 0, total: 0 };
+
+  const startDate = new Date(createdAt);
+  const currentDate = new Date();
+  
+
+  const diffInTime = currentDate.getTime() - startDate.getTime();
+  const diffInDays = diffInTime / (1000 * 3600 * 24);
+  const months = Math.max(diffInDays / 30, 1); 
+
+  const tier1Months = Math.min(months, 3);
+  const tier2Months = Math.max(0, Math.min(months - 3, 3));
+  const tier3Months = Math.max(0, months - 6);
+
+  const tier1Interest = (principal * 17 * tier1Months) / 1200; 
+  const tier2Interest = (principal * 24 * tier2Months) / 1200; 
+  const tier3Interest = (principal * 24 * tier3Months) / 1200; 
+
+  return {
+    tier1: Math.round(tier1Interest),
+    tier2: Math.round(tier2Interest),
+    tier3: Math.round(tier3Interest),
+    total: Math.round(tier1Interest + tier2Interest + tier3Interest)
+  };
+};
+
 const loanSchema = new mongoose.Schema({
   customer: {
     type: mongoose.Schema.Types.ObjectId,
@@ -153,6 +223,7 @@ const loanSchema = new mongoose.Schema({
     required: true,
   },
 
+
   weight: Number,
   stoneweight: Number,
   goldrate: Number,
@@ -160,10 +231,15 @@ const loanSchema = new mongoose.Schema({
 
   loanamount: Number,
 
+  totalPaid: { type: Number, default: 0 },
+  isClosed: { type: Boolean, default: false },
+
   createdAt: {
     type: Date,
     default: Date.now,
   },
+
+  isBanked: { type: Boolean, default: false },
 });
 
 const Loan = mongoose.model("Loan", loanSchema);
@@ -180,6 +256,11 @@ const payLoanSchema = new mongoose.Schema({
     required: true,
   },
   amountPaid: Number,
+  payType: { type: String, enum: ["Initial Pay", "Full Pay"] },
+
+  interestCalculated: { type: Number },
+  remainingBalance: { type: Number },
+
   paymentDate: {
     type: Date,
     default: Date.now,
@@ -188,7 +269,63 @@ const payLoanSchema = new mongoose.Schema({
 
 const PayLoan = mongoose.model("PayLoan", payLoanSchema);
 
+const bankDetailsSchema = new mongoose.Schema({
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Customer",
+    required: true,
+  },
+  loan: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Loan",
+    required: true,
+  },
+  bank: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Bank",
+    required: true,
+  },
+  branchname: {type: String, required: true},
+  accountno: {type: String, required: true},
+  lockerno: {type: String, required: true},
+});
 
+const BankDetails = mongoose.model ("BankDetails",  bankDetailsSchema)
+
+const addMonths = (dateString, months) => {
+  const d = new Date(dateString);
+  d.setMonth(d.getMonth() + months);
+  return d;
+};
+
+// 📅 BACKEND HELPER: Format date to '10 Jan, 2024'
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const calculateBackendInterest = (principal, createdAt) => {
+  const startDate = new Date(createdAt);
+  const currentDate = new Date();
+  
+  const diffInTime = currentDate.getTime() - startDate.getTime();
+  const diffInDays = diffInTime / (1000 * 3600 * 24);
+  const months = Math.max(diffInDays / 30, 1); 
+
+  let interestAmount = 0;
+  if (months <= 3) {
+    interestAmount = (principal * 17 * months) / (100 * 12);
+  } else {
+    const tier1Interest = (principal * 17 * 3) / (100 * 12);
+    const remainingMonths = months - 3;
+    const tier2Interest = (principal * 24 * remainingMonths) / (100 * 12);
+    interestAmount = tier1Interest + tier2Interest;
+  }
+  return Math.round(interestAmount);
+};
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -208,7 +345,50 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+app.get("/api/daily-stats", verifyToken, async (req, res) => {
+  try {
+    const dailyLoans = await Loan.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          totalLoanGiven: { $sum: "$loanamount" },
+        },
+      },
+    ]);
 
+    const dailyIncome = await PayLoan.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$paidAt" } },
+          totalIncome: { $sum: "$amountPaid" },
+        },
+      },
+    ]);
+
+    const statsMap = {};
+    
+    dailyLoans.forEach((item) => {
+      statsMap[item._id] = { date: item._id, loanGiven: item.totalLoanGiven, income: 0 };
+    });
+
+    dailyIncome.forEach((item) => {
+      if (statsMap[item._id]) {
+        statsMap[item._id].income = item.totalIncome;
+      } else {
+        statsMap[item._id] = { date: item._id, loanGiven: 0, income: item.totalIncome };
+      }
+    });
+
+    const statsArray = Object.values(statsMap).sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+
+    res.status(200).json(statsArray);
+  } catch (error) {
+    console.error("Error fetching daily stats:", error);
+    res.status(500).json({ message: "Failed to fetch daily stats" });
+  }
+});
 
 app.get("/api/customers", verifyToken, async (req, res) => {
   try {
@@ -230,10 +410,42 @@ app.get("/api/products", verifyToken, async (req, res) => {
 
 app.get("/api/loans", verifyToken, async (req, res) => {
   try {
-    const loans = await Loan.find().populate("customer").populate("product");
-    res.status(200).json(loans);
+    const loans = await Loan.find()
+      .populate("customer")
+      .populate("product")
+      .lean(); 
+
+    const loansWithCalculations = loans.map((loan) => {
+      const totalPaid = loan.totalPaid || 0;
+      const remainingPrincipal = loan.loanamount - totalPaid;
+      const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
+
+      const interestBreakdown = calculateInterestBreakdown(principalToCalculate, loan.createdAt);
+      
+      const currentBalance = principalToCalculate + interestBreakdown.total;
+
+      const startDate = loan.createdAt;
+      const endTier1Date = addMonths(startDate, 3);
+      const endTier2Date = addMonths(startDate, 6);
+
+      const dateRanges = {
+        tier1: `${formatDate(startDate)} - ${formatDate(endTier1Date)}`,
+        tier2: `${formatDate(endTier1Date)} - ${formatDate(endTier2Date)}`,
+        tier3: `From ${formatDate(endTier2Date)}`
+      };
+
+      return {
+        ...loan,
+        interestBreakdown,
+        dateRanges,
+        currentBalance
+      };
+    });
+
+    res.status(200).json(loansWithCalculations);
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch loans", error });
+    console.error("Error fetching loans:", error);
+    res.status(500).json({ message: "Failed to fetch loans" });
   }
 });
 
@@ -252,34 +464,121 @@ app.get("/api/payLoan", verifyToken, async(req, res)=>{
   }
 });
 
+app.get("/api/banks", verifyToken, async (req, res) => {
+  try {
+    const banks = await Bank.find().sort({ name: 1 });
+    res.status(200).json(banks);
+  } catch (error) {
+    console.error("Error fetching banks:", error);
+    res.status(500).json({ message: "Failed to fetch banks" });
+  }
+});
+
+app.get("/api/bankDetails", verifyToken, async (req, res) => {
+  try{
+    const locker = await BankDetails.find()
+    .populate("customer", "name recentimage")
+    .populate("bank", "name")
+    .populate({
+        path: "loan",
+        select: "product loanamount",
+        populate: { path: "product", select: "name" } 
+      })
+    res.status(200).json(locker);
+  }
+  catch(error){
+    console.error("Error fetching Customers Locker: ", error);
+    res.status(500).json({message: "Failed to fetch Customer's Assigned Locker"})
+  }
+} );
+
+
+app.post("/api/bankDetails", verifyToken, async (req, res) =>  {
+  try{
+    const {loanId, bankId, branchname, accountno, lockerno} = req.body;
+    const loan = await Loan.findById(loanId);
+    if (!loan || !bankId || !branchname || !accountno || !lockerno){
+      return res.status(400).json({message: "All fields are required"});
+    }
+
+    const newBankDetails = new BankDetails({
+      customer: loan.customer,
+      loan: loanId,
+      bank: bankId, 
+      branchname,
+      accountno,
+      lockerno,
+    });
+    await newBankDetails.save();
+
+    loan.isBanked = true; 
+    await loan.save();
+
+    res.status(201).json({
+      message: "Owner's bank details saved successfully",
+      bankDetails: newBankDetails,
+    });
+  }catch (error) {
+    console.error("Error saving bank details:", error);
+    res.status(500).json({
+      message: "Failed to save bank details",
+      error: error.message || error,
+    });
+  }
+})
+
 
 app.post("/api/payLoan", verifyToken, async (req, res) => {
   try {
-    const {loanId, amountPaid } = req.body;
+    const { loanId, amountPaid, payType } = req.body;
+    const payment = Number(amountPaid);
 
     const loan = await Loan.findById(loanId);
-    if (!loan) {
-      return res.status(404).json({ message: "Loan not found" });
+    if (!loan) return res.status(404).json({ message: "Loan not found" });
+    if (loan.isClosed) return res.status(400).json({ message: "Loan is already closed." });
+
+    const currentInterest = calculateBackendInterest(loan.loanamount, loan.createdAt);
+    const previouslyPaid = loan.totalPaid || 0;
+    const totalDue = loan.loanamount + currentInterest - previouslyPaid;
+
+    if (payType === "Full Pay") {
+      if (payment < (totalDue - 1)) {
+        return res.status(400).json({ 
+          message: `Security Error: Full payment requires ₹${totalDue}. Received only ₹${payment}.` 
+        });
+      }
+      loan.isClosed = true; 
     }
 
-    const newPayLoan = new PayLoan({
+    if (payment > totalDue) {
+        return res.status(400).json({ 
+          message: `Amount exceeds the total due of ₹${totalDue}.` 
+        });
+    }
+
+    loan.totalPaid = previouslyPaid + payment;
+
+    const newTransaction = new PayLoan({
       customer: loan.customer,
-      loan: loanId,
-      amountPaid,
+      loan: loan._id,
+      amountPaid: payment,
+      payType: payType,
+      interestCalculated: currentInterest, 
+      remainingBalance: totalDue - payment, 
     });
 
-    await newPayLoan.save();
+    await newTransaction.save();
+    await loan.save();
 
     res.status(201).json({
-      message: "Payment recorded successfully",
-      payLoan: newPayLoan,
+      message: "Payment securely processed and recorded.",
+      transaction: newTransaction,
+      isClosed: loan.isClosed
     });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Failed to record payment",
-      error: error.message || error,
-    });
+    console.error("Payment Error:", error);
+    res.status(500).json({ message: "Internal Server Error processing payment." });
   }
 });
 
