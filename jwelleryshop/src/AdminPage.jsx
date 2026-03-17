@@ -4,6 +4,13 @@ import ver from "./assets/approved.png";
 import upi from "./assets/upi.png";
 const TABS = [
   {
+    id: "பணியாளர்கள்",
+    label: "பணியாளர்கள் (Workers)",
+    colorClass: "bg-white cursor-pointer hover:bg-gray-100 text-black mx-1",
+    allowedRole: "superadmin",
+  },
+
+  {
     id: "பரிவர்த்தனைகளின்",
     label: "பரிவர்த்தனைகள்",
     colorClass: "bg-white cursor-pointer hover:bg-gray-100 text-black mr-1",
@@ -42,7 +49,6 @@ const TABS = [
 ];
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState(TABS[0].id);
   const [tabData, setTabData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [CustomerModal, setCustomerModal] = useState(false);
@@ -50,6 +56,14 @@ export default function AdminPage() {
   const [LoanModal, setLoanModal] = useState(false);
   const [PayLoanModal, setPayLoanModal] = useState(false);
   const [SelectedTypeModal, setSelectedTypeModal] = useState(false);
+
+  const userRole = localStorage.getItem("role");
+
+  const visibleTabs = TABS.filter((tab) => tab.allowedRole === userRole);
+
+  const [activeTab, setActiveTab] = useState(
+    userRole === "superadmin" ? "பணியாளர்கள்" : "பரிவர்த்தனைகளின்",
+  );
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [products, setProducts] = useState([]);
@@ -67,6 +81,11 @@ export default function AdminPage() {
   const [lockerItems, setLockerItems] = useState([]);
 
   const [dailyStats, setDailyStats] = useState([]);
+
+  const [workers, setWorkers] = useState([]);
+  const [workerUsername, setWorkerUsername] = useState("");
+  const [workerPassword, setWorkerPassword] = useState("");
+  const [workerShopname, setWorkerShopname] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -109,6 +128,44 @@ export default function AdminPage() {
       setBankList(res.data);
     } catch (error) {
       console.error("Failed to fetch banks", error);
+    }
+  };
+
+  const fetchWorkers = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/users", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      setWorkers(res.data);
+    } catch (error) {
+      console.error("Failed to fetch workers:", error);
+    }
+  };
+
+  const handleCreateWorker = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/users",
+        {
+          username: workerUsername,
+          password: workerPassword,
+          shopname: workerShopname,
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        },
+      );
+
+      alert(res.data.message); 
+
+      setWorkerUsername("");
+      setWorkerPassword("");
+      setWorkerShopname("");
+
+      fetchWorkers();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to create worker.");
     }
   };
 
@@ -440,6 +497,74 @@ export default function AdminPage() {
           ) : (
             <div className="text-gray-600 text-lg">
               <p className="mb-4">{tabData}</p>
+
+              {activeTab === "பணியாளர்கள்" && userRole === "superadmin" && (
+                <div className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Create Worker Form */}
+                    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200 h-fit">
+                      <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">
+                        புதிய பணியாளரைச் சேர்க்க (Add Worker)
+                      </h2>
+                      <form onSubmit={handleCreateWorker} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            கடை பெயர் (Shop Name)
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            value={workerShopname}
+                            onChange={(e) => setWorkerShopname(e.target.value)}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            பயனர் பெயர் (Username)
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            value={workerUsername}
+                            onChange={(e) => setWorkerUsername(e.target.value)}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            கடவுச்சொல் (Password)
+                          </label>
+                          <input
+                            required
+                            type="password"
+                            value={workerPassword}
+                            onChange={(e) => setWorkerPassword(e.target.value)}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="w-full bg-blue-600 text-white font-bold py-2 rounded">
+                          உருவாக்கு (Create)
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* View Workers Table */}
+                    <div className="bg-white shadow-md rounded-lg border border-gray-200 col-span-2">
+                      <div className="bg-blue-600 p-4">
+                        <h2 className="text-white font-bold text-lg">
+                          பணியாளர்கள் (Workers List)
+                        </h2>
+                      </div>
+                      <table className="min-w-full text-left">
+                        {/* ... (Your worker table mapping goes here) ... */}
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {activeTab === "பரிவர்த்தனைகளின்" && (
                 <div className="p-6 overflow-x-auto">

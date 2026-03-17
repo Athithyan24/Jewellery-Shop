@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ["superadmin", "worker"], default: "worker" },
+
+  shoptype: {type: String, required: true},
+
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
 });
 const User = mongoose.model("User", userSchema);
 
@@ -53,12 +57,7 @@ const createSuperAdmin = async () => {
       role: "superadmin",
       shoptype: "Headquarters",
     });
-    await User.create({
-      username: "worker",
-      password: "workerpassword",
-      role: "worker",
-      shoptype: "Headquarters",
-    });
+    
     console.log(
       "Super Admin account created! Username: admin | Password: adminpassword",
     );
@@ -188,7 +187,7 @@ const calculateInterestBreakdown = (principal, createdAt) => {
 
   const startDate = new Date(createdAt);
   const currentDate = new Date();
-  
+
 
   const diffInTime = currentDate.getTime() - startDate.getTime();
   const diffInDays = diffInTime / (1000 * 3600 * 24);
@@ -298,7 +297,6 @@ const addMonths = (dateString, months) => {
   return d;
 };
 
-// 📅 BACKEND HELPER: Format date to '10 Jan, 2024'
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -338,7 +336,7 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    req.user = decoded;
+    req.user = verified;
     next();
   } catch (err) {
     return res.status(403).json({ message: "Invalid token" });
@@ -387,6 +385,22 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching daily stats:", error);
     res.status(500).json({ message: "Failed to fetch daily stats" });
+  }
+});
+
+app.get("/api/users", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    const myWorkers = await User.find({ createdBy: req.user.id })
+                                .select("-password"); 
+
+    res.status(200).json(myWorkers);
+  } catch (error) {
+    console.error("Fetch Users Error:", error);
+    res.status(500).json({ message: "Failed to fetch workers" });
   }
 });
 
@@ -492,6 +506,39 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
   }
 } );
 
+app.post("/api/users", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Access denied: Only superadmins can create workers." });
+    }
+
+    const { username, password, shopname } = req.body;
+
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already exists. Choose another." });
+    }
+
+    const newUser = new User({
+      username,
+      password, 
+      role: "worker",
+      shoptype: shopname,
+      createdBy: req.user.id 
+    });
+
+    await newUser.save();
+
+    res.status(201).json({ 
+      message: `Worker created successfully for shop: ${shopname}`, 
+      user: { username: newUser.username, role: newUser.role, shoptype : newUser.shoptype } 
+    });
+
+  } catch (error) {
+    console.error("Create User Error:", error);
+    res.status(500).json({ message: "Failed to create worker" });
+  }
+});
 
 app.post("/api/bankDetails", verifyToken, async (req, res) =>  {
   try{
@@ -588,9 +635,9 @@ app.post("/api/login", async (req, res) => {
     const existingUser = await User.findOne({ username, password });
     if (existingUser) {
       const token = jwt.sign(
-        { userId: existingUser._id, role: existingUser.role },
+        { id: user._id, role: user.role, username: user.username },
         SECRET_KEY,
-        { expiresIn: "9h" },
+        { expiresIn: "1d" },
       );
       res.status(200).json({
         message: "Login successful",
