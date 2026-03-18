@@ -65,28 +65,6 @@ const createSuperAdmin = async () => {
 };
 createSuperAdmin();
 
-/* 
-const verifyBankDetailsMock = async (accountnumber, ifsc) => {
-    return new Promise((resolve)=>{
-      setTimeout(()=>{ 
-        if(accountnumber.startsWith("999")){
-          resolve({
-            verified:false,
-            message: "Invalid bank account or IFSC mismatch"
-          });
-        }
-        else{
-          resolve({
-            verified: true,
-            registeredName: "MOCK ACCOUNT HOLDER",
-            message: "Bank account verified successfully"
-          });
-        }
-      },1500);
-    });
-   };
-   */
-
 const customerSchema = new mongoose.Schema({
   name: { type: String, required: true },
   dob: { type: Date, required: true },
@@ -336,7 +314,7 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    req.user = verified;
+    req.user = decoded;
     next();
   } catch (err) {
     return res.status(403).json({ message: "Invalid token" });
@@ -357,7 +335,7 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
     const dailyIncome = await PayLoan.aggregate([
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$paidAt" } },
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$paymentDate" } },
           totalIncome: { $sum: "$amountPaid" },
         },
       },
@@ -403,6 +381,21 @@ app.get("/api/users", verifyToken, async (req, res) => {
     res.status(500).json({ message: "Failed to fetch workers" });
   }
 });
+
+app.get("/api/loguser", verifyToken, async (req, res) => {
+  try{
+   const user = await User.findById(req.user.id || req.userId);
+
+   if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+   res.status(200).json(user);
+  }
+  catch (error){
+    res.status(500).json({ message: "Failed to fetch user", error });
+  }
+})
 
 app.get("/api/customers", verifyToken, async (req, res) => {
   try {
@@ -630,26 +623,31 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
 });
 
 app.post("/api/login", async (req, res) => {
-  const { username, password } = req.body;
   try {
-    const existingUser = await User.findOne({ username, password });
-    if (existingUser) {
-      const token = jwt.sign(
-        { id: user._id, role: user.role, username: user.username },
-        SECRET_KEY,
-        { expiresIn: "1d" },
-      );
-      res.status(200).json({
-        message: "Login successful",
-        token,
-        role: existingUser.role,
-        user: existingUser.username,
-      });
-    } else {
-      return res.status(401).json({ message: "Invalid credentials" });
+    const { username, password } = req.body;
+
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    if (user.password !== password) {
+      return res.status(400).json({ message: "Invalid credentials" });
     }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role, username: user.username },
+      process.env.SECRET_KEY,
+      { expiresIn: "1d" }
+    );
+
+    res.status(200).json({ 
+      token, 
+      role: user.role, 
+      username: user.username, 
+      shoptype: user.shoptype 
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    console.error("Login Error:", error); 
+    res.status(500).json({ message: "Server error during login" });
   }
 });
 

@@ -20,7 +20,7 @@ export default function Login() {
         username,
         password,
     });
-      const data = await response.json();
+      const data = response.data;
       
       
         if (data.token) {
