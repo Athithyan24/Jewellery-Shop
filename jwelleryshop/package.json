@@ -11,11 +11,15 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
+    "ajv": "^8.18.0",
     "axios": "^1.13.6",
+    "dexie": "^4.3.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
+    "rxdb": "^16.21.1",
+    "rxjs": "^7.8.2",
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import ver from "./assets/approved.png";
 import upi from "./assets/upi.png";
+import { getDatabase } from "./db";
 import {
   Users,
   ArrowRightLeft,
@@ -62,6 +63,32 @@ const TABS = [
   },
 ];
 
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+
+const base64ToFile = (base64String, filename) => {
+  if (!base64String) return null;
+  try {
+    const arr = base64String.split(",");
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  } catch (e) {
+    console.error("Error converting base64 to file", e);
+    return null;
+  }
+};
+
 export default function AdminPage() {
   const [tabData, setTabData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +97,7 @@ export default function AdminPage() {
   const [LoanModal, setLoanModal] = useState(false);
   const [PayLoanModal, setPayLoanModal] = useState(false);
   const [SelectedTypeModal, setSelectedTypeModal] = useState(false);
+  const [offlineCustomers, setOfflineCustomers] = useState([]);
 
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -109,7 +137,6 @@ export default function AdminPage() {
     address: "",
     aadhar: "",
     accountnumber: "",
-    ifsc: "",
     aadharimage: "",
     recentimage: "",
     email: "",
@@ -178,43 +205,44 @@ export default function AdminPage() {
       setWorkerUsername("");
       setWorkerPassword("");
       setWorkerShopname("");
-
-      fetchWorkers();
     } catch (err) {
       alert(err.response?.data?.message || "Failed to create worker.");
     }
   };
 
   const handleBankSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const bankId = e.target.bankId.value;
-      const branchname = e.target.branchname.value;
-      const accountno = e.target.accountno.value;
-      const lockerno = e.target.lockerno.value;
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  
+  // 1. This gathers all your inputs (bankId, branchname, accountno, lockerno)
+  const bankData = Object.fromEntries(formData.entries());
 
-      await axios.post(
-        "http://localhost:5000/api/bankDetails",
-        {
-          loanId: selectedLoanForBank._id,
-          bankId,
-          branchname,
-          accountno,
-          lockerno,
-        },
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        },
-      );
+  // 2. Add the loanId manually
+  bankData.loanId = selectedLoanForBank?._id;
 
-      alert("Bank details saved successfully!");
-      setIsBankModalOpen(false);
-      fetchLoans();
-    } catch (error) {
-      console.error("Error saving bank details:", error);
-      alert("Failed to save bank details");
-    }
-  };
+  // 3. 🔍 DEBUG: Check your browser console! 
+  // If any of these show as "" or undefined, that's why you get the 400.
+  console.log("Sending to server:", bankData);
+
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      "http://localhost:5000/api/bankDetails",
+      bankData, // Send the whole object
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    alert("✅ வங்கி விவரங்கள் சேமிக்கப்பட்டன!");
+    setIsBankModalOpen(false);
+    fetchLoans();
+  } catch (error) {
+    // This will tell you exactly what the server didn't like
+    console.error("Server says:", error.response?.data);
+    alert("❌ பிழை: " + (error.response?.data?.message || "சேமிக்க முடியவில்லை"));
+  }
+};
 
   const role = localStorage.getItem("role");
 
@@ -362,6 +390,7 @@ export default function AdminPage() {
           loanId: selectedLoan._id,
           amountPaid: parseFloat(payAmount),
           payType: payType,
+          cretedBy: localStorage.getItem("userId"),
         },
         {
           headers: {
@@ -478,8 +507,9 @@ export default function AdminPage() {
   const [payType, setPayType] = useState("");
 
   useEffect(() => {
-  fetchUser();
-}, []);
+    fetchUser();
+    fetchWorkers();
+  }, []);
 
   useEffect(() => {
     if (payType === "Full Pay" && selectedLoan) {
@@ -498,6 +528,140 @@ export default function AdminPage() {
     }
   }, [payType, selectedLoan]);
 
+  useEffect(() => {
+    let subscription;
+    const loadOfflineDB = async () => {
+      const db = await getDatabase();
+
+      subscription = db.customers.find().$.subscribe((customers) => {
+        setOfflineCustomers(customers);
+      });
+    };
+
+    loadOfflineDB();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  const saveCustomerOffline = async (e) => {
+    e.preventDefault();
+    const db = await getDatabase();
+
+    // 1. Magically grab all the text the worker typed into the form!
+    const formValues = new FormData(e.target);
+
+    // 2. Grab the images
+    const aadharInput = document.querySelector('input[name="aadharimage"]');
+    const recentInput = document.querySelector('input[name="recentimage"]');
+
+    const aadharFile = aadharInput && aadharInput.files.length > 0 ? aadharInput.files[0] : null;
+    const recentFile = recentInput && recentInput.files.length > 0 ? recentInput.files[0] : null;
+
+    // 3. Convert images to Base64 strings
+    const aadharBase64 = aadharFile ? await fileToBase64(aadharFile) : "";
+    const recentBase64 = recentFile ? await fileToBase64(recentFile) : "";
+
+    // 4. Save EXACTLY what was typed into the local database
+    await db.customers.insert({
+      id: Date.now().toString(),
+      name: formValues.get("name") || "பெயர் இல்லை", // Gets the <input name="name">
+      dob: formValues.get("dob") || "",
+      address: formValues.get("address") || "",
+      aadhar: formValues.get("aadhar") || "",
+      email: formValues.get("email") || "",
+      phone: formValues.get("phone") || "",
+      
+      // Get the real logged-in worker ID
+      createdBy: localStorage.getItem("userId") || "unknown_worker", 
+      
+      updatedAt: Date.now(),
+      aadharimage: aadharBase64,
+      recentimage: recentBase64,
+      isSynced: false,
+    });
+
+    alert("✅ வாடிக்கையாளர் விவரங்கள் ஆஃப்லைனில் சேமிக்கப்பட்டன! (Saved Offline)");
+    
+    // 5. Clear the form so the worker can add the next person
+    e.target.reset(); 
+  };
+
+  // 🚀 THE SYNC ENGINE
+  const syncOfflineCustomersToCloud = async () => {
+    // 1. Check if we have internet first!
+    if (!navigator.onLine) {
+      alert(
+        "⚠️ இணைய இணைப்பு இல்லை (No Internet). Please connect to Wi-Fi to sync.",
+      );
+      return;
+    }
+
+    try {
+      const db = await getDatabase();
+
+      // 2. Find ONLY the customers that haven't been synced yet
+      const unsyncedCustomers = await db.customers
+        .find({
+          selector: { isSynced: false },
+        })
+        .exec();
+
+      if (unsyncedCustomers.length === 0) {
+        alert(
+          "✅ எல்லா தரவும் ஏற்கனவே ஒத்திசைக்கப்பட்டுவிட்டது! (Everything is up to date!)",
+        );
+        return;
+      }
+
+      alert(
+        `🔄 ஒத்திசைக்கப்படுகிறது... (${unsyncedCustomers.length} வாடிக்கையாளர்கள்)`,
+      );
+
+      // 3. Loop through and upload them one by one
+      for (let customerDoc of unsyncedCustomers) {
+        const data = customerDoc.toJSON();
+
+        // 4. Build the FormData exactly like your Express backend expects!
+        const formData = new FormData();
+        formData.append("name", data.name);
+        formData.append("dob", data.dob);
+        formData.append("address", data.address);
+        formData.append("aadhar", data.aadhar);
+        formData.append("email", data.email);
+        formData.append("phone", data.phone);
+
+        // Convert the string images back into actual files
+        const aadharFile = base64ToFile(data.aadharimage, "aadhar_offline.jpg");
+        const recentFile = base64ToFile(data.recentimage, "recent_offline.jpg");
+
+        if (aadharFile) formData.append("aadharimage", aadharFile);
+        if (recentFile) formData.append("recentimage", recentFile);
+
+        // 5. Fire it off to your existing Express server!
+        const token = localStorage.getItem("token"); // Grab the auth token
+        await axios.post("http://localhost:5000/api/customers", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // 6. SUCCESS! Mark this customer as synced in the local DB so we don't upload them twice.
+        await customerDoc.incrementalPatch({ isSynced: true });
+        console.log(`✅ Successfully synced: ${data.name}`);
+      }
+
+      alert(
+        "🎉 அனைத்து தரவுகளும் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன! (Sync Complete!)",
+      );
+    } catch (error) {
+      console.error("Sync failed:", error);
+      alert("❌ ஒத்திசைப்பதில் பிழை (Sync Failed). Please check your server.");
+    }
+  };
+
   return (
     <>
       {userRole === "superadmin" && (
@@ -510,20 +674,70 @@ export default function AdminPage() {
           </h1>
         </header>
       )}
-      {userRole === "worker"&& currentUser &&(
-        <header className="App-header flex flex-col items-center justify-center bg-amber-300 py-6">
-          <h1 className="text-5xl font-bold uppercase font-serif text-red-600 tracking-wide text-center">
-            {currentUser.shopname || "Shop Name Loading..."}
-          </h1>
 
-          {currentUser.username && (
-            <p className="mt-2 text-lg font-bold text-slate-700 bg-white/50 px-4 py-1 rounded-full border border-amber-400">
-              Proprietor:{" "}
-              <span className="text-indigo-800">{currentUser.username}</span>
-            </p>
-          )}
-        </header>
+      {userRole === "worker" && currentUser && (
+        <div className="relative overflow-hidden bg-slate-50 py-16 px-4 flex items-center justify-center min-h-[300px]">
+          {/* --- LIVE BACKGROUND BLOBS --- */}
+          <div className="absolute top-4 left-1/4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
+          <div className="absolute top-4 right-1/4 w-72 h-72 bg-cyan-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
+          <div className="absolute -bottom-8 left-1/3 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000"></div>
+
+          {/* --- FROSTED GLASS HEADER CARD --- */}
+          <header className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/60 shadow-xl rounded-3xl p-10 max-w-2xl w-full flex flex-col items-center justify-center transition-all duration-300 hover:shadow-2xl hover:bg-white/70">
+            {/* Main Shop Title */}
+            <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-800 tracking-tight text-center mb-6 drop-shadow-sm">
+              {currentUser.username}{" "}
+              <span className="inline-block mt-2 sm:mt-0 text-indigo-700 bg-indigo-100/80 px-4 py-1.5 rounded-xl shadow-sm border border-indigo-200/50">
+                {currentUser.shoptype || "Shop"}
+              </span>
+            </h1>
+
+            {/* Modern Proprietor Badge */}
+            {currentUser.username && (
+              <div className="flex items-center gap-2 px-5 py-2 bg-white/80 border border-slate-200/60 rounded-full text-sm font-medium text-slate-600 shadow-sm backdrop-blur-md">
+                <svg
+                  className="w-5 h-5 text-indigo-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+                <span className="tracking-wide">
+                  Proprietor:{" "}
+                  <span className="font-bold text-slate-900">
+                    {currentUser.username}
+                  </span>
+                </span>
+              </div>
+            )}
+          </header>
+        </div>
       )}
+
+      <button
+        onClick={syncOfflineCustomersToCloud}
+        className="mb-4 flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 font-bold transition-all active:scale-95">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round">
+          <path d="M21 2v6h-6"></path>
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v6h6"></path>
+        </svg>
+        தரவை ஒத்திசை (Sync to Cloud)
+      </button>
       <div className="min-h-screen bg-gray-100 p-8 print:p-0 print:bg-white">
         <div
           className={`max-w-7xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 ${ReceiptModal ? "print:hidden" : ""}`}>
@@ -1073,8 +1287,20 @@ export default function AdminPage() {
                                 {/* Actions (Pay / Receipt) */}
                                 <td className="py-4 px-4 whitespace-nowrap text-sm">
                                   {loan.isClosed ? (
-                                    <div className="flex justify-start items-center">
-                                      <span className="inline-block border-2 border-emerald-500 bg-emerald-50 text-emerald-600 font-black text-[10px] uppercase tracking-widest py-1 px-2 rounded-md transform -rotate-3 shadow-sm pointer-events-none">
+                                    <div className="relative inline-flex justify-start items-center mt-2">
+                                      {/* The Receipt Button (Stays Behind at z-0) */}
+                                      <button
+                                        onClick={() => {
+                                          setSelectedLoan(loan);
+                                          setReceiptModal(true);
+                                        }}
+                                        className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-2 px-5 rounded-lg text-xs font-bold transition-all shadow-sm relative z-0">
+                                        ரசீது (Receipt)
+                                      </button>
+
+                                      {/* The PAID Stamp (Floats in Front at z-10) */}
+                                      {/* I changed it to absolute, shifted it up/left, and added a slight backdrop blur so it looks like a real stamp! */}
+                                      <span className="absolute -top-3 -left-3 z-10 inline-block border-2 border-emerald-500 bg-emerald-50/90 backdrop-blur-sm text-emerald-600 font-black text-[10px] uppercase tracking-widest py-1 px-2 rounded-md transform -rotate-6 shadow-md pointer-events-none">
                                         செலுத்தப்பட்டது (PAID)
                                       </span>
                                     </div>
@@ -1579,7 +1805,7 @@ export default function AdminPage() {
                 activeTab === "வாடிக்கையாளர்களின்" &&
                 userRole === "worker" && (
                   <form
-                    onSubmit={handleSubmit}
+                    onSubmit={saveCustomerOffline}
                     className="mt-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
                     <h3 className="text-xl font-bold text-gray-800 mb-4">
                       புதிய வாடிக்கையாளர் விவரங்கள்
@@ -1910,13 +2136,10 @@ export default function AdminPage() {
 
         {ReceiptModal && selectedLoan && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-300 print:p-0 print:bg-white print:block">
-            {/* 🌟 FIX: Added flex-col, max-h-[95vh] and prevented overall overflow to allow inner scrolling */}
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none relative flex flex-col max-h-[95vh] print:max-h-none print:block overflow-hidden">
-              {/* 📄 Printable Area Starts Here - 🌟 FIX: Added overflow-y-auto flex-1 to make ONLY this area scrollable */}
               <div
                 id="printable-receipt"
                 className="p-8 print:p-0 relative bg-white overflow-y-auto flex-1 print:overflow-visible print:block custom-scrollbar">
-                {/* 🔲 Print Background Watermark (Only visible when printing) */}
                 <div className="hidden print:flex absolute inset-0 items-center justify-center opacity-[0.03] pointer-events-none z-0">
                   <span className="text-8xl font-black uppercase tracking-widest transform -rotate-45">
                     INFOSENX IT
@@ -1924,13 +2147,12 @@ export default function AdminPage() {
                 </div>
 
                 <div className="relative z-10">
-                  {/* 🏢 Header Section */}
                   <div className="text-center mb-6 border-b-2 border-dashed border-slate-300 pb-6 print:border-black">
                     <div className="inline-flex items-center justify-center bg-amber-100 text-amber-600 w-12 h-12 rounded-full mb-3 print:hidden shadow-sm">
                       <span className="text-2xl">🏦</span>
                     </div>
                     <h2 className="text-3xl font-black text-slate-800 uppercase tracking-widest print:text-black">
-                      இன்ஃபோசென்x ஐடி அடகுக் கடை
+                      {currentUser.username} {currentUser.shoptype}
                     </h2>
                     <p className="text-slate-500 font-bold mt-1 text-xs tracking-widest uppercase print:text-black">
                       பில் ரசீது (Official Receipt)
@@ -1941,7 +2163,6 @@ export default function AdminPage() {
                     </p>
                   </div>
 
-                  {/* 📅 Receipt No & Date Box */}
                   <div className="flex justify-between items-center mb-6 px-6 py-4 bg-slate-50 rounded-xl border border-slate-100 print:bg-transparent print:border-b print:border-t print:border-slate-300 print:rounded-none print:px-0 print:py-2">
                     <div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest print:text-slate-600">
@@ -1968,7 +2189,6 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* 👤 Customer Details */}
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-8">
                     <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:p-0 w-full">
                       <h4 className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2 print:border-black print:text-black uppercase text-xs tracking-widest">
@@ -2002,7 +2222,6 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    {/* Avatar */}
                     <div className="flex-shrink-0">
                       <img
                         src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`}
@@ -2018,7 +2237,6 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* 📦 Product Table */}
                   <table className="w-full mb-8 text-sm border-collapse">
                     <thead>
                       <tr className="border-b-2 border-slate-300 print:border-black bg-slate-50 print:bg-transparent">
@@ -2057,7 +2275,6 @@ export default function AdminPage() {
                     </tbody>
                   </table>
 
-                  {/* 💰 Amounts & Pricing Summary */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-6">
                     <div className="space-y-3 print:pt-2">
                       <p className="flex justify-between text-sm border-b border-slate-100 pb-2 print:border-slate-300">
@@ -2110,7 +2327,6 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* 📜 Terms and Conditions */}
                   <div className="mt-8 pt-4 border-t border-slate-200 print:border-black text-[9px] text-slate-400 print:text-slate-600 leading-relaxed uppercase tracking-wider text-justify">
                     <span className="font-bold text-slate-500 print:text-black">
                       கவனத்திற்கு:
@@ -2120,7 +2336,6 @@ export default function AdminPage() {
                     அல்லது அசலை செலுத்தாவிட்டால் பொருள் ஏலம் விடப்படும்.
                   </div>
 
-                  {/* ✍️ Signatures */}
                   <div className="mt-16 flex justify-between text-center text-sm font-bold text-slate-400 print:text-black pb-4 print:pb-0">
                     <div className="border-t-2 border-slate-300 w-40 pt-2 print:border-black uppercase tracking-wider text-[10px]">
                       வாடிக்கையாளர் கையொப்பம்
@@ -2132,7 +2347,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* 🛑 Screen Only Buttons (Hidden in Print) - 🌟 FIX: Added flex-shrink-0 so buttons don't disappear */}
               <div className="px-8 py-5 bg-slate-50 border-t border-slate-200 flex gap-4 print:hidden flex-shrink-0">
                 <button
                   onClick={() => {
@@ -2348,7 +2562,7 @@ export default function AdminPage() {
 
               <div className="p-6">
                 <form onSubmit={handleBankSubmit} className="space-y-5">
-                  {/* Bank Dropdown */}
+                  
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
                       வங்கி (Bank)
@@ -2356,10 +2570,14 @@ export default function AdminPage() {
                     <select
                       name="bankId"
                       required
+                      defaultValue=""  
                       className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none cursor-pointer">
-                      <option value="" disabled selected>
+                      
+                      
+                      <option value="" disabled> 
                         வங்கியை தேர்ந்தெடுக்கவும் (Select Bank)
                       </option>
+                      
                       {bankList.map((bank) => (
                         <option key={bank._id} value={bank._id}>
                           {bank.name}
@@ -2368,7 +2586,7 @@ export default function AdminPage() {
                     </select>
                   </div>
 
-                  {/* Branch Name */}
+                  
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
                       கிளை (Branch Name)

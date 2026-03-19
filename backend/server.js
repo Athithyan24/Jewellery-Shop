@@ -74,6 +74,7 @@ const customerSchema = new mongoose.Schema({
   recentimage: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 });
 const Customer = mongoose.model("Customer", customerSchema);
 
@@ -217,6 +218,8 @@ const loanSchema = new mongoose.Schema({
   },
 
   isBanked: { type: Boolean, default: false },
+
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 });
 
 const Loan = mongoose.model("Loan", loanSchema);
@@ -242,6 +245,7 @@ const payLoanSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 });
 
 const PayLoan = mongoose.model("PayLoan", payLoanSchema);
@@ -265,6 +269,7 @@ const bankDetailsSchema = new mongoose.Schema({
   branchname: {type: String, required: true},
   accountno: {type: String, required: true},
   lockerno: {type: String, required: true},
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 });
 
 const BankDetails = mongoose.model ("BankDetails",  bankDetailsSchema)
@@ -368,9 +373,7 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
 
 app.get("/api/users", verifyToken, async (req, res) => {
   try {
-    if (req.user.role !== "superadmin") {
-      return res.status(403).json({ message: "Access denied." });
-    }
+    
 
     const myWorkers = await User.find({ createdBy: req.user.id })
                                 .select("-password"); 
@@ -399,7 +402,8 @@ app.get("/api/loguser", verifyToken, async (req, res) => {
 
 app.get("/api/customers", verifyToken, async (req, res) => {
   try {
-    const customers = await Customer.find();
+    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const customers = await Customer.find(query);
     res.status(200).json(customers);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch customers", error });
@@ -417,7 +421,8 @@ app.get("/api/products", verifyToken, async (req, res) => {
 
 app.get("/api/loans", verifyToken, async (req, res) => {
   try {
-    const loans = await Loan.find()
+    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const loans = await Loan.find(query)
       .populate("customer")
       .populate("product")
       .lean(); 
@@ -548,6 +553,7 @@ app.post("/api/bankDetails", verifyToken, async (req, res) =>  {
       branchname,
       accountno,
       lockerno,
+      createdBy: req.user.id,
     });
     await newBankDetails.save();
 
@@ -578,22 +584,19 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
     if (loan.isClosed) return res.status(400).json({ message: "Loan is already closed." });
 
     const currentInterest = calculateBackendInterest(loan.loanamount, loan.createdAt);
+    const totalObligation = loan.loanamount + currentInterest;
     const previouslyPaid = loan.totalPaid || 0;
-    const totalDue = loan.loanamount + currentInterest - previouslyPaid;
+    const currentTotalDue = totalObligation - previouslyPaid;
 
-    if (payType === "Full Pay") {
-      if (payment < (totalDue - 1)) {
-        return res.status(400).json({ 
-          message: `Security Error: Full payment requires ₹${totalDue}. Received only ₹${payment}.` 
-        });
-      }
-      loan.isClosed = true; 
+    if (payment > (currentTotalDue + 1)) { // +1 for small rounding decimals
+      return res.status(400).json({ 
+        message: `Amount ₹${payment} exceeds the current due of ₹${currentTotalDue.toFixed(2)}` 
+      });
     }
 
-    if (payment > totalDue) {
-        return res.status(400).json({ 
-          message: `Amount exceeds the total due of ₹${totalDue}.` 
-        });
+    // Logic for Closing Loan
+    if (payType === "Full Pay" || payment >= (currentTotalDue - 1)) {
+       loan.isClosed = true;
     }
 
     loan.totalPaid = previouslyPaid + payment;
@@ -604,7 +607,8 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
       amountPaid: payment,
       payType: payType,
       interestCalculated: currentInterest, 
-      remainingBalance: totalDue - payment, 
+      remainingBalance: currentTotalDue - payment,
+      createdBy: req.user.id, 
     });
 
     await newTransaction.save();
@@ -674,11 +678,7 @@ app.post(
         return res.status(400).json({ message: "Images not uploaded" });
       }
 
-      /*const bankCheck = await verifyBankDetailsMock(accountnumber, ifsc);
-
-      if (!bankCheck.verified) {
-        return res.status(400).json({ message: bankCheck.message });
-      */
+      
 
       const newCustomer = new Customer({
         name,
@@ -689,6 +689,7 @@ app.post(
         recentimage: req.files["recentimage"][0].filename,
         email,
         phone,
+        createdBy: req.user.id
       });
 
       await newCustomer.save();
@@ -732,6 +733,7 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       goldrate,
       pawnpercentage,
       loanamount,
+      createdBy: req.user.id,
     });
 
     await loan.save();
