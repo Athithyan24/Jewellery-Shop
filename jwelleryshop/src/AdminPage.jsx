@@ -3,6 +3,7 @@ import axios from "axios";
 import ver from "./assets/approved.png";
 import upi from "./assets/upi.png";
 import { getDatabase } from "./db";
+import { useNavigate } from "react-router-dom";
 import {
   Users,
   ArrowRightLeft,
@@ -63,6 +64,19 @@ const TABS = [
   },
 ];
 
+const dataURLtoFile = (dataurl, filename) => {
+  if (!dataurl || !dataurl.includes(",")) return null;
+  let arr = dataurl.split(","),
+    mime = arr[0].match(/:(.*?);/)[1],
+    bstr = atob(arr[1]),
+    n = bstr.length,
+    u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -100,6 +114,7 @@ export default function AdminPage() {
   const [offlineCustomers, setOfflineCustomers] = useState([]);
 
   const [currentUser, setCurrentUser] = useState(null);
+  const navigate = useNavigate();
 
   const userRole = localStorage.getItem("role");
 
@@ -211,38 +226,35 @@ export default function AdminPage() {
   };
 
   const handleBankSubmit = async (e) => {
-  e.preventDefault();
-  const formData = new FormData(e.target);
-  
-  // 1. This gathers all your inputs (bankId, branchname, accountno, lockerno)
-  const bankData = Object.fromEntries(formData.entries());
+    e.preventDefault();
+    const formData = new FormData(e.target);
 
-  // 2. Add the loanId manually
-  bankData.loanId = selectedLoanForBank?._id;
+    const bankData = Object.fromEntries(formData.entries());
 
-  // 3. 🔍 DEBUG: Check your browser console! 
-  // If any of these show as "" or undefined, that's why you get the 400.
-  console.log("Sending to server:", bankData);
+    bankData.loanId = selectedLoanForBank?._id;
 
-  try {
-    const token = localStorage.getItem("token");
-    const response = await axios.post(
-      "http://localhost:5000/api/bankDetails",
-      bankData, // Send the whole object
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    console.log("Sending to server:", bankData);
 
-    alert("✅ வங்கி விவரங்கள் சேமிக்கப்பட்டன!");
-    setIsBankModalOpen(false);
-    fetchLoans();
-  } catch (error) {
-    // This will tell you exactly what the server didn't like
-    console.error("Server says:", error.response?.data);
-    alert("❌ பிழை: " + (error.response?.data?.message || "சேமிக்க முடியவில்லை"));
-  }
-};
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        "http://localhost:5000/api/bankDetails",
+        bankData,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      alert("✅ வங்கி விவரங்கள் சேமிக்கப்பட்டன!");
+      setIsBankModalOpen(false);
+      fetchLoans();
+    } catch (error) {
+      console.error("Server says:", error.response?.data);
+      alert(
+        "❌ பிழை: " + (error.response?.data?.message || "சேமிக்க முடியவில்லை"),
+      );
+    }
+  };
 
   const role = localStorage.getItem("role");
 
@@ -415,25 +427,40 @@ export default function AdminPage() {
   const handleLoanSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post(
-        "http://localhost:5000/api/loans",
-        {
-          customerId: selectedCustomer._id,
-          product: e.target.productId.value,
-          weight: e.target.weight.value,
-          stoneweight: e.target.stoneweight.value,
-          goldrate: e.target.goldrate.value,
-          pawnpercentage: e.target.pawnpercentage.value,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
+      // Reverted to your exact e.target method!
+      const payload = {
+        customerId: selectedCustomer._id,
+        // We check for both 'productId' or 'product' depending on what your <select> is named
+        product: e.target.productId
+          ? e.target.productId.value
+          : e.target.product?.value,
+        weight: e.target.weight.value,
+        stoneweight: e.target.stoneweight.value,
+        goldrate: e.target.goldrate.value,
+        pawnpercentage: e.target.pawnpercentage.value,
+      };
 
-      alert(res.data.message);
+      const res = await axios.post("http://localhost:5000/api/loans", payload, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      alert(res.data.message || "🎉 Loan created successfully!");
+
       setLoanModal(false);
+
+      // Reset your calculation states
+      setLoanCalc({
+        weight: "",
+        stoneweight: "",
+        goldrate: "",
+        pawnpercentage: "",
+      });
+
+      if (typeof fetchLoans === "function") {
+        fetchLoans();
+      }
     } catch (err) {
       console.error("Server Error:", err.response?.data || err.message);
       alert(
@@ -509,6 +536,8 @@ export default function AdminPage() {
   useEffect(() => {
     fetchUser();
     fetchWorkers();
+    fetchCustomers();
+    fetchOfflineCustomers();
   }, []);
 
   useEffect(() => {
@@ -545,25 +574,35 @@ export default function AdminPage() {
     };
   }, []);
 
+  const fetchOfflineCustomers = async () => {
+    try {
+      const db = await getDatabase();
+      const docs = await db.customers.find().exec();
+
+      const data = docs.map((doc) => doc.toJSON());
+      setOfflineCustomers(data);
+    } catch (error) {
+      console.error("Error fetching offline customers from RxDB:", error);
+    }
+  };
+
   const saveCustomerOffline = async (e) => {
     e.preventDefault();
     const db = await getDatabase();
 
-    // 1. Magically grab all the text the worker typed into the form!
     const formValues = new FormData(e.target);
 
-    // 2. Grab the images
     const aadharInput = document.querySelector('input[name="aadharimage"]');
     const recentInput = document.querySelector('input[name="recentimage"]');
 
-    const aadharFile = aadharInput && aadharInput.files.length > 0 ? aadharInput.files[0] : null;
-    const recentFile = recentInput && recentInput.files.length > 0 ? recentInput.files[0] : null;
+    const aadharFile =
+      aadharInput && aadharInput.files.length > 0 ? aadharInput.files[0] : null;
+    const recentFile =
+      recentInput && recentInput.files.length > 0 ? recentInput.files[0] : null;
 
-    // 3. Convert images to Base64 strings
     const aadharBase64 = aadharFile ? await fileToBase64(aadharFile) : "";
     const recentBase64 = recentFile ? await fileToBase64(recentFile) : "";
 
-    // 4. Save EXACTLY what was typed into the local database
     await db.customers.insert({
       id: Date.now().toString(),
       name: formValues.get("name") || "பெயர் இல்லை", // Gets the <input name="name">
@@ -572,93 +611,84 @@ export default function AdminPage() {
       aadhar: formValues.get("aadhar") || "",
       email: formValues.get("email") || "",
       phone: formValues.get("phone") || "",
-      
-      // Get the real logged-in worker ID
-      createdBy: localStorage.getItem("userId") || "unknown_worker", 
-      
+
+      createdBy: localStorage.getItem("userId") || "unknown_worker",
+
       updatedAt: Date.now(),
       aadharimage: aadharBase64,
       recentimage: recentBase64,
       isSynced: false,
     });
 
-    alert("✅ வாடிக்கையாளர் விவரங்கள் ஆஃப்லைனில் சேமிக்கப்பட்டன! (Saved Offline)");
-    
-    // 5. Clear the form so the worker can add the next person
-    e.target.reset(); 
+    alert(
+      "✅ வாடிக்கையாளர் விவரங்கள் ஆஃப்லைனில் சேமிக்கப்பட்டன! (Saved Offline)",
+    );
+
+    e.target.reset();
+
+    if (typeof fetchOfflineCustomers === 'function') fetchOfflineCustomers();
+    setCustomerModal(false);
   };
 
-  // 🚀 THE SYNC ENGINE
   const syncOfflineCustomersToCloud = async () => {
-    // 1. Check if we have internet first!
-    if (!navigator.onLine) {
-      alert(
-        "⚠️ இணைய இணைப்பு இல்லை (No Internet). Please connect to Wi-Fi to sync.",
-      );
-      return;
-    }
-
     try {
-      const db = await getDatabase();
-
-      // 2. Find ONLY the customers that haven't been synced yet
-      const unsyncedCustomers = await db.customers
-        .find({
-          selector: { isSynced: false },
-        })
-        .exec();
-
-      if (unsyncedCustomers.length === 0) {
-        alert(
-          "✅ எல்லா தரவும் ஏற்கனவே ஒத்திசைக்கப்பட்டுவிட்டது! (Everything is up to date!)",
-        );
+      const unsynced = offlineCustomers.filter((c) => !c.isSynced);
+      if (unsynced.length === 0) {
+        alert("ஒத்திசைக்க எந்த தரவும் இல்லை! (No offline data to sync)");
         return;
       }
 
-      alert(
-        `🔄 ஒத்திசைக்கப்படுகிறது... (${unsyncedCustomers.length} வாடிக்கையாளர்கள்)`,
-      );
+      const db = await getDatabase();
 
-      // 3. Loop through and upload them one by one
-      for (let customerDoc of unsyncedCustomers) {
-        const data = customerDoc.toJSON();
-
-        // 4. Build the FormData exactly like your Express backend expects!
+      for (const customer of unsynced) {
         const formData = new FormData();
-        formData.append("name", data.name);
-        formData.append("dob", data.dob);
-        formData.append("address", data.address);
-        formData.append("aadhar", data.aadhar);
-        formData.append("email", data.email);
-        formData.append("phone", data.phone);
+        formData.append("name", customer.name);
+        formData.append("dob", customer.dob);
+        formData.append("address", customer.address);
+        formData.append("aadhar", customer.aadhar);
+        formData.append("email", customer.email);
+        formData.append("phone", customer.phone);
 
-        // Convert the string images back into actual files
-        const aadharFile = base64ToFile(data.aadharimage, "aadhar_offline.jpg");
-        const recentFile = base64ToFile(data.recentimage, "recent_offline.jpg");
+        if (customer.recentimage) {
+          const recentFile = dataURLtoFile(
+            customer.recentimage,
+            "recentimage.jpg",
+          );
+          if (recentFile) formData.append("recentimage", recentFile);
+        }
+        if (customer.aadharimage) {
+          const aadharFile = dataURLtoFile(
+            customer.aadharimage,
+            "aadharimage.jpg",
+          );
+          if (aadharFile) formData.append("aadharimage", aadharFile);
+        }
 
-        if (aadharFile) formData.append("aadharimage", aadharFile);
-        if (recentFile) formData.append("recentimage", recentFile);
-
-        // 5. Fire it off to your existing Express server!
-        const token = localStorage.getItem("token"); // Grab the auth token
         await axios.post("http://localhost:5000/api/customers", formData, {
           headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
             "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
           },
         });
 
-        // 6. SUCCESS! Mark this customer as synced in the local DB so we don't upload them twice.
-        await customerDoc.incrementalPatch({ isSynced: true });
-        console.log(`✅ Successfully synced: ${data.name}`);
+        const doc = await db.customers
+          .findOne({ selector: { id: customer.id } })
+          .exec();
+        if (doc) {
+          await doc.patch({ isSynced: true });
+        }
       }
 
       alert(
         "🎉 அனைத்து தரவுகளும் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன! (Sync Complete!)",
       );
+
+      fetchOfflineCustomers();
+      fetchCustomers();
+      setCustomerModal(false);
     } catch (error) {
-      console.error("Sync failed:", error);
-      alert("❌ ஒத்திசைப்பதில் பிழை (Sync Failed). Please check your server.");
+      console.error("Sync Error:", error);
+      alert("Sync failed! Console-ஐ பார்க்கவும்.");
     }
   };
 
@@ -677,22 +707,17 @@ export default function AdminPage() {
 
       {userRole === "worker" && currentUser && (
         <div className="relative overflow-hidden bg-slate-50 py-16 px-4 flex items-center justify-center min-h-[300px]">
-          {/* --- LIVE BACKGROUND BLOBS --- */}
           <div className="absolute top-4 left-1/4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
           <div className="absolute top-4 right-1/4 w-72 h-72 bg-cyan-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
           <div className="absolute -bottom-8 left-1/3 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000"></div>
 
-          {/* --- FROSTED GLASS HEADER CARD --- */}
           <header className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/60 shadow-xl rounded-3xl p-10 max-w-2xl w-full flex flex-col items-center justify-center transition-all duration-300 hover:shadow-2xl hover:bg-white/70">
-            {/* Main Shop Title */}
             <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-800 tracking-tight text-center mb-6 drop-shadow-sm">
               {currentUser.username}{" "}
               <span className="inline-block mt-2 sm:mt-0 text-indigo-700 bg-indigo-100/80 px-4 py-1.5 rounded-xl shadow-sm border border-indigo-200/50">
                 {currentUser.shoptype || "Shop"}
               </span>
             </h1>
-
-            {/* Modern Proprietor Badge */}
             {currentUser.username && (
               <div className="flex items-center gap-2 px-5 py-2 bg-white/80 border border-slate-200/60 rounded-full text-sm font-medium text-slate-600 shadow-sm backdrop-blur-md">
                 <svg
@@ -742,7 +767,6 @@ export default function AdminPage() {
         <div
           className={`max-w-7xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 ${ReceiptModal ? "print:hidden" : ""}`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between w-full">
-            {/* 🧭 TABS SECTION (Scrollable on small screens) */}
             <div className="flex flex-row overflow-x-auto scrollbar-hide w-full md:w-auto">
               {visibleTabs.map((tab) => {
                 const isActive = activeTab === tab.id;
@@ -756,7 +780,6 @@ export default function AdminPage() {
                         ? "border-amber-500 text-amber-600 bg-amber-50/50" // ✨ Active state: Gold underline, text, and soft background
                         : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50" // ⚪ Inactive state
                     }`}>
-                    {/* ICON COLOR LOGIC */}
                     <span
                       className={
                         isActive ? "text-amber-600" : "text-slate-400"
@@ -764,16 +787,13 @@ export default function AdminPage() {
                       {tab.icon}
                     </span>
 
-                    {/* LABEL */}
                     <span>{tab.label}</span>
                   </button>
                 );
               })}
             </div>
 
-            {/* 👤 USER PROFILE & LOGOUT SECTION */}
             <div className="flex items-center gap-4 px-6 py-3 md:py-0 border-t md:border-t-0 border-slate-100 bg-slate-50 md:bg-transparent">
-              {/* Name and Role */}
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-slate-800">
                   {localStorage.getItem("username") || "User"}
@@ -783,11 +803,10 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              {/* Logout Button */}
               <button
                 onClick={() => {
-                  localStorage.clear();
-                  window.location.href = "/";
+                  localStorage.removeItem("token");
+                  navigate("/");
                 }}
                 className="flex items-center gap-2 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-slate-200 shadow-sm">
                 <LogOut size={16} />
@@ -805,14 +824,16 @@ export default function AdminPage() {
           ) : (
             <div className="text-gray-600 text-lg">
               {activeTab === "பணியாளர்கள்" && userRole === "superadmin" && (
-                <div className="animate-in fade-in duration-300">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* 📝 Left Side: Create Worker Form Card */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-fit">
-                      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-                        <h2 className="text-lg font-bold text-slate-800">
-                          புதிய பணியாளர் (Add Worker)
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden h-fit">
+                      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
+                        <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 uppercase tracking-wide">
+                          <span className="text-2xl">👨‍💼</span> புதிய பணியாளர்
                         </h2>
+                        <p className="text-xs text-slate-500 font-medium mt-1">
+                          கடைக்கான புதிய பணியாளரை உருவாக்கவும்
+                        </p>
                       </div>
 
                       <div className="p-6">
@@ -820,7 +841,7 @@ export default function AdminPage() {
                           onSubmit={handleCreateWorker}
                           className="space-y-5">
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
                               கடை பெயர் (Shop Name)
                             </label>
                             <input
@@ -830,12 +851,13 @@ export default function AdminPage() {
                               onChange={(e) =>
                                 setWorkerShopname(e.target.value)
                               }
-                              placeholder="E.g., Kovai Branch"
-                              className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
+                              placeholder="எ.கா: Kovai Branch"
+                              className="block w-full rounded-xl border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
                             />
                           </div>
+
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
                               பயனர் பெயர் (Username)
                             </label>
                             <input
@@ -845,12 +867,13 @@ export default function AdminPage() {
                               onChange={(e) =>
                                 setWorkerUsername(e.target.value)
                               }
-                              placeholder="Enter unique username"
-                              className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
+                              placeholder="எ.கா: worker_01"
+                              className="block w-full rounded-xl border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
                             />
                           </div>
+
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
                               கடவுச்சொல் (Password)
                             </label>
                             <input
@@ -860,71 +883,128 @@ export default function AdminPage() {
                               onChange={(e) =>
                                 setWorkerPassword(e.target.value)
                               }
-                              placeholder="Enter secure password"
-                              className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
+                              placeholder="••••••••"
+                              className="block w-full rounded-xl border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
                             />
                           </div>
+
                           <button
                             type="submit"
-                            className="w-full mt-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                            className="w-full mt-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 flex justify-center items-center gap-2">
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                              />
+                            </svg>
                             உருவாக்கு (Create)
                           </button>
                         </form>
                       </div>
                     </div>
 
-                    {/* 📊 Right Side: View Workers Table Card */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden col-span-1 lg:col-span-2">
-                      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-slate-800">
-                          பணியாளர்கள் பட்டியல் (Workers List)
-                        </h2>
-                        <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full">
+                    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden col-span-1 lg:col-span-2 flex flex-col">
+                      <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                        <div>
+                          <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 uppercase tracking-wide">
+                            <span className="text-2xl">📋</span> பணியாளர்கள்
+                            பட்டியல்
+                          </h2>
+                          <p className="text-xs text-slate-500 font-medium mt-1">
+                            கடையின் அனைத்து பணியாளர்கள்
+                          </p>
+                        </div>
+                        <span className="bg-white border border-slate-200 text-slate-700 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm">
                           Total: {workers.length}
                         </span>
                       </div>
 
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <div className="overflow-x-auto p-6 flex-1">
+                        <table className="min-w-full divide-y divide-slate-200 text-sm border border-slate-100 rounded-xl overflow-hidden shadow-sm">
                           <thead className="bg-slate-50">
                             <tr>
-                              <th className="px-6 py-3 text-left font-bold text-slate-600 uppercase tracking-wider text-xs">
-                                பயனர் பெயர் (Username)
+                              <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
+                                வ.எண்
                               </th>
-                              <th className="px-6 py-3 text-left font-bold text-slate-600 uppercase tracking-wider text-xs">
-                                கடை பெயர் (Shop)
+                              <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
+                                பயனர் பெயர்
                               </th>
-                              <th className="px-6 py-3 text-left font-bold text-slate-600 uppercase tracking-wider text-xs">
-                                பங்கு (Role)
+                              <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
+                                கடை பெயர்
+                              </th>
+                              <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
+                                பங்கு
+                              </th>
+                              <th className="px-6 py-4 text-center font-extrabold text-slate-600 uppercase tracking-wider text-xs">
+                                செயல்
                               </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-slate-100">
                             {workers.length > 0 ? (
-                              workers.map((worker) => (
+                              workers.map((worker, index) => (
                                 <tr
                                   key={worker._id}
-                                  className="hover:bg-slate-50 transition-colors">
-                                  <td className="px-6 py-4 whitespace-nowrap text-slate-800 font-semibold">
+                                  className="hover:bg-slate-50 transition-colors group">
+                                  <td className="px-6 py-4 whitespace-nowrap text-slate-500 font-bold">
+                                    {index + 1}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-slate-900 font-black text-base">
                                     {worker.username}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-slate-600 font-medium">
+                                  <td className="px-6 py-4 whitespace-nowrap text-slate-600 font-bold">
                                     {worker.shoptype}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-200">
+                                    <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200 shadow-sm">
                                       {worker.role}
                                     </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                                    <button
+                                      className="text-slate-300 hover:text-rose-600 hover:bg-rose-50 p-2 rounded-lg transition-all"
+                                      title="பணியாளரை நீக்கு">
+                                      <svg
+                                        className="w-5 h-5"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                      </svg>
+                                    </button>
                                   </td>
                                 </tr>
                               ))
                             ) : (
                               <tr>
                                 <td
-                                  colSpan="3"
-                                  className="px-6 py-8 text-center text-slate-500 font-medium">
-                                  நீங்கள் இன்னும் பணியாளர்களை உருவாக்கவில்லை (No
-                                  workers found).
+                                  colSpan="5"
+                                  className="px-6 py-16 text-center">
+                                  <div className="flex flex-col items-center justify-center gap-3">
+                                    <span className="text-5xl opacity-50">
+                                      📭
+                                    </span>
+                                    <p className="text-slate-500 font-bold text-lg">
+                                      பணியாளர்கள் யாரும் இல்லை
+                                    </p>
+                                    <p className="text-slate-400 text-sm">
+                                      இடதுபுறம் உள்ள படிவத்தை பயன்படுத்தி புதிய
+                                      பணியாளரை உருவாக்கவும்.
+                                    </p>
+                                  </div>
                                 </td>
                               </tr>
                             )}
@@ -939,7 +1019,6 @@ export default function AdminPage() {
               {activeTab === "பரிவர்த்தனைகளின்" && userRole === "worker" && (
                 <div className="p-6 overflow-x-auto animate-in fade-in duration-300">
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    {/* 🏷️ Card Header */}
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                       <h2 className="text-lg font-bold text-slate-800 tracking-wide">
                         தினசரி பரிவர்த்தனைகள் (Daily Ledger)
@@ -949,7 +1028,6 @@ export default function AdminPage() {
                       </span>
                     </div>
 
-                    {/* 📊 Table Section */}
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
                         <thead className="bg-slate-50">
@@ -977,7 +1055,6 @@ export default function AdminPage() {
                                 <tr
                                   key={stat.date}
                                   className="hover:bg-slate-50 transition-colors">
-                                  {/* Formatted Date */}
                                   <td className="py-4 px-6 whitespace-nowrap text-sm font-semibold text-slate-800">
                                     {new Date(stat.date).toLocaleDateString(
                                       "en-IN",
@@ -989,21 +1066,18 @@ export default function AdminPage() {
                                     )}
                                   </td>
 
-                                  {/* Cash Out (Money Leaving - Rose Color) */}
                                   <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-rose-600">
                                     {stat.loanGiven > 0
                                       ? `- ₹${stat.loanGiven.toFixed(2)}`
                                       : "-"}
                                   </td>
 
-                                  {/* Cash In (Money Entering - Emerald Color) */}
                                   <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-emerald-600">
                                     {stat.income > 0
                                       ? `+ ₹${stat.income.toFixed(2)}`
                                       : "-"}
                                   </td>
 
-                                  {/* Net Balance (Dynamic Styling Pill) */}
                                   <td className="py-4 px-6 whitespace-nowrap text-sm font-black">
                                     <span
                                       className={`px-3 py-1.5 rounded-full border text-xs tracking-wide ${
@@ -1046,115 +1120,171 @@ export default function AdminPage() {
                 !CustomerModal &&
                 userRole === "worker" && (
                   <div className="mt-6 animate-in fade-in duration-300">
+                    {offlineCustomers.filter((c) => !c.isSynced).length > 0 && (
+                      <div className="flex justify-end mb-4">
+                        <button
+                          onClick={syncOfflineCustomersToCloud}
+                          className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:bg-indigo-700 font-bold transition-all animate-pulse">
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                          </svg>
+                          தரவை ஒத்திசை (
+                          {offlineCustomers.filter((c) => !c.isSynced).length}{" "}
+                          Unsynced)
+                        </button>
+                      </div>
+                    )}
+
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                      {/* 🏷️ Card Header */}
                       <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                         <h2 className="text-lg font-bold text-slate-800 tracking-wide">
                           வாடிக்கையாளர்கள் (Customers List)
                         </h2>
                         <span className="bg-white text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                          Total: {customers?.length || 0}
+                          Total:{" "}
+                          {(customers?.length || 0) +
+                            offlineCustomers.filter((c) => !c.isSynced).length}
                         </span>
                       </div>
 
-                      {/* 📊 Table Section */}
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
                           <thead className="bg-slate-50">
                             <tr>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                புகைப்படம் (Photo)
+                                புகைப்படம்
                               </th>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                பெயர் (Name)
+                                பெயர்
                               </th>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                தொலைபேசி எண் (Phone)
+                                தொலைபேசி எண்
                               </th>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                ஆதார் எண் (Aadhar)
+                                ஆதார் எண்
                               </th>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                முகவரி (Address)
+                                முகவரி
                               </th>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">
-                                விருப்பங்கள் (Actions)
+                                விருப்பங்கள்
                               </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-slate-100">
-                            {customers && customers.length > 0 ? (
-                              customers.map((customer) => (
-                                <tr
-                                  key={customer._id}
-                                  className="hover:bg-slate-50 transition-colors">
-                                  {/* Photo (Upgraded to Circle Avatar) */}
-                                  <td className="py-3 px-6 whitespace-nowrap">
-                                    <img
-                                      src={`http://localhost:5000/uploads/${customer.recentimage}`}
-                                      alt={customer.name}
-                                      className="w-10 h-10 rounded-full object-cover border-2 border-slate-200 shadow-sm"
-                                      onError={(e) => {
-                                        e.target.src =
-                                          "https://ui-avatars.com/api/?name=" +
-                                          customer.name +
-                                          "&background=F1F5F9&color=64748B";
-                                      }}
-                                    />
-                                  </td>
+                            {/* 🔴 OFFLINE / UNSYNCED CUSTOMERS (Shows at the top in Rose Color) */}
+                            {offlineCustomers &&
+                              offlineCustomers
+                                .filter((c) => !c.isSynced)
+                                .map((customer) => (
+                                  <tr
+                                    key={customer.id}
+                                    className="bg-rose-50/40 hover:bg-rose-50 transition-colors border-l-4 border-l-rose-400">
+                                    <td className="py-3 px-6 whitespace-nowrap">
+                                      {/* Offline images are already Base64 strings */}
+                                      <img
+                                        src={
+                                          customer.recentimage ||
+                                          `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`
+                                        }
+                                        alt={customer.name}
+                                        className="w-10 h-10 rounded-full object-cover border-2 border-rose-200 shadow-sm opacity-80"
+                                      />
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap font-bold text-slate-800">
+                                      {customer.name}
+                                      <span className="ml-2 text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold tracking-widest uppercase shadow-sm border border-rose-200">
+                                        Not Synced
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap font-semibold text-slate-600">
+                                      {customer.phone}
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap font-medium text-slate-500">
+                                      {customer.aadhar}
+                                    </td>
+                                    <td className="py-3 px-6 min-w-[200px] text-slate-600 leading-relaxed">
+                                      {customer.address}
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap text-center">
+                                      <span className="text-xs font-bold text-rose-500 bg-white px-3 py-1.5 rounded-lg border border-rose-100">
+                                        Sync to enable Loan
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
 
-                                  {/* Name */}
-                                  <td className="py-3 px-6 whitespace-nowrap font-bold text-slate-800">
-                                    {customer.name}
-                                  </td>
-
-                                  {/* Phone */}
-                                  <td className="py-3 px-6 whitespace-nowrap font-semibold text-slate-600">
-                                    {customer.phone}
-                                  </td>
-
-                                  {/* Aadhar */}
-                                  <td className="py-3 px-6 whitespace-nowrap font-medium text-slate-500">
-                                    {customer.aadhar}
-                                  </td>
-
-                                  {/* Address (Allows text wrapping if long) */}
-                                  <td className="py-3 px-6 min-w-[200px] text-slate-600 leading-relaxed">
-                                    {customer.address}
-                                  </td>
-
-                                  {/* Actions Button */}
-                                  <td className="py-3 px-6 whitespace-nowrap text-center">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedCustomer(customer);
-                                        setLoanModal(true);
-                                        fetchProducts();
-                                      }}
-                                      className="inline-flex items-center justify-center bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 border border-emerald-200 hover:border-emerald-600 shadow-sm">
-                                      கடன் வாங்கு (Loan)
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                {/* Fixed colSpan bug (changed from 4 to 6) */}
-                                <td
-                                  colSpan="6"
-                                  className="py-12 px-6 text-center text-slate-500 font-medium">
-                                  <div className="flex flex-col items-center justify-center gap-2">
-                                    <span className="text-3xl text-slate-300">
-                                      👥
-                                    </span>
-                                    <p>
-                                      எந்த வாடிக்கையாளர்களும் இல்லை (No
-                                      customers found).
-                                    </p>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
+                            {/* 🟢 ONLINE CUSTOMERS */}
+                            {customers && customers.length > 0
+                              ? customers.map((customer) => (
+                                  <tr
+                                    key={customer._id}
+                                    className="hover:bg-slate-50 transition-colors">
+                                    <td className="py-3 px-6 whitespace-nowrap">
+                                      <img
+                                        src={`http://localhost:5000/uploads/${customer.recentimage}`}
+                                        alt={customer.name}
+                                        className="w-10 h-10 rounded-full object-cover border-2 border-slate-200 shadow-sm"
+                                        onError={(e) => {
+                                          e.target.src =
+                                            "https://ui-avatars.com/api/?name=" +
+                                            customer.name +
+                                            "&background=F1F5F9&color=64748B";
+                                        }}
+                                      />
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap font-bold text-slate-800">
+                                      {customer.name}
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap font-semibold text-slate-600">
+                                      {customer.phone}
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap font-medium text-slate-500">
+                                      {customer.aadhar}
+                                    </td>
+                                    <td className="py-3 px-6 min-w-[200px] text-slate-600 leading-relaxed">
+                                      {customer.address}
+                                    </td>
+                                    <td className="py-3 px-6 whitespace-nowrap text-center">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedCustomer(customer);
+                                          setLoanModal(true);
+                                          fetchProducts();
+                                        }}
+                                        className="inline-flex items-center justify-center bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 border border-emerald-200 hover:border-emerald-600 shadow-sm">
+                                        கடன் வாங்கு (Loan)
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))
+                              : // Empty State
+                                offlineCustomers.filter((c) => !c.isSynced)
+                                  .length === 0 && (
+                                  <tr>
+                                    <td
+                                      colSpan="6"
+                                      className="py-12 px-6 text-center text-slate-500 font-medium">
+                                      <div className="flex flex-col items-center justify-center gap-2">
+                                        <span className="text-3xl text-slate-300">
+                                          👥
+                                        </span>
+                                        <p>
+                                          எந்த வாடிக்கையாளர்களும் இல்லை (No
+                                          customers found).
+                                        </p>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
                           </tbody>
                         </table>
                       </div>
@@ -1234,13 +1364,15 @@ export default function AdminPage() {
                                 className="hover:bg-slate-50 transition-colors">
                                 {/* Date */}
                                 <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-800">
-                                  {new Date(
-                                    loan.paymentDate,
-                                  ).toLocaleDateString("en-IN", {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  })}
+                                  {loan.paymentDate || loan.createdAt
+                                    ? new Date(
+                                        loan.paymentDate || loan.createdAt,
+                                      ).toLocaleDateString("en-IN", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      })
+                                    : "No Date"}
                                 </td>
 
                                 {/* Customer */}
@@ -1804,146 +1936,154 @@ export default function AdminPage() {
               {CustomerModal &&
                 activeTab === "வாடிக்கையாளர்களின்" &&
                 userRole === "worker" && (
-                  <form
-                    onSubmit={saveCustomerOffline}
-                    className="mt-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-800 mb-4">
-                      புதிய வாடிக்கையாளர் விவரங்கள்
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-semibold mb-1 text-green-600">
-                          Customer Name
-                        </p>
-                        <input
-                          name="name"
-                          placeholder="Full Name"
-                          onChange={handleChange}
-                          className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-green-600 mb-1">
-                          Date of Birth
-                        </p>
-                        <input
-                          name="dob"
-                          type="date"
-                          onChange={handleChange}
-                          className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-green-600 mb-1">
-                          Address
-                        </p>
-                        <input
-                          name="address"
-                          placeholder="Enter"
-                          onChange={handleChange}
-                          className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-green-600 mb-1">
-                          Aadhar Number
-                        </p>
-                        <input
-                          name="aadhar"
-                          placeholder="Enter Customer's Aadhar Number"
-                          onChange={handleChange}
-                          className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                          required
-                        />
-                      </div>
-                      {/* <input
-                        name="accountnumber"
-                        placeholder="Enter Customer's Account Number"
-                        onChange={handleChange}
-                        className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                        required
-                      />
-                      <input
-                        name="ifsc"
-                        placeholder="Enter Customer's IFSC Code"
-                        onChange={handleChange}
-                        className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                        required
-                      /> */}
-                      <div>
-                        <p className="text-sm font-semibold text-green-600 mb-1">
-                          Email
-                        </p>
-                        <input
-                          name="email"
-                          type="email"
-                          placeholder="Enter Customer's Email Address"
-                          onChange={handleChange}
-                          className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-green-600 mb-1">
-                          Phone Number
-                        </p>
-                        <input
-                          name="phone"
-                          placeholder="Enter Customer's Phone Number"
-                          onChange={handleChange}
-                          className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                          required
-                        />
+                  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center flex-shrink-0">
+                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                          <span className="text-2xl">👤</span> புதிய
+                          வாடிக்கையாளர் (Add Customer)
+                        </h2>
+                        <button
+                          onClick={() => setCustomerModal(false)}
+                          className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
+                          ✕
+                        </button>
                       </div>
 
-                      {/* File Inputs */}
-                      <div className="flex flex-col">
-                        <label className="text-sm font-semibold text-green-600 mb-1">
-                          Aadhar Image
-                        </label>
-                        <input
-                          name="aadharimage"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="p-1 border border-gray-300 rounded bg-white"
-                          required
-                        />
-                      </div>
-                      <div className="flex flex-col">
-                        <label className="text-sm font-semibold text-green-600 mb-1">
-                          Recent Photo
-                        </label>
-                        <input
-                          name="recentimage"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="p-1 border border-gray-300 rounded bg-white"
-                          required
-                        />
+                      <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white">
+                        <form
+                          onSubmit={saveCustomerOffline}
+                          className="space-y-5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                                பெயர் (Name)
+                              </label>
+                              <input
+                                type="text"
+                                name="name"
+                                required
+                                placeholder="எ.கா: Kumar"
+                                className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                                தொலைபேசி எண் (Phone)
+                              </label>
+                              <input
+                                type="tel"
+                                name="phone"
+                                required
+                                placeholder="எ.கா: 9876543210"
+                                className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                                ஆதார் எண் (Aadhar No)
+                              </label>
+                              <input
+                                type="text"
+                                name="aadhar"
+                                required
+                                placeholder="எ.கா: 1234 5678 9012"
+                                className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                                பிறந்த தேதி (DOB)
+                              </label>
+                              <input
+                                type="date"
+                                name="dob"
+                                required
+                                className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none cursor-pointer"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                              முகவரி (Address)
+                            </label>
+                            <textarea
+                              name="address"
+                              required
+                              rows="2"
+                              placeholder="முழு முகவரி..."
+                              className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none resize-none"></textarea>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                              மின்னஞ்சல் (Email)
+                            </label>
+                            <input
+                              type="email"
+                              name="email"
+                              required
+                              placeholder="எ.கா: abc@gmail.com"
+                              className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2 p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+                                புகைப்படம் (Recent Photo)
+                              </label>
+                              <input
+                                type="file"
+                                name="recentimage"
+                                accept="image/*"
+                                required
+                                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-all cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+                                ஆதார் படம் (Aadhar Image)
+                              </label>
+                              <input
+                                type="file"
+                                name="aadharimage"
+                                accept="image/*"
+                                required
+                                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 transition-all cursor-pointer"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+                            <p className="text-xs text-amber-700 font-bold flex items-center gap-2">
+                              <span className="text-lg">⚡</span>
+                              இணையம் இல்லாவிட்டாலும் (Offline) வாடிக்கையாளரை
+                              சேமிக்கலாம். இணையம் வந்ததும் Sync செய்துகொள்ளவும்.
+                            </p>
+                          </div>
+
+                          <div className="flex gap-3 pt-6 mt-4 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setCustomerModal(false)}
+                              className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                              ரத்து (Cancel)
+                            </button>
+                            <button
+                              type="submit"
+                              className="flex-[2] bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
+                              சேமி (Save Customer)
+                            </button>
+                          </div>
+                        </form>
                       </div>
                     </div>
-
-                    {/* Form Actions */}
-                    <div className="mt-6 flex gap-3">
-                      <button
-                        type="submit"
-                        className="bg-green-600 text-white px-6 py-2 rounded font-semibold hover:bg-green-700 transition">
-                        Save Customer
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomerModal(false)}
-                        className="bg-red-500 text-white px-6 py-2 rounded font-semibold hover:bg-red-400 transition">
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+                  </div>
                 )}
             </div>
           )}
@@ -2141,8 +2281,8 @@ export default function AdminPage() {
                 id="printable-receipt"
                 className="p-8 print:p-0 relative bg-white overflow-y-auto flex-1 print:overflow-visible print:block custom-scrollbar">
                 <div className="hidden print:flex absolute inset-0 items-center justify-center opacity-[0.03] pointer-events-none z-0">
-                  <span className="text-8xl font-black uppercase tracking-widest transform -rotate-45">
-                    INFOSENX IT
+                  <span className="text-3xl font-black uppercase tracking-widest transform -rotate-45">
+                    {currentUser.username} {currentUser.shoptype}
                   </span>
                 </div>
 
@@ -2562,7 +2702,6 @@ export default function AdminPage() {
 
               <div className="p-6">
                 <form onSubmit={handleBankSubmit} className="space-y-5">
-                  
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
                       வங்கி (Bank)
@@ -2570,14 +2709,12 @@ export default function AdminPage() {
                     <select
                       name="bankId"
                       required
-                      defaultValue=""  
+                      defaultValue=""
                       className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none cursor-pointer">
-                      
-                      
-                      <option value="" disabled> 
+                      <option value="" disabled>
                         வங்கியை தேர்ந்தெடுக்கவும் (Select Bank)
                       </option>
-                      
+
                       {bankList.map((bank) => (
                         <option key={bank._id} value={bank._id}>
                           {bank.name}
@@ -2586,7 +2723,6 @@ export default function AdminPage() {
                     </select>
                   </div>
 
-                  
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
                       கிளை (Branch Name)

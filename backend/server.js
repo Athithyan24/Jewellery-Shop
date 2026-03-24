@@ -5,22 +5,35 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const app = express();
 app.use(cors());
 app.use(express.json());
 const PORT = 5000;
 
+const uploadPath = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+
+if (!fs.existsSync(uploadPath)) {
+    fs.mkdirSync(uploadPath, { recursive: true });
+}
+
 const storage = multer.diskStorage({
-  destination: "./uploads/",
+  destination: (req, file, cb) => {
+    cb(null, uploadPath); 
+  },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+    cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
 const upload = multer({ storage });
 
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(uploadPath));
 
 const SECRET_KEY = process.env.SECRET_KEY;
 const MONGO_URI = process.env.MONGO_URI;
@@ -328,7 +341,9 @@ const verifyToken = (req, res, next) => {
 
 app.get("/api/daily-stats", verifyToken, async (req, res) => {
   try {
+    const matchCondition = req.user.role === "superadmin" ? {} : { createdBy: new mongoose.Types.ObjectId(req.user.id) };
     const dailyLoans = await Loan.aggregate([
+      { $match: matchCondition },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -338,6 +353,7 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
     ]);
 
     const dailyIncome = await PayLoan.aggregate([
+      { $match: matchCondition },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$paymentDate" } },
@@ -450,7 +466,8 @@ app.get("/api/loans", verifyToken, async (req, res) => {
         ...loan,
         interestBreakdown,
         dateRanges,
-        currentBalance
+        currentBalance,
+        formattedDate: loan.createdAt ? formatDate(loan.createdAt) : "No Date"
       };
     });
 
@@ -463,7 +480,8 @@ app.get("/api/loans", verifyToken, async (req, res) => {
 
 app.get("/api/payLoan", verifyToken, async(req, res)=>{
   try{
-    const payLoans = await PayLoan.find().populate("customer").populate(({
+    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const payLoans = await PayLoan.find(query).populate("customer").populate(({
         path: "loan",       
         populate: {
           path: "product"   
@@ -488,7 +506,8 @@ app.get("/api/banks", verifyToken, async (req, res) => {
 
 app.get("/api/bankDetails", verifyToken, async (req, res) => {
   try{
-    const locker = await BankDetails.find()
+    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const locker = await BankDetails.find(query)
     .populate("customer", "name recentimage")
     .populate("bank", "name")
     .populate({
@@ -752,4 +771,5 @@ app.post("/api/loans", verifyToken, async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Images are being stored in: ${uploadPath}`);
 });

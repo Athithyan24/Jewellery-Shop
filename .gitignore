@@ -1,0 +1,8 @@
+node_modules/
+release-build/
+dist/
+jwelleryshop/dist/
+*.exe
+*.zip
+backend-log.txt
+.env
