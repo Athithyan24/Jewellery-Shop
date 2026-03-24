@@ -85,32 +85,13 @@ const fileToBase64 = (file) =>
     reader.onerror = (error) => reject(error);
   });
 
-const base64ToFile = (base64String, filename) => {
-  if (!base64String) return null;
-  try {
-    const arr = base64String.split(",");
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new File([u8arr], filename, { type: mime });
-  } catch (e) {
-    console.error("Error converting base64 to file", e);
-    return null;
-  }
-};
 
 export default function AdminPage() {
-  const [tabData, setTabData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [CustomerModal, setCustomerModal] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [LoanModal, setLoanModal] = useState(false);
   const [PayLoanModal, setPayLoanModal] = useState(false);
-  const [SelectedTypeModal, setSelectedTypeModal] = useState(false);
   const [offlineCustomers, setOfflineCustomers] = useState([]);
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -146,17 +127,6 @@ export default function AdminPage() {
   const [workerPassword, setWorkerPassword] = useState("");
   const [workerShopname, setWorkerShopname] = useState("");
 
-  const [form, setForm] = useState({
-    name: "",
-    dob: "",
-    address: "",
-    aadhar: "",
-    accountnumber: "",
-    aadharimage: "",
-    recentimage: "",
-    email: "",
-    phone: "",
-  });
 
   const [loanCalc, setLoanCalc] = useState({
     weight: "",
@@ -237,7 +207,7 @@ export default function AdminPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.post(
+      await axios.post(
         "http://localhost:5000/api/bankDetails",
         bankData,
         {
@@ -256,17 +226,7 @@ export default function AdminPage() {
     }
   };
 
-  const role = localStorage.getItem("role");
-
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-
-    setForm({
-      ...form,
-      [name]: files ? files[0] : value,
-    });
-  };
-
+  
   const fetchPaidLoanDetails = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/payLoan", {
@@ -352,34 +312,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const formData = new FormData();
-
-    Object.keys(form).forEach((key) => {
-      formData.append(key, form[key]);
-    });
-    try {
-      const res = await axios.post(
-        "http://localhost:5000/api/customers",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
-      );
-
-      alert(res.data.message);
-      setCustomerModal(false);
-      fetchCustomers();
-    } catch (err) {
-      console.error("Server Error:", err.response?.data || err.message);
-      alert(
-        "Error: " + (err.response?.data?.message || "Something went wrong"),
-      );
-    }
-  };
 
   const fetchDailyStats = async () => {
     try {
@@ -427,10 +359,8 @@ export default function AdminPage() {
   const handleLoanSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Reverted to your exact e.target method!
       const payload = {
         customerId: selectedCustomer._id,
-        // We check for both 'productId' or 'product' depending on what your <select> is named
         product: e.target.productId
           ? e.target.productId.value
           : e.target.product?.value,
@@ -501,8 +431,6 @@ export default function AdminPage() {
     const fetchTabData = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem("token");
-        const currentTab = TABS.find((t) => t.id === activeTab);
         if (activeTab === "பரிவர்த்தனைகளின்") {
           await fetchDailyStats();
         } else if (activeTab === "வாடிக்கையாளர்களின்") {
@@ -518,17 +446,16 @@ export default function AdminPage() {
           await fetchLoans();
         }
         await new Promise((resolve) => setTimeout(resolve, 600));
-        setTabData(
-          `${currentTab.label} டேஷ்போர்டிற்கான தரவு பாதுகாப்பாக பெறப்பட்டது.`,
-        );
+        
       } catch (error) {
         console.error("Error fetching tab data:", error);
-        setTabData("Failed to load data.");
       } finally {
         setIsLoading(false);
       }
     };
     fetchTabData();
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const [payType, setPayType] = useState("");
@@ -706,7 +633,7 @@ export default function AdminPage() {
       )}
 
       {userRole === "worker" && currentUser && (
-        <div className="relative overflow-hidden bg-slate-50 py-16 px-4 flex items-center justify-center min-h-[300px]">
+        <div className="relative overflow-hidden bg-slate-50 py-16 px-4 flex items-center justify-center min-h-75">
           <div className="absolute top-4 left-1/4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
           <div className="absolute top-4 right-1/4 w-72 h-72 bg-cyan-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
           <div className="absolute -bottom-8 left-1/3 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000"></div>
@@ -890,7 +817,7 @@ export default function AdminPage() {
 
                           <button
                             type="submit"
-                            className="w-full mt-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 flex justify-center items-center gap-2">
+                            className="w-full mt-4 bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 flex justify-center items-center gap-2">
                             <svg
                               className="w-5 h-5"
                               fill="none"
@@ -1211,7 +1138,7 @@ export default function AdminPage() {
                                     <td className="py-3 px-6 whitespace-nowrap font-medium text-slate-500">
                                       {customer.aadhar}
                                     </td>
-                                    <td className="py-3 px-6 min-w-[200px] text-slate-600 leading-relaxed">
+                                    <td className="py-3 px-6 min-w-50 text-slate-600 leading-relaxed">
                                       {customer.address}
                                     </td>
                                     <td className="py-3 px-6 whitespace-nowrap text-center">
@@ -1250,7 +1177,7 @@ export default function AdminPage() {
                                     <td className="py-3 px-6 whitespace-nowrap font-medium text-slate-500">
                                       {customer.aadhar}
                                     </td>
-                                    <td className="py-3 px-6 min-w-[200px] text-slate-600 leading-relaxed">
+                                    <td className="py-3 px-6 min-w-50 text-slate-600 leading-relaxed">
                                       {customer.address}
                                     </td>
                                     <td className="py-3 px-6 whitespace-nowrap text-center">
@@ -1938,7 +1865,7 @@ export default function AdminPage() {
                 userRole === "worker" && (
                   <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
-                      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center flex-shrink-0">
+                      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
                         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                           <span className="text-2xl">👤</span> புதிய
                           வாடிக்கையாளர் (Add Customer)
@@ -2076,7 +2003,7 @@ export default function AdminPage() {
                             </button>
                             <button
                               type="submit"
-                              className="flex-[2] bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
+                              className="flex-2 bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
                               சேமி (Save Customer)
                             </button>
                           </div>
@@ -2362,7 +2289,7 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <img
                         src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`}
                         alt="Customer"
@@ -2487,7 +2414,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="px-8 py-5 bg-slate-50 border-t border-slate-200 flex gap-4 print:hidden flex-shrink-0">
+              <div className="px-8 py-5 bg-slate-50 border-t border-slate-200 flex gap-4 print:hidden shrink-0">
                 <button
                   onClick={() => {
                     setReceiptModal(false);
@@ -2498,7 +2425,7 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => window.print()}
-                  className="flex-[2] bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm flex justify-center items-center gap-2 active:scale-95">
+                  className="flex-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm flex justify-center items-center gap-2 active:scale-95">
                   <svg
                     className="w-5 h-5"
                     fill="none"

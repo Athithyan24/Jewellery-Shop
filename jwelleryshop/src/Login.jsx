@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState} from "react";
 import axios from "axios";
 import AdminPage from "./AdminPage";
 import { useNavigate } from "react-router-dom";
