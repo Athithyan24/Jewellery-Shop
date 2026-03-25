@@ -85,7 +85,6 @@ const fileToBase64 = (file) =>
     reader.onerror = (error) => reject(error);
   });
 
-
 export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [CustomerModal, setCustomerModal] = useState(false);
@@ -127,12 +126,14 @@ export default function AdminPage() {
   const [workerPassword, setWorkerPassword] = useState("");
   const [workerShopname, setWorkerShopname] = useState("");
 
-
   const [loanCalc, setLoanCalc] = useState({
     weight: "",
     stoneweight: "",
     goldrate: "",
     pawnpercentage: "",
+    firstinterest: "",
+    secondinterest: "",
+    thirdinterest : "",
   });
 
   const netWeight =
@@ -143,7 +144,17 @@ export default function AdminPage() {
       (parseFloat(loanCalc.goldrate) || 0) *
       (parseFloat(loanCalc.pawnpercentage) || 0)) /
     100;
+const monthlyInterestRate = parseFloat(loanCalc.interestRate) || 0;
+    // 3. Calculate Simple Interest for 1, 2, and 3 months
+// Formula: (Principal * Rate * Time) / 100
+const interest1Month = (estimatedAmount * monthlyInterestRate * 1) / 100;
+const interest2Months = (estimatedAmount * monthlyInterestRate * 2) / 100;
+const interest3Months = (estimatedAmount * monthlyInterestRate * 3) / 100;
 
+// 4. (Optional) If you want to show the TOTAL amount the customer has to pay back
+const totalPayable1Month = estimatedAmount + interest1Month;
+const totalPayable2Months = estimatedAmount + interest2Months;
+const totalPayable3Months = estimatedAmount + interest3Months;
   const handleLoanCalcChange = (e) => {
     setLoanCalc({ ...loanCalc, [e.target.name]: e.target.value });
   };
@@ -207,13 +218,9 @@ export default function AdminPage() {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.post(
-        "http://localhost:5000/api/bankDetails",
-        bankData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      await axios.post("http://localhost:5000/api/bankDetails", bankData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       alert("✅ வங்கி விவரங்கள் சேமிக்கப்பட்டன!");
       setIsBankModalOpen(false);
@@ -226,7 +233,6 @@ export default function AdminPage() {
     }
   };
 
-  
   const fetchPaidLoanDetails = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/payLoan", {
@@ -312,7 +318,6 @@ export default function AdminPage() {
     }
   };
 
-
   const fetchDailyStats = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/daily-stats", {
@@ -368,6 +373,9 @@ export default function AdminPage() {
         stoneweight: e.target.stoneweight.value,
         goldrate: e.target.goldrate.value,
         pawnpercentage: e.target.pawnpercentage.value,
+        firstinterest: e.targer.firstinterest.value,
+        secondinterest: e.targer.secondinterest.value,
+        thirdinterest: e.targer.thirdinterest.value,
       };
 
       const res = await axios.post("http://localhost:5000/api/loans", payload, {
@@ -386,6 +394,9 @@ export default function AdminPage() {
         stoneweight: "",
         goldrate: "",
         pawnpercentage: "",
+        firstinterest: "",
+        secondinterest: "",
+        thirdinterest: "",
       });
 
       if (typeof fetchLoans === "function") {
@@ -446,7 +457,6 @@ export default function AdminPage() {
           await fetchLoans();
         }
         await new Promise((resolve) => setTimeout(resolve, 600));
-        
       } catch (error) {
         console.error("Error fetching tab data:", error);
       } finally {
@@ -454,7 +464,7 @@ export default function AdminPage() {
       }
     };
     fetchTabData();
-    
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -553,7 +563,7 @@ export default function AdminPage() {
 
     e.target.reset();
 
-    if (typeof fetchOfflineCustomers === 'function') fetchOfflineCustomers();
+    if (typeof fetchOfflineCustomers === "function") fetchOfflineCustomers();
     setCustomerModal(false);
   };
 
@@ -2019,7 +2029,7 @@ export default function AdminPage() {
         <section>
           {LoanModal && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-200 overflow-hidden border border-slate-200">
                 {/* 🏷️ Modal Header */}
                 <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                   <h3 className="text-xl font-bold text-slate-800">
@@ -2033,6 +2043,9 @@ export default function AdminPage() {
                         stoneweight: "",
                         goldrate: "",
                         pawnpercentage: "",
+                        firstinterest: "",
+                        secondinterest: "",
+                        thirdinterest: "",
                       });
                     }}
                     className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
@@ -2139,6 +2152,7 @@ export default function AdminPage() {
                           />
                         </div>
                       </div>
+
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
                           அடகு சதவீதம் (Pawn %)
@@ -2156,6 +2170,89 @@ export default function AdminPage() {
                             %
                           </span>
                         </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-7">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                          முதல் வட்டி (INT: 1)
+                        </label>
+                        <div className="relative">
+                          <input
+                            name="firstinterest"
+                            type="number"
+                            placeholder="0"
+                            onChange={handleLoanCalcChange}
+                            className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8"
+                            required
+                          />
+                          <span className="absolute right-3 top-2.5 text-slate-400 text-sm font-bold">
+                            %
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                          இரண்டாவது வட்டி (INT: 2)
+                        </label>
+                        <div className="relative">
+                          <input
+                            name="secondinterest"
+                            type="number"
+                            placeholder="0"
+                            onChange={handleLoanCalcChange}
+                            className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8"
+                            required
+                          />
+                          <span className="absolute right-3 top-2.5 text-slate-400 text-sm font-bold">
+                            %
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                          மூன்றாவது வட்டி (INT: 3)
+                        </label>
+                        <div className="relative">
+                          <input
+                            name="thirdinterest"
+                            type="number"
+                            placeholder="0"
+                            onChange={handleLoanCalcChange}
+                            className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8"
+                            required
+                          />
+                          <span className="absolute right-3 top-2.5 text-slate-400 text-sm font-bold">
+                            %
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-27">
+                      <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                          முதல் வட்டி (INT: 1)
+                        </label>
+                      <p>{interest1Month > 0
+                          ? interest1Month.toFixed(2)
+                          : "0.00"}</p>
+                          </div>
+                      <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                          இரண்டாவது வட்டி (INT: 2)
+                        </label>
+                      <p>{interest2Months > 0
+                          ? interest2Months.toFixed(2)
+                          : "0.00"}</p>                         
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                          மூன்றாவது வட்டி (INT: 3)
+                        </label>
+                      <p>{interest3Months > 0
+                          ? interest3Months.toFixed(2)
+                          : "0.00"}</p>
                       </div>
                     </div>
 
@@ -2183,6 +2280,9 @@ export default function AdminPage() {
                             stoneweight: "",
                             goldrate: "",
                             pawnpercentage: "",
+                            firstinterest: "",
+                            secondinterest: "",
+                            thirdinterest: "",
                           });
                         }}
                         className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">

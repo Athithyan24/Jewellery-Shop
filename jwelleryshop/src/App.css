@@ -19,7 +19,6 @@
   }
 }
 
-/* 2. Create the custom delay classes so they don't move at the exact same time */
 @utility animation-delay-2000 {
   animation-delay: 2s;
 }

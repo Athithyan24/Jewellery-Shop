@@ -219,6 +219,9 @@ const loanSchema = new mongoose.Schema({
   stoneweight: Number,
   goldrate: Number,
   pawnpercentage: Number,
+  firstinterest:Number,
+  secondinterest:Number,
+  thirdinterest:Number,
 
   loanamount: Number,
 
@@ -736,6 +739,9 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       stoneweight,
       goldrate,
       pawnpercentage,
+      firstinterest,
+      secondinterest,
+      thirdinterest,
     } = req.body;
 
     const netWeight = weight - stoneweight;
@@ -751,6 +757,9 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       stoneweight,
       goldrate,
       pawnpercentage,
+      firstinterest,
+      secondinterest,
+      thirdinterest,
       loanamount,
       createdBy: req.user.id,
     });
