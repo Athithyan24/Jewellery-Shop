@@ -131,9 +131,10 @@ export default function AdminPage() {
     stoneweight: "",
     goldrate: "",
     pawnpercentage: "",
+    interestRate: "",
     firstinterest: "",
     secondinterest: "",
-    thirdinterest : "",
+    thirdinterest: "",
   });
 
   const netWeight =
@@ -144,17 +145,19 @@ export default function AdminPage() {
       (parseFloat(loanCalc.goldrate) || 0) *
       (parseFloat(loanCalc.pawnpercentage) || 0)) /
     100;
-const monthlyInterestRate = parseFloat(loanCalc.interestRate) || 0;
-    // 3. Calculate Simple Interest for 1, 2, and 3 months
-// Formula: (Principal * Rate * Time) / 100
-const interest1Month = (estimatedAmount * monthlyInterestRate * 1) / 100;
-const interest2Months = (estimatedAmount * monthlyInterestRate * 2) / 100;
-const interest3Months = (estimatedAmount * monthlyInterestRate * 3) / 100;
+  // 3. Calculate Simple Interest for 1, 2, and 3 months
+  // Formula: (Principal * Rate * Time) / 100
+  const interest1Month =
+    (estimatedAmount * (parseFloat(loanCalc.firstinterest) || 0) * 1) / 100;
+  const interest2Months =
+    (estimatedAmount * (parseFloat(loanCalc.secondinterest) || 0) * 2) / 100;
+  const interest3Months =
+    (estimatedAmount * (parseFloat(loanCalc.thirdinterest) || 0) * 3) / 100;
 
-// 4. (Optional) If you want to show the TOTAL amount the customer has to pay back
-const totalPayable1Month = estimatedAmount + interest1Month;
-const totalPayable2Months = estimatedAmount + interest2Months;
-const totalPayable3Months = estimatedAmount + interest3Months;
+  // 4. (Optional) If you want to show the TOTAL amount the customer has to pay back
+  const totalPayable1Month = estimatedAmount + interest1Month;
+  const totalPayable2Months = estimatedAmount + interest2Months;
+  const totalPayable3Months = estimatedAmount + interest3Months;
   const handleLoanCalcChange = (e) => {
     setLoanCalc({ ...loanCalc, [e.target.name]: e.target.value });
   };
@@ -373,9 +376,12 @@ const totalPayable3Months = estimatedAmount + interest3Months;
         stoneweight: e.target.stoneweight.value,
         goldrate: e.target.goldrate.value,
         pawnpercentage: e.target.pawnpercentage.value,
-        firstinterest: e.targer.firstinterest.value,
-        secondinterest: e.targer.secondinterest.value,
-        thirdinterest: e.targer.thirdinterest.value,
+        firstinterest: e.target.firstinterest.value,
+        secondinterest: e.target.secondinterest.value,
+        thirdinterest: e.target.thirdinterest.value,
+        firstinterestAmount: interest1Month,
+        secondinterestAmount: interest2Months,
+        thirdinterestAmount: interest3Months,
       };
 
       const res = await axios.post("http://localhost:5000/api/loans", payload, {
@@ -394,9 +400,7 @@ const totalPayable3Months = estimatedAmount + interest3Months;
         stoneweight: "",
         goldrate: "",
         pawnpercentage: "",
-        firstinterest: "",
-        secondinterest: "",
-        thirdinterest: "",
+        interestRate: "",
       });
 
       if (typeof fetchLoans === "function") {
@@ -410,7 +414,7 @@ const totalPayable3Months = estimatedAmount + interest3Months;
     }
   };
 
-  const calculateDynamicInterest = (principal, createdAt) => {
+  const calculateDynamicInterest = (principal, createdAt, r1, r2, r3) => {
     if (!principal || !createdAt) return 0;
 
     const startDate = new Date(createdAt);
@@ -422,20 +426,20 @@ const totalPayable3Months = estimatedAmount + interest3Months;
     const exactMonths = diffInDays / 30;
     const months = Math.max(exactMonths, 1);
 
-    let interestAmount = 0;
+    const tier1Rate = parseFloat(r1) || 0;
+    const tier2Rate = parseFloat(r2) || 0;
+    const tier3Rate = parseFloat(r3) || 0;
 
-    if (months <= 3) {
-      interestAmount = (principal * 17 * months) / (100 * 12);
-    } else {
-      const tier1Interest = (principal * 17 * 3) / (100 * 12);
+    const m1 = Math.min(months, 3);
+    const m2 = Math.max(0, Math.min(months - 3, 3));
+    const m3 = Math.max(0, months - 6);
 
-      const remainingMonths = months - 3;
-      const tier2Interest = (principal * 24 * remainingMonths) / (100 * 12);
+    // Divide by 100 for monthly pawn shop calculation
+    const tier1Interest = (principal * tier1Rate * m1) / 100;
+    const tier2Interest = (principal * tier2Rate * m2) / 100;
+    const tier3Interest = (principal * tier3Rate * m3) / 100;
 
-      interestAmount = tier1Interest + tier2Interest;
-    }
-
-    return Math.round(interestAmount);
+    return Math.round(tier1Interest + tier2Interest + tier3Interest);
   };
 
   useEffect(() => {
@@ -1286,164 +1290,190 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                               பெட்டக நிலை
                             </th>
                             <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-right">
-                              வட்டி
+                              வட்டி / வட்டி நிலை
                             </th>
                             <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-right">
-                              மொத்தம்
+                              மீதமுள்ள தொகை
                             </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-100">
                           {loans && loans.length > 0 ? (
-                            loans.map((loan) => (
-                              <tr
-                                key={loan._id}
-                                className="hover:bg-slate-50 transition-colors">
-                                {/* Date */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-800">
-                                  {loan.paymentDate || loan.createdAt
-                                    ? new Date(
-                                        loan.paymentDate || loan.createdAt,
-                                      ).toLocaleDateString("en-IN", {
-                                        day: "2-digit",
-                                        month: "short",
-                                        year: "numeric",
-                                      })
-                                    : "No Date"}
-                                </td>
+                            loans.map((loan) => {
+                              // 🟢 1. Calculate the total interest generated so far
+                              const totalInterestAccrued =
+                                calculateDynamicInterest(
+                                  loan.loanamount,
+                                  loan.createdAt,
+                                  loan.firstinterest,
+                                  loan.secondinterest,
+                                  loan.thirdinterest,
+                                );
 
-                                {/* Customer */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-800">
-                                  {loan.customer?.name || "Unknown"}
-                                </td>
+                              // 🟢 2. Calculate Pending Interest
+                              const interestPaid = loan.interestPaid || 0;
+                              const pendingInterest =
+                                totalInterestAccrued - interestPaid;
+                              const activePendingInterest =
+                                pendingInterest > 0 ? pendingInterest : 0;
 
-                                {/* Product Details */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm text-slate-600">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-amber-600 font-bold">
-                                      {loan.product.name}
-                                    </span>
-                                    <span className="text-slate-400">/</span>
-                                    <span className="text-slate-800 font-semibold">
-                                      {loan.weight}g
-                                    </span>
-                                    <span className="text-slate-400">/</span>
-                                    <span
-                                      className="text-rose-500 font-semibold text-xs"
-                                      title="Stone Weight">
-                                      {loan.stoneweight}g
-                                    </span>
-                                  </div>
-                                </td>
+                              // 🟢 3. Calculate Remaining Principal
+                              const principalPaid = loan.principalPaid || 0;
+                              const remainingPrincipal =
+                                loan.loanamount - principalPaid;
 
-                                {/* Gold Rate */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-600">
-                                  ₹{loan.goldrate}
-                                </td>
+                              // 🟢 4. Calculate Final Remaining Balance
+                              const remainingTotal =
+                                remainingPrincipal + activePendingInterest;
 
-                                {/* Pawn Percentage */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-500 text-center">
-                                  <span className="bg-slate-100 px-2 py-1 rounded-md">
-                                    {loan.pawnpercentage}%
-                                  </span>
-                                </td>
+                              return (
+                                <tr
+                                  key={loan._id}
+                                  className="hover:bg-slate-50 transition-colors">
+                                  {/* Date */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-800">
+                                    {loan.paymentDate || loan.createdAt
+                                      ? new Date(
+                                          loan.paymentDate || loan.createdAt,
+                                        ).toLocaleDateString("en-IN", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                        })
+                                      : "No Date"}
+                                  </td>
 
-                                {/* Loan Amount */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-600">
-                                  ₹{loan.loanamount?.toFixed(2)}
-                                </td>
+                                  {/* Customer */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-800">
+                                    {loan.customer?.name || "Unknown"}
+                                  </td>
 
-                                {/* Actions (Pay / Receipt) */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm">
-                                  {loan.isClosed ? (
-                                    <div className="relative inline-flex justify-start items-center mt-2">
-                                      {/* The Receipt Button (Stays Behind at z-0) */}
-                                      <button
-                                        onClick={() => {
-                                          setSelectedLoan(loan);
-                                          setReceiptModal(true);
-                                        }}
-                                        className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-2 px-5 rounded-lg text-xs font-bold transition-all shadow-sm relative z-0">
-                                        ரசீது (Receipt)
-                                      </button>
-
-                                      {/* The PAID Stamp (Floats in Front at z-10) */}
-                                      {/* I changed it to absolute, shifted it up/left, and added a slight backdrop blur so it looks like a real stamp! */}
-                                      <span className="absolute -top-3 -left-3 z-10 inline-block border-2 border-emerald-500 bg-emerald-50/90 backdrop-blur-sm text-emerald-600 font-black text-[10px] uppercase tracking-widest py-1 px-2 rounded-md transform -rotate-6 shadow-md pointer-events-none">
-                                        செலுத்தப்பட்டது (PAID)
+                                  {/* Product Details */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm text-slate-600">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-amber-600 font-bold">
+                                        {loan.product?.name || "Product"}
+                                      </span>
+                                      <span className="text-slate-400">/</span>
+                                      <span className="text-slate-800 font-semibold">
+                                        {loan.weight}g
+                                      </span>
+                                      <span className="text-slate-400">/</span>
+                                      <span
+                                        className="text-rose-500 font-semibold text-xs"
+                                        title="Stone Weight">
+                                        {loan.stoneweight}g
                                       </span>
                                     </div>
-                                  ) : (
-                                    <div className="flex flex-col gap-2">
-                                      <button
+                                  </td>
+
+                                  {/* Gold Rate */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-600">
+                                    ₹{loan.goldrate}
+                                  </td>
+
+                                  {/* Pawn Percentage */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-500 text-center">
+                                    <span className="bg-slate-100 px-2 py-1 rounded-md">
+                                      {loan.pawnpercentage}%
+                                    </span>
+                                  </td>
+
+                                  {/* Loan Amount */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-600">
+                                    ₹{loan.loanamount?.toFixed(2)}
+                                  </td>
+
+                                  {/* Actions (Pay / Receipt) */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm">
+                                    {loan.isClosed ? (
+                                      <div className="relative inline-flex justify-start items-center mt-2">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedLoan(loan);
+                                            setReceiptModal(true);
+                                          }}
+                                          className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-2 px-5 rounded-lg text-xs font-bold transition-all shadow-sm relative z-0">
+                                          ரசீது (Receipt)
+                                        </button>
+                                        <span className="absolute -top-3 -left-3 z-10 inline-block border-2 border-emerald-500 bg-emerald-50/90 backdrop-blur-sm text-emerald-600 font-black text-[10px] uppercase tracking-widest py-1 px-2 rounded-md transform -rotate-6 shadow-md pointer-events-none">
+                                          செலுத்தப்பட்டது (PAID)
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col gap-2">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedLoan(loan);
+                                            setPayLoanModal(true);
+                                          }}
+                                          className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
+                                          கடனை செலுத்து (Pay)
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedLoan(loan);
+                                            setReceiptModal(true);
+                                          }}
+                                          className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
+                                          ரசீது (Receipt)
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  {/* Locker Status / Bank */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-center">
+                                    {!loan.isBanked ? (
+                                      <div
                                         onClick={() => {
-                                          setSelectedLoan(loan);
-                                          setPayLoanModal(true);
+                                          setSelectedLoanForBank(loan);
+                                          setIsBankModalOpen(true);
                                         }}
-                                        className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
-                                        கடனை செலுத்து (Pay)
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setSelectedLoan(loan);
-                                          setReceiptModal(true);
-                                        }}
-                                        className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
-                                        ரசீது (Receipt)
-                                      </button>
-                                    </div>
-                                  )}
-                                </td>
+                                        className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-slate-50 hover:bg-amber-50 rounded-full transition-all border border-transparent hover:border-amber-200"
+                                        title="Add to Owner's Bank">
+                                        <img
+                                          src={upi}
+                                          alt="UPI"
+                                          className="w-8 h-8 hover:scale-110 transition duration-150"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="inline-flex items-center justify-center p-1.5">
+                                        <img
+                                          src={ver}
+                                          alt="Verified"
+                                          className="w-8 h-8 drop-shadow-sm"
+                                        />
+                                      </div>
+                                    )}
+                                  </td>
 
-                                {/* Locker Status / Bank */}
-                                <td className="py-4 px-4 whitespace-nowrap text-center">
-                                  {!loan.isBanked ? (
-                                    <div
-                                      onClick={() => {
-                                        setSelectedLoanForBank(loan);
-                                        setIsBankModalOpen(true);
-                                      }}
-                                      className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-slate-50 hover:bg-amber-50 rounded-full transition-all border border-transparent hover:border-amber-200"
-                                      title="Add to Owner's Bank">
-                                      <img
-                                        src={upi}
-                                        alt="UPI"
-                                        className="w-8 h-8 hover:scale-110 transition duration-150"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="inline-flex items-center justify-center p-1.5">
-                                      <img
-                                        src={ver}
-                                        alt="Verified"
-                                        className="w-8 h-8 drop-shadow-sm"
-                                      />
-                                    </div>
-                                  )}
-                                </td>
+                                  {/* 🟢 UPDATED: Interest Column */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-right">
+                                    {loan.isClosed ||
+                                    (interestPaid > 0 &&
+                                      pendingInterest <= 0) ? (
+                                      <span className="inline-flex items-center px-2 py-1 rounded text-[11px] font-black bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-sm">
+                                        ✓ Paid Interest
+                                      </span>
+                                    ) : (
+                                      <span className="text-rose-600">
+                                        + ₹{activePendingInterest.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </td>
 
-                                {/* Interest */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-rose-600 text-right">
-                                  + ₹
-                                  {calculateDynamicInterest(
-                                    loan.loanamount,
-                                    loan.createdAt,
-                                  )}
-                                </td>
-
-                                {/* Total */}
-                                <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-700 bg-emerald-50/50 text-right">
-                                  ₹
-                                  {(
-                                    loan.loanamount +
-                                    calculateDynamicInterest(
-                                      loan.loanamount,
-                                      loan.createdAt,
-                                    )
-                                  ).toFixed(2)}
-                                </td>
-                              </tr>
-                            ))
+                                  {/* 🟢 UPDATED: Total Remaining Column */}
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-700 bg-emerald-50/50 text-right">
+                                    ₹
+                                    {loan.isClosed || remainingTotal <= 0
+                                      ? "0.00"
+                                      : remainingTotal.toFixed(2)}
+                                  </td>
+                                </tr>
+                              );
+                            })
                           ) : (
                             <tr>
                               <td
@@ -1829,7 +1859,6 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                                   </div>
                                 </td>
 
-                                {/* Tier 3: 7 to 9 Months */}
                                 <td className="py-3 px-6 whitespace-nowrap">
                                   <div className="font-bold text-rose-600 text-sm">
                                     ₹{loan.interestBreakdown?.tier3 || 0}
@@ -1839,15 +1868,52 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                                   </div>
                                 </td>
 
-                                {/* Total Current Interest */}
-                                <td className="py-4 px-6 whitespace-nowrap text-sm font-black text-indigo-700 bg-indigo-50/50 text-right">
-                                  ₹{loan.interestBreakdown?.total || 0}
+                                <td className="py-4 px-6 whitespace-nowrap text-right bg-indigo-50/50">
+                                  {(() => {
+                                    const totalAccrued =
+                                      loan.interestBreakdown?.total || 0;
+                                    const paidInterest = loan.interestPaid || 0;
+
+                                    const pendingInterest =
+                                      totalAccrued - paidInterest;
+
+                                    const isFullyPaid =
+                                      totalAccrued > 0 && pendingInterest <= 0;
+
+                                    if (isFullyPaid) {
+                                      return (
+                                        <div className="flex flex-col items-end">
+                                          <span className="text-emerald-600 font-bold flex items-center gap-1 text-sm bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                                            ✓ Paid
+                                          </span>
+                                          <span className="text-xs text-slate-400 line-through mt-1 font-semibold">
+                                            ₹{totalAccrued}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div className="flex flex-col items-end">
+                                        <span className="text-indigo-700 font-black text-sm">
+                                          ₹
+                                          {pendingInterest > 0
+                                            ? pendingInterest
+                                            : totalAccrued}
+                                        </span>
+                                        {paidInterest > 0 && (
+                                          <span className="text-[10px] text-emerald-600 mt-1 font-bold">
+                                            (Paid so far: ₹{paidInterest})
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              {/* Fixed colSpan bug (6 to 8) and fixed the wrong text */}
                               <td
                                 colSpan="8"
                                 className="py-12 px-6 text-center text-slate-500 font-medium">
@@ -2182,6 +2248,7 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                             name="firstinterest"
                             type="number"
                             placeholder="0"
+                            value={loanCalc.firstinterest || ""}
                             onChange={handleLoanCalcChange}
                             className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8"
                             required
@@ -2201,6 +2268,7 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                             name="secondinterest"
                             type="number"
                             placeholder="0"
+                            value={loanCalc.secondinterest || ""}
                             onChange={handleLoanCalcChange}
                             className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8"
                             required
@@ -2219,6 +2287,7 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                             name="thirdinterest"
                             type="number"
                             placeholder="0"
+                            value={loanCalc.thirdinterest || ""}
                             onChange={handleLoanCalcChange}
                             className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8"
                             required
@@ -2231,28 +2300,34 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                     </div>
                     <div className="flex gap-27">
                       <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
                           முதல் வட்டி (INT: 1)
                         </label>
-                      <p>{interest1Month > 0
-                          ? interest1Month.toFixed(2)
-                          : "0.00"}</p>
-                          </div>
+                        <p>
+                          {interest1Month > 0
+                            ? interest1Month.toFixed(2)
+                            : "0.00"}
+                        </p>
+                      </div>
                       <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
                           இரண்டாவது வட்டி (INT: 2)
                         </label>
-                      <p>{interest2Months > 0
-                          ? interest2Months.toFixed(2)
-                          : "0.00"}</p>                         
+                        <p>
+                          {interest2Months > 0
+                            ? interest2Months.toFixed(2)
+                            : "0.00"}
+                        </p>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
                           மூன்றாவது வட்டி (INT: 3)
                         </label>
-                      <p>{interest3Months > 0
-                          ? interest3Months.toFixed(2)
-                          : "0.00"}</p>
+                        <p>
+                          {interest3Months > 0
+                            ? interest3Months.toFixed(2)
+                            : "0.00"}
+                        </p>
                       </div>
                     </div>
 
@@ -2472,22 +2547,74 @@ const totalPayable3Months = estimatedAmount + interest3Months;
                         </p>
                       </div>
 
-                      <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100 print:bg-transparent print:border-black print:rounded-none print:p-2">
-                        <p className="text-indigo-700 font-bold text-xs uppercase tracking-widest print:text-black">
-                          செலுத்திய தொகை
+                      <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 print:bg-transparent print:border-black print:rounded-none print:p-2 flex flex-col">
+                        <p className="text-indigo-700 font-bold text-xs uppercase tracking-widest print:text-black mb-3 border-b border-indigo-200 pb-2 print:border-black">
+                          செலுத்திய விவரங்கள் (Payment History)
                         </p>
+
                         {(() => {
+                          // 1. Get all payments for this specific loan
                           const relatedPayments = paidLoan.filter(
-                            (pl) => pl.loan?._id === selectedLoan._id,
+                            (pl) =>
+                              pl.loan?._id === selectedLoan._id ||
+                              pl.loan === selectedLoan._id,
                           );
+
+                          // 2. If no payments yet, show a simple message
+                          if (relatedPayments.length === 0) {
+                            return (
+                              <div className="text-sm font-semibold text-indigo-400 print:text-slate-500 py-2">
+                                பணம் எதுவும் செலுத்தப்படவில்லை (No payments yet)
+                              </div>
+                            );
+                          }
+
+                          // 3. Calculate total paid
                           const totalPaid = relatedPayments.reduce(
                             (sum, pl) => sum + (pl.amountPaid || 0),
                             0,
                           );
+
+                          // 4. Display the list of payments with Dates
                           return (
-                            <p className="text-2xl font-black text-indigo-800 print:text-black">
-                              ₹{totalPaid.toFixed(2)}
-                            </p>
+                            <div className="space-y-2 w-full">
+                              {relatedPayments.map((payment, index) => (
+                                <div
+                                  key={payment._id || index}
+                                  className="flex justify-between items-center text-sm font-semibold text-slate-700 print:text-black">
+                                  <span className="text-slate-500 print:text-black text-xs">
+                                    {payment.paymentDate
+                                      ? new Date(
+                                          payment.paymentDate,
+                                        ).toLocaleDateString("en-IN", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                        })
+                                      : "Unknown Date"}
+                                  </span>
+                                  <span className="font-bold text-indigo-800 print:text-black">
+                                    ₹{payment.amountPaid?.toFixed(2)}
+                                  </span>
+                                </div>
+                              ))}
+
+                              {/* Total Summary Footer */}
+                              <div className="flex-row justify-between items-center mt-3 pt-3 border-t border-indigo-200 print:border-black">
+                                <span className="text-xs font-bold text-indigo-900 print:text-black uppercase tracking-widest">
+                                  மொத்தம் (Total Paid)
+                                </span>
+                                <span className="text-xl font-black text-indigo-800 print:text-black">
+                                  ₹{totalPaid.toFixed(2)}
+                                </span>
+                                <span className="text-xs font-bold text-indigo-900 print:text-black uppercase tracking-widest">
+                                   மீதமுள்ள தொகை (remaining amount)
+                                </span>
+                                <span className="text-xl font-black text-indigo-800 print:text-black">
+                                  ₹{totalPaid.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
                           );
                         })()}
                       </div>

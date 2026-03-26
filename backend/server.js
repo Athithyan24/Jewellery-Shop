@@ -174,7 +174,7 @@ const Banks = async () => {
   }
 };
 
-const calculateInterestBreakdown = (principal, createdAt) => {
+const calculateInterestBreakdown = (principal, createdAt, r1, r2, r3) => {
   if (!principal || !createdAt) return { tier1: 0, tier2: 0, tier3: 0, total: 0 };
 
   const startDate = new Date(createdAt);
@@ -189,9 +189,9 @@ const calculateInterestBreakdown = (principal, createdAt) => {
   const tier2Months = Math.max(0, Math.min(months - 3, 3));
   const tier3Months = Math.max(0, months - 6);
 
-  const tier1Interest = (principal * 17 * tier1Months) / 1200; 
-  const tier2Interest = (principal * 24 * tier2Months) / 1200; 
-  const tier3Interest = (principal * 24 * tier3Months) / 1200; 
+  const tier1Interest = (principal * (parseFloat(r1) || 0) * tier1Months) / 100; 
+  const tier2Interest = (principal * (parseFloat(r2) || 0) * tier2Months) / 100; 
+  const tier3Interest = (principal * (parseFloat(r3) || 0) * tier3Months) / 100; 
 
   return {
     tier1: Math.round(tier1Interest),
@@ -222,10 +222,14 @@ const loanSchema = new mongoose.Schema({
   firstinterest:Number,
   secondinterest:Number,
   thirdinterest:Number,
+  firstinterestAmount:Number,
+  secondinterestAmount:Number,
+  thirdinterestAmount:Number,
 
   loanamount: Number,
 
-  totalPaid: { type: Number, default: 0 },
+  principalPaid: { type: Number, default: 0 },
+  interestPaid: { type: Number, default: 0 },
   isClosed: { type: Boolean, default: false },
 
   createdAt: {
@@ -304,7 +308,7 @@ const formatDate = (date) => {
   });
 };
 
-const calculateBackendInterest = (principal, createdAt) => {
+const calculateBackendInterest = (principal, createdAt, r1, r2, r3) => {
   const startDate = new Date(createdAt);
   const currentDate = new Date();
   
@@ -312,15 +316,20 @@ const calculateBackendInterest = (principal, createdAt) => {
   const diffInDays = diffInTime / (1000 * 3600 * 24);
   const months = Math.max(diffInDays / 30, 1); 
 
+  const tier1Rate = parseFloat(r1) || 17;
+  const tier2Rate = parseFloat(r2) || 24;
+  const tier3Rate = parseFloat(r3) || 30;
+
+  const m1 = Math.min(months, 3);                   
+  const m2 = Math.max(0, Math.min(months - 3, 3));  
+  const m3 = Math.max(0, months - 6);
+
   let interestAmount = 0;
-  if (months <= 3) {
-    interestAmount = (principal * 17 * months) / (100 * 12);
-  } else {
-    const tier1Interest = (principal * 17 * 3) / (100 * 12);
-    const remainingMonths = months - 3;
-    const tier2Interest = (principal * 24 * remainingMonths) / (100 * 12);
-    interestAmount = tier1Interest + tier2Interest;
-  }
+  
+    const tier1Interest = (principal * tier1Rate * m1) / (100);
+    const tier2Interest = (principal * tier2Rate * m2) / (100);
+    const tire3Interest = (principal * tier3Rate * m3) / (100);
+    interestAmount = tier1Interest + tier2Interest + tire3Interest;
   return Math.round(interestAmount);
 };
 
@@ -447,13 +456,18 @@ app.get("/api/loans", verifyToken, async (req, res) => {
       .lean(); 
 
     const loansWithCalculations = loans.map((loan) => {
-      const totalPaid = loan.totalPaid || 0;
-      const remainingPrincipal = loan.loanamount - totalPaid;
+      const principalPaid = loan.principalPaid || 0;
+      const remainingPrincipal = loan.loanamount - principalPaid;
       const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
 
-      const interestBreakdown = calculateInterestBreakdown(principalToCalculate, loan.createdAt);
+      const interestBreakdown = calculateInterestBreakdown(principalToCalculate, loan.createdAt,
+        loan.firstinterest, loan.secondinterest, loan.thirdinterest
+      );
+
+      const interestPaid = loan.interestPaid || 0;
+      const pendingInterest = interestBreakdown.total - interestPaid;
       
-      const currentBalance = principalToCalculate + interestBreakdown.total;
+      const currentBalance = principalToCalculate + (pendingInterest > 0 ? pendingInterest : 0);
 
       const startDate = loan.createdAt;
       const endTier1Date = addMonths(startDate, 3);
@@ -470,6 +484,7 @@ app.get("/api/loans", verifyToken, async (req, res) => {
         interestBreakdown,
         dateRanges,
         currentBalance,
+        pendingInterest,
         formattedDate: loan.createdAt ? formatDate(loan.createdAt) : "No Date"
       };
     });
@@ -605,23 +620,50 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
     if (!loan) return res.status(404).json({ message: "Loan not found" });
     if (loan.isClosed) return res.status(400).json({ message: "Loan is already closed." });
 
-    const currentInterest = calculateBackendInterest(loan.loanamount, loan.createdAt);
-    const totalObligation = loan.loanamount + currentInterest;
-    const previouslyPaid = loan.totalPaid || 0;
-    const currentTotalDue = totalObligation - previouslyPaid;
+    const currentInterest = calculateBackendInterest(
+      loan.loanamount, 
+      loan.createdAt, 
+      loan.firstinterest, 
+      loan.secondinterest, 
+      loan.thirdinterest
+    );
+    
+    const previouslyPaidInterest = loan.interestPaid || 0;
+    const pendingInterest = currentInterest - previouslyPaidInterest;
+    const activePendingInterest = pendingInterest > 0 ? pendingInterest : 0;
 
-    if (payment > (currentTotalDue + 1)) { // +1 for small rounding decimals
+    const previouslyPaidPrincipal = loan.principalPaid || 0;
+    const remainingPrincipal = loan.loanamount - previouslyPaidPrincipal;
+
+    const currentTotalDue = remainingPrincipal + activePendingInterest;
+
+    if (payment > (currentTotalDue + 1)) { 
       return res.status(400).json({ 
         message: `Amount ₹${payment} exceeds the current due of ₹${currentTotalDue.toFixed(2)}` 
       });
     }
 
-    // Logic for Closing Loan
+    let remainingPayment = payment;
+
     if (payType === "Full Pay" || payment >= (currentTotalDue - 1)) {
        loan.isClosed = true;
+       loan.interestPaid = previouslyPaidInterest + activePendingInterest;
+       loan.principalPaid = loan.loanamount; 
+    } else {
+       if (remainingPayment >= activePendingInterest) {
+           loan.interestPaid = previouslyPaidInterest + activePendingInterest;
+           remainingPayment -= activePendingInterest; 
+       } else {
+           loan.interestPaid = previouslyPaidInterest + remainingPayment;
+           remainingPayment = 0; 
+       }
+
+       if (remainingPayment > 0) {
+           loan.principalPaid = previouslyPaidPrincipal + remainingPayment;
+       }
     }
 
-    loan.totalPaid = previouslyPaid + payment;
+    loan.totalPaid = (loan.totalPaid || 0) + payment;
 
     const newTransaction = new PayLoan({
       customer: loan.customer,
@@ -700,8 +742,6 @@ app.post(
         return res.status(400).json({ message: "Images not uploaded" });
       }
 
-      
-
       const newCustomer = new Customer({
         name,
         dob,
@@ -742,6 +782,9 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       firstinterest,
       secondinterest,
       thirdinterest,
+      firstinterestAmount,
+      secondinterestAmount,
+      thirdinterestAmount,
     } = req.body;
 
     const netWeight = weight - stoneweight;
@@ -761,6 +804,9 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       secondinterest,
       thirdinterest,
       loanamount,
+      firstinterestAmount,
+      secondinterestAmount,
+      thirdinterestAmount,
       createdBy: req.user.id,
     });
 
