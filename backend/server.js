@@ -219,12 +219,23 @@ const loanSchema = new mongoose.Schema({
   stoneweight: Number,
   goldrate: Number,
   pawnpercentage: Number,
+
   firstinterest:Number,
   secondinterest:Number,
   thirdinterest:Number,
+
   firstinterestAmount:Number,
   secondinterestAmount:Number,
   thirdinterestAmount:Number,
+
+  firstInterestFrom: { type: Number, default: 1 },
+  firstInterestTo: { type: Number, default: 90 },
+  
+  secondInterestFrom: { type: Number, default: 91 },
+  secondInterestTo: { type: Number, default: 180 },
+  
+  thirdInterestFrom: { type: Number, default: 181 },
+  thirdInterestTo: { type: Number, default: 270},  
 
   loanamount: Number,
 
@@ -308,7 +319,10 @@ const formatDate = (date) => {
   });
 };
 
-const calculateBackendInterest = (principal, createdAt, r1, r2, r3) => {
+const calculateBackendInterest = (principal, createdAt, r1, r2, r3, 
+  t1From = 1, t1To = 90, 
+  t2From = 91, t2To = 180, 
+  t3From = 181, t3To = 270) => {
   const startDate = new Date(createdAt);
   const currentDate = new Date();
   
@@ -316,13 +330,17 @@ const calculateBackendInterest = (principal, createdAt, r1, r2, r3) => {
   const diffInDays = diffInTime / (1000 * 3600 * 24);
   const months = Math.max(diffInDays / 30, 1); 
 
-  const tier1Rate = parseFloat(r1) || 17;
-  const tier2Rate = parseFloat(r2) || 24;
-  const tier3Rate = parseFloat(r3) || 30;
+  const tier1Rate = parseFloat(r1) || 1;
+  const tier2Rate = parseFloat(r2) || 1;
+  const tier3Rate = parseFloat(r3) || 1;
 
-  const m1 = Math.min(months, 3);                   
-  const m2 = Math.max(0, Math.min(months - 3, 3));  
-  const m3 = Math.max(0, months - 6);
+  const daysInTier1 = Math.max(0, Math.min(diffInDays, t1To) - (t1From - 1));
+  const daysInTier2 = Math.max(0, Math.min(diffInDays, t2To) - (t2From - 1));
+  const daysInTier3 = Math.max(0, diffInDays - (t3From - 1));
+
+  const m1 = daysInTier1 / 30;                  
+  const m2 = daysInTier2 / 30;  
+  const m3 = daysInTier3 / 30;
 
   let interestAmount = 0;
   
@@ -785,6 +803,9 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       firstinterestAmount,
       secondinterestAmount,
       thirdinterestAmount,
+      firstInterestFrom, firstInterestTo,
+      secondInterestFrom, secondInterestTo,
+      thirdInterestFrom, thirdInterestTo,
     } = req.body;
 
     const netWeight = weight - stoneweight;
@@ -803,6 +824,12 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       firstinterest,
       secondinterest,
       thirdinterest,
+      firstInterestFrom: firstInterestFrom || 1,
+      firstInterestTo: firstInterestTo || 90,
+      secondInterestFrom: secondInterestFrom || 91,
+      secondInterestTo: secondInterestTo || 180,
+      thirdInterestFrom: thirdInterestFrom || 181,
+      thirdInterestTo: thirdInterestTo || 270,
       loanamount,
       firstinterestAmount,
       secondinterestAmount,
