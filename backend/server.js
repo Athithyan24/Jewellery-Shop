@@ -6,26 +6,25 @@ import mongoose from "mongoose";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from 'url';
-
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 const app = express();
 app.use(cors());
 app.use(express.json());
 const PORT = 5000;
 
-const uploadPath = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+const uploadPath = process.env.UPLOAD_DIR || path.join(__dirname, "uploads");
 
 if (!fs.existsSync(uploadPath)) {
-    fs.mkdirSync(uploadPath, { recursive: true });
+  fs.mkdirSync(uploadPath, { recursive: true });
 }
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadPath); 
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -55,9 +54,13 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ["superadmin", "worker"], default: "worker" },
 
-  shoptype: {type: String, required: true},
+  shoptype: { type: String, required: true },
 
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
 });
 const User = mongoose.model("User", userSchema);
 
@@ -73,7 +76,7 @@ const createSuperAdmin = async () => {
       role: "superadmin",
       shoptype: "Headquarters",
     });
-    
+
     console.log(
       "Super Admin account created! Username: admin | Password: adminpassword",
     );
@@ -89,7 +92,11 @@ const customerSchema = new mongoose.Schema({
   recentimage: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 const Customer = mongoose.model("Customer", customerSchema);
 
@@ -138,7 +145,7 @@ const bankSchema = new mongoose.Schema({
   name: { type: String, required: true },
 });
 
-const Bank = mongoose.model("Bank", bankSchema)
+const Bank = mongoose.model("Bank", bankSchema);
 
 const Banks = async () => {
   try {
@@ -177,29 +184,29 @@ const Banks = async () => {
 };
 
 const calculateInterestBreakdown = (principal, createdAt, r1, r2, r3) => {
-  if (!principal || !createdAt) return { tier1: 0, tier2: 0, tier3: 0, total: 0 };
+  if (!principal || !createdAt)
+    return { tier1: 0, tier2: 0, tier3: 0, total: 0 };
 
   const startDate = new Date(createdAt);
   const currentDate = new Date();
 
-
   const diffInTime = currentDate.getTime() - startDate.getTime();
   const diffInDays = diffInTime / (1000 * 3600 * 24);
-  const months = Math.max(diffInDays / 30, 1); 
+  const months = Math.max(diffInDays / 30, 1);
 
   const tier1Months = Math.min(months, 3);
   const tier2Months = Math.max(0, Math.min(months - 3, 3));
   const tier3Months = Math.max(0, months - 6);
 
-  const tier1Interest = (principal * (parseFloat(r1) || 0) * tier1Months) / 100; 
-  const tier2Interest = (principal * (parseFloat(r2) || 0) * tier2Months) / 100; 
-  const tier3Interest = (principal * (parseFloat(r3) || 0) * tier3Months) / 100; 
+  const tier1Interest = (principal * (parseFloat(r1) || 0) * tier1Months) / 100;
+  const tier2Interest = (principal * (parseFloat(r2) || 0) * tier2Months) / 100;
+  const tier3Interest = (principal * (parseFloat(r3) || 0) * tier3Months) / 100;
 
   return {
     tier1: Math.round(tier1Interest),
     tier2: Math.round(tier2Interest),
     tier3: Math.round(tier3Interest),
-    total: Math.round(tier1Interest + tier2Interest + tier3Interest)
+    total: Math.round(tier1Interest + tier2Interest + tier3Interest),
   };
 };
 
@@ -216,28 +223,27 @@ const loanSchema = new mongoose.Schema({
     required: true,
   },
 
-
   weight: Number,
   stoneweight: Number,
   goldrate: Number,
   pawnpercentage: Number,
 
-  firstinterest:Number,
-  secondinterest:Number,
-  thirdinterest:Number,
+  firstinterest: Number,
+  secondinterest: Number,
+  thirdinterest: Number,
 
-  firstinterestAmount:Number,
-  secondinterestAmount:Number,
-  thirdinterestAmount:Number,
+  firstinterestAmount: Number,
+  secondinterestAmount: Number,
+  thirdinterestAmount: Number,
 
   firstInterestFrom: { type: Number, default: 1 },
   firstInterestTo: { type: Number, default: 90 },
-  
+
   secondInterestFrom: { type: Number, default: 91 },
   secondInterestTo: { type: Number, default: 180 },
-  
+
   thirdInterestFrom: { type: Number, default: 181 },
-  thirdInterestTo: { type: Number, default: 270},  
+  thirdInterestTo: { type: Number, default: 270 },
 
   loanamount: Number,
 
@@ -252,7 +258,11 @@ const loanSchema = new mongoose.Schema({
 
   isBanked: { type: Boolean, default: false },
 
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 
 const Loan = mongoose.model("Loan", loanSchema);
@@ -278,7 +288,11 @@ const payLoanSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 
 const PayLoan = mongoose.model("PayLoan", payLoanSchema);
@@ -299,13 +313,17 @@ const bankDetailsSchema = new mongoose.Schema({
     ref: "Bank",
     required: true,
   },
-  branchname: {type: String, required: true},
-  accountno: {type: String, required: true},
-  lockerno: {type: String, required: true},
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  branchname: { type: String, required: true },
+  accountno: { type: String, required: true },
+  lockerno: { type: String, required: true },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 
-const BankDetails = mongoose.model ("BankDetails",  bankDetailsSchema)
+const BankDetails = mongoose.model("BankDetails", bankDetailsSchema);
 
 const addMonths = (dateString, months) => {
   const d = new Date(dateString);
@@ -314,23 +332,32 @@ const addMonths = (dateString, months) => {
 };
 
 const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 };
 
-const calculateBackendInterest = (principal, createdAt, r1, r2, r3, 
-  t1From = 1, t1To = 90, 
-  t2From = 91, t2To = 180, 
-  t3From = 181, t3To = 270) => {
+const calculateBackendInterest = (
+  principal,
+  createdAt,
+  r1,
+  r2,
+  r3,
+  t1From = 1,
+  t1To = 90,
+  t2From = 91,
+  t2To = 180,
+  t3From = 181,
+  t3To = 270,
+) => {
   const startDate = new Date(createdAt);
   const currentDate = new Date();
-  
+
   const diffInTime = currentDate.getTime() - startDate.getTime();
   const exactDiffInDays = diffInTime / (1000 * 3600 * 24);
-  const diffInDays = Math.max(exactDiffInDays, 30); 
+  const diffInDays = Math.max(exactDiffInDays, 30);
 
   const tier1Rate = parseFloat(r1) || 1;
   const tier2Rate = parseFloat(r2) || 1;
@@ -340,8 +367,8 @@ const calculateBackendInterest = (principal, createdAt, r1, r2, r3,
   const daysInTier2 = Math.max(0, Math.min(diffInDays, t2To) - (t2From - 1));
   const daysInTier3 = Math.max(0, Math.min(diffInDays, t3To) - (t3From - 1));
 
-  const m1 = daysInTier1 / 30;                  
-  const m2 = daysInTier2 / 30;  
+  const m1 = daysInTier1 / 30;
+  const m2 = daysInTier2 / 30;
   const m3 = daysInTier3 / 30;
 
   const tier1Gross = (principal * tier1Rate * m1) / 100;
@@ -351,16 +378,16 @@ const calculateBackendInterest = (principal, createdAt, r1, r2, r3,
   let totalInterestAccrued = tier1Gross + tier2Gross + tier3Gross;
 
   let interestAmount = 0;
-  
-    const tier1Interest = (principal * tier1Rate * m1) / (100);
-    const tier2Interest = (principal * tier2Rate * m2) / (100);
-    const tire3Interest = (principal * tier3Rate * m3) / (100);
-    interestAmount = tier1Interest + tier2Interest + tire3Interest;
+
+  const tier1Interest = (principal * tier1Rate * m1) / 100;
+  const tier2Interest = (principal * tier2Rate * m2) / 100;
+  const tire3Interest = (principal * tier3Rate * m3) / 100;
+  interestAmount = tier1Interest + tier2Interest + tire3Interest;
   return {
     total: Math.round(totalInterestAccrued),
-    tier1Gross: Math.round(tier1Gross), 
+    tier1Gross: Math.round(tier1Gross),
     tier2Gross: Math.round(tier2Gross),
-    tier3Gross: Math.round(tier3Gross)
+    tier3Gross: Math.round(tier3Gross),
   };
 };
 
@@ -384,7 +411,10 @@ const verifyToken = (req, res, next) => {
 
 app.get("/api/daily-stats", verifyToken, async (req, res) => {
   try {
-    const matchCondition = req.user.role === "superadmin" ? {} : { createdBy: new mongoose.Types.ObjectId(req.user.id) };
+    const matchCondition =
+      req.user.role === "superadmin"
+        ? {}
+        : { createdBy: new mongoose.Types.ObjectId(req.user.id) };
     const dailyLoans = await Loan.aggregate([
       { $match: matchCondition },
       {
@@ -406,21 +436,29 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
     ]);
 
     const statsMap = {};
-    
+
     dailyLoans.forEach((item) => {
-      statsMap[item._id] = { date: item._id, loanGiven: item.totalLoanGiven, income: 0 };
+      statsMap[item._id] = {
+        date: item._id,
+        loanGiven: item.totalLoanGiven,
+        income: 0,
+      };
     });
 
     dailyIncome.forEach((item) => {
       if (statsMap[item._id]) {
         statsMap[item._id].income = item.totalIncome;
       } else {
-        statsMap[item._id] = { date: item._id, loanGiven: 0, income: item.totalIncome };
+        statsMap[item._id] = {
+          date: item._id,
+          loanGiven: 0,
+          income: item.totalIncome,
+        };
       }
     });
 
     const statsArray = Object.values(statsMap).sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
+      (a, b) => new Date(b.date) - new Date(a.date),
     );
 
     res.status(200).json(statsArray);
@@ -432,10 +470,9 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
 
 app.get("/api/users", verifyToken, async (req, res) => {
   try {
-    
-
-    const myWorkers = await User.find({ createdBy: req.user.id })
-                                .select("-password"); 
+    const myWorkers = await User.find({ createdBy: req.user.id }).select(
+      "-password",
+    );
 
     res.status(200).json(myWorkers);
   } catch (error) {
@@ -445,27 +482,27 @@ app.get("/api/users", verifyToken, async (req, res) => {
 });
 
 app.get("/api/loguser", verifyToken, async (req, res) => {
-  try{
-   const user = await User.findById(req.user.id || req.userId);
+  try {
+    const user = await User.findById(req.user.id || req.userId);
 
-   if (!user) {
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    
-   res.status(200).json(user);
-  }
-  catch (error){
+
+    res.status(200).json(user);
+  } catch (error) {
     res.status(500).json({ message: "Failed to fetch user", error });
   }
-})
+});
 
 app.get("/api/loans", verifyToken, async (req, res) => {
   try {
-    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const query =
+      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const loans = await Loan.find(query)
       .populate("customer")
       .populate("product")
-      .lean(); 
+      .lean();
 
     // நாட்களை கூட்ட உதவும் Function
     const addDays = (date, days) => {
@@ -477,21 +514,22 @@ app.get("/api/loans", verifyToken, async (req, res) => {
     const loansWithCalculations = loans.map((loan) => {
       const principalPaid = loan.principalPaid || 0;
       const remainingPrincipal = loan.loanamount - principalPaid;
-      const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
+      const principalToCalculate =
+        remainingPrincipal > 0 ? remainingPrincipal : 0;
 
       // 🟢 மீதமுள்ள அசலை வைத்து Dynamic நாட்களின்படி வட்டி கணக்கிடுதல்
       const interestData = calculateBackendInterest(
-        principalToCalculate, 
+        loan.loanamount,
         loan.createdAt,
-        loan.firstinterest, 
-        loan.secondinterest, 
+        loan.firstinterest,
+        loan.secondinterest,
         loan.thirdinterest,
         loan.firstInterestFrom,
         loan.firstInterestTo,
         loan.secondInterestFrom,
         loan.secondInterestTo,
         loan.thirdInterestFrom,
-        loan.thirdInterestTo
+        loan.thirdInterestTo,
       );
 
       const totalInterest = interestData.total;
@@ -499,27 +537,27 @@ app.get("/api/loans", verifyToken, async (req, res) => {
       const interestPaid = loan.interestPaid || 0;
       const pendingInterest = totalInterest - interestPaid;
       const activePendingInterest = pendingInterest > 0 ? pendingInterest : 0;
-      
+
       const currentBalance = principalToCalculate + activePendingInterest;
 
       const startDate = loan.createdAt;
-      
+
       const endTier1Date = addDays(startDate, loan.firstInterestTo || 90);
       const endTier2Date = addDays(startDate, loan.secondInterestTo || 180);
 
       const dateRanges = {
         tier1: `${formatDate(startDate)} - ${formatDate(endTier1Date)}`,
         tier2: `${formatDate(endTier1Date)} - ${formatDate(endTier2Date)}`,
-        tier3: `From ${formatDate(endTier2Date)}`
+        tier3: `From ${formatDate(endTier2Date)}`,
       };
 
       return {
         ...loan,
-        interestBreakdown: interestData, 
+        interestBreakdown: interestData,
         dateRanges,
         currentBalance,
         pendingInterest: activePendingInterest,
-        formattedDate: loan.createdAt ? formatDate(loan.createdAt) : "No Date"
+        formattedDate: loan.createdAt ? formatDate(loan.createdAt) : "No Date",
       };
     });
 
@@ -532,7 +570,8 @@ app.get("/api/loans", verifyToken, async (req, res) => {
 
 app.get("/api/customers", verifyToken, async (req, res) => {
   try {
-    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const query =
+      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const customers = await Customer.find(query);
     res.status(200).json(customers);
   } catch (error) {
@@ -549,19 +588,21 @@ app.get("/api/products", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/payLoan", verifyToken, async(req, res)=>{
-  try{
-    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
-    const payLoans = await PayLoan.find(query).populate("customer").populate(({
-        path: "loan",       
+app.get("/api/payLoan", verifyToken, async (req, res) => {
+  try {
+    const query =
+      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const payLoans = await PayLoan.find(query)
+      .populate("customer")
+      .populate({
+        path: "loan",
         populate: {
-          path: "product"   
-        }
-      }));
+          path: "product",
+        },
+      });
     res.status(200).json(payLoans);
-  }
-  catch (error){
-    res.status(500).json({message: "Failed to fetch loans", error})
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch loans", error });
   }
 });
 
@@ -576,70 +617,81 @@ app.get("/api/banks", verifyToken, async (req, res) => {
 });
 
 app.get("/api/bankDetails", verifyToken, async (req, res) => {
-  try{
-    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+  try {
+    const query =
+      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const locker = await BankDetails.find(query)
-    .populate("customer", "name recentimage")
-    .populate("bank", "name")
-    .populate({
+      .populate("customer", "name recentimage")
+      .populate("bank", "name")
+      .populate({
         path: "loan",
         select: "product loanamount",
-        populate: { path: "product", select: "name" } 
-      })
+        populate: { path: "product", select: "name" },
+      });
     res.status(200).json(locker);
-  }
-  catch(error){
+  } catch (error) {
     console.error("Error fetching Customers Locker: ", error);
-    res.status(500).json({message: "Failed to fetch Customer's Assigned Locker"})
+    res
+      .status(500)
+      .json({ message: "Failed to fetch Customer's Assigned Locker" });
   }
-} );
+});
 
 app.post("/api/users", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "superadmin") {
-      return res.status(403).json({ message: "Access denied: Only superadmins can create workers." });
+      return res
+        .status(403)
+        .json({
+          message: "Access denied: Only superadmins can create workers.",
+        });
     }
 
     const { username, password, shopname } = req.body;
 
     const existingUser = await User.findOne({ username });
     if (existingUser) {
-      return res.status(400).json({ message: "Username already exists. Choose another." });
+      return res
+        .status(400)
+        .json({ message: "Username already exists. Choose another." });
     }
 
     const newUser = new User({
       username,
-      password, 
+      password,
       role: "worker",
       shoptype: shopname,
-      createdBy: req.user.id 
+      createdBy: req.user.id,
     });
 
     await newUser.save();
 
-    res.status(201).json({ 
-      message: `Worker created successfully for shop: ${shopname}`, 
-      user: { username: newUser.username, role: newUser.role, shoptype : newUser.shoptype } 
+    res.status(201).json({
+      message: `Worker created successfully for shop: ${shopname}`,
+      user: {
+        username: newUser.username,
+        role: newUser.role,
+        shoptype: newUser.shoptype,
+      },
     });
-
   } catch (error) {
     console.error("Create User Error:", error);
     res.status(500).json({ message: "Failed to create worker" });
   }
 });
 
-app.post("/api/bankDetails", verifyToken, async (req, res) =>  {
-  try{
-    const {loanId, bankId, branchname, accountno, lockerno} = req.body;
+app.post("/api/bankDetails", verifyToken, async (req, res) => {
+  try {
+    const { loanId, bankId, branchname, accountno, lockerno } = req.body;
     const loan = await Loan.findById(loanId);
-    if (!loan || !bankId || !branchname || !accountno || !lockerno){
-      return res.status(400).json({message: "All fields are required"});
+    if (!loan || !bankId || !branchname || !accountno || !lockerno) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     const newBankDetails = new BankDetails({
       customer: loan.customer,
       loan: loanId,
-      bank: bankId, 
+      bank: bankId,
       branchname,
       accountno,
       lockerno,
@@ -647,22 +699,21 @@ app.post("/api/bankDetails", verifyToken, async (req, res) =>  {
     });
     await newBankDetails.save();
 
-    loan.isBanked = true; 
+    loan.isBanked = true;
     await loan.save();
 
     res.status(201).json({
       message: "Owner's bank details saved successfully",
       bankDetails: newBankDetails,
     });
-  }catch (error) {
+  } catch (error) {
     console.error("Error saving bank details:", error);
     res.status(500).json({
       message: "Failed to save bank details",
       error: error.message || error,
     });
   }
-})
-
+});
 
 app.post("/api/payLoan", verifyToken, async (req, res) => {
   try {
@@ -671,17 +722,19 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
 
     const loan = await Loan.findById(loanId);
     if (!loan) return res.status(404).json({ message: "Loan not found" });
-    if (loan.isClosed) return res.status(400).json({ message: "Loan is already closed." });
+    if (loan.isClosed)
+      return res.status(400).json({ message: "Loan is already closed." });
 
     const previouslyPaidPrincipal = loan.principalPaid || 0;
     const remainingPrincipal = loan.loanamount - previouslyPaidPrincipal;
-    const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
+    const principalToCalculate =
+      remainingPrincipal > 0 ? remainingPrincipal : 0;
 
     const interestData = calculateBackendInterest(
-      loan.loanamount, 
-      loan.createdAt, 
-      loan.firstinterest, 
-      loan.secondinterest, 
+      loan.loanamount,
+      loan.createdAt,
+      loan.firstinterest,
+      loan.secondinterest,
       loan.thirdinterest,
       loan.firstInterestFrom,
       loan.firstInterestTo,
@@ -690,7 +743,7 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
       loan.thirdInterestFrom,
       loan.thirdInterestTo,
     );
-    
+
     const currentInterests = interestData.total;
 
     const previouslyPaidInterest = loan.interestPaid || 0;
@@ -699,30 +752,30 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
 
     const currentTotalDue = remainingPrincipal + activePendingInterest;
 
-    if (payment > (currentTotalDue + 1)) { 
-      return res.status(400).json({ 
-        message: `Amount ₹${payment} exceeds the current due of ₹${currentTotalDue.toFixed(2)}` 
+    if (payment > currentTotalDue + 1) {
+      return res.status(400).json({
+        message: `Amount ₹${payment} exceeds the current due of ₹${currentTotalDue.toFixed(2)}`,
       });
     }
 
     let remainingPayment = payment;
 
-    if (payType === "Full Pay" || payment >= (currentTotalDue - 1)) {
-       loan.isClosed = true;
-       loan.interestPaid = previouslyPaidInterest + activePendingInterest;
-       loan.principalPaid = loan.loanamount; 
+    if (payType === "Full Pay" || payment >= currentTotalDue - 1) {
+      loan.isClosed = true;
+      loan.interestPaid = previouslyPaidInterest + activePendingInterest;
+      loan.principalPaid = loan.loanamount;
     } else {
-       if (remainingPayment >= activePendingInterest) {
-           loan.interestPaid = previouslyPaidInterest + activePendingInterest;
-           remainingPayment -= activePendingInterest; 
-       } else {
-           loan.interestPaid = previouslyPaidInterest + remainingPayment;
-           remainingPayment = 0; 
-       }
+      if (remainingPayment >= activePendingInterest) {
+        loan.interestPaid = previouslyPaidInterest + activePendingInterest;
+        remainingPayment -= activePendingInterest;
+      } else {
+        loan.interestPaid = previouslyPaidInterest + remainingPayment;
+        remainingPayment = 0;
+      }
 
-       if (remainingPayment > 0) {
-           loan.principalPaid = previouslyPaidPrincipal + remainingPayment;
-       }
+      if (remainingPayment > 0) {
+        loan.principalPaid = previouslyPaidPrincipal + remainingPayment;
+      }
     }
 
     loan.totalPaid = (loan.totalPaid || 0) + payment;
@@ -732,9 +785,9 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
       loan: loan._id,
       amountPaid: payment,
       payType: payType,
-      interestCalculated: currentInterests, 
+      interestCalculated: currentInterests,
       remainingBalance: currentTotalDue - payment,
-      createdBy: req.user.id, 
+      createdBy: req.user.id,
     });
 
     await newTransaction.save();
@@ -743,12 +796,13 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
     res.status(201).json({
       message: "Payment securely processed and recorded.",
       transaction: newTransaction,
-      isClosed: loan.isClosed
+      isClosed: loan.isClosed,
     });
-
   } catch (error) {
     console.error("Payment Error:", error);
-    res.status(500).json({ message: "Internal Server Error processing payment." });
+    res
+      .status(500)
+      .json({ message: "Internal Server Error processing payment." });
   }
 });
 
@@ -766,17 +820,17 @@ app.post("/api/login", async (req, res) => {
     const token = jwt.sign(
       { id: user._id, role: user.role, username: user.username },
       process.env.SECRET_KEY,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
-    res.status(200).json({ 
-      token, 
-      role: user.role, 
-      username: user.username, 
-      shoptype: user.shoptype 
+    res.status(200).json({
+      token,
+      role: user.role,
+      username: user.username,
+      shoptype: user.shoptype,
     });
   } catch (error) {
-    console.error("Login Error:", error); 
+    console.error("Login Error:", error);
     res.status(500).json({ message: "Server error during login" });
   }
 });
@@ -813,7 +867,7 @@ app.post(
         recentimage: req.files["recentimage"][0].filename,
         email,
         phone,
-        createdBy: req.user.id
+        createdBy: req.user.id,
       });
 
       await newCustomer.save();
@@ -847,9 +901,12 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       firstinterestAmount,
       secondinterestAmount,
       thirdinterestAmount,
-      firstInterestFrom, firstInterestTo,
-      secondInterestFrom, secondInterestTo,
-      thirdInterestFrom, thirdInterestTo,
+      firstInterestFrom,
+      firstInterestTo,
+      secondInterestFrom,
+      secondInterestTo,
+      thirdInterestFrom,
+      thirdInterestTo,
     } = req.body;
 
     const netWeight = weight - stoneweight;
