@@ -135,12 +135,12 @@ export default function AdminPage() {
     firstinterest: "",
     secondinterest: "",
     thirdinterest: "",
-    firstInterestTo:"",
-    firstInterestFrom:"",
-    secondInterestFrom:"",
-    secondInterestTo:"",
-    thirdInterestFrom:"",
-    thirdInterestTo:"",
+    firstInterestTo: "",
+    firstInterestFrom: "",
+    secondInterestFrom: "",
+    secondInterestTo: "",
+    thirdInterestFrom: "",
+    thirdInterestTo: "",
   });
 
   const netWeight =
@@ -152,13 +152,34 @@ export default function AdminPage() {
       (parseFloat(loanCalc.pawnpercentage) || 0)) /
     100;
   // 3. Calculate Simple Interest for 1, 2, and 3 months
-  const t1Days = (parseFloat(loanCalc.firstInterestTo) || 90) - (parseFloat(loanCalc.firstInterestFrom) || 1) + 1;
-  const t2Days = (parseFloat(loanCalc.secondInterestTo) || 180) - (parseFloat(loanCalc.secondInterestFrom) || 91) + 1;
-  const t3Days = (parseFloat(loanCalc.thirdInterestTo) || 270) - (parseFloat(loanCalc.thirdInterestFrom) || 181) + 1;;
+  const t1Days =
+    (parseFloat(loanCalc.firstInterestTo) || 90) -
+    (parseFloat(loanCalc.firstInterestFrom) || 1) +
+    1;
+  const t2Days =
+    (parseFloat(loanCalc.secondInterestTo) || 180) -
+    (parseFloat(loanCalc.secondInterestFrom) || 91) +
+    1;
+  const t3Days =
+    (parseFloat(loanCalc.thirdInterestTo) || 270) -
+    (parseFloat(loanCalc.thirdInterestFrom) || 181) +
+    1;
   // Formula: (Principal * Rate * Time) / 100
-  const interest1Month = (estimatedAmount * (parseFloat(loanCalc.firstinterest) || 0) * (t1Days / 30)) / 100;
-  const interest2Months = (estimatedAmount * (parseFloat(loanCalc.secondinterest) || 0) * (t2Days / 30)) / 100;
-  const interest3Months = (estimatedAmount * (parseFloat(loanCalc.thirdinterest) || 0) * (t3Days / 30)) / 100;
+  const interest1Month =
+    (estimatedAmount *
+      (parseFloat(loanCalc.firstinterest) || 0) *
+      (t1Days / 30)) /
+    100;
+  const interest2Months =
+    (estimatedAmount *
+      (parseFloat(loanCalc.secondinterest) || 0) *
+      (t2Days / 30)) /
+    100;
+  const interest3Months =
+    (estimatedAmount *
+      (parseFloat(loanCalc.thirdinterest) || 0) *
+      (t3Days / 30)) /
+    100;
 
   // 4. (Optional) If you want to show the TOTAL amount the customer has to pay back
   const totalPayable1Month = estimatedAmount + interest1Month;
@@ -689,11 +710,11 @@ export default function AdminPage() {
           <div className="absolute top-4 left-1/4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
           <div className="absolute top-4 right-1/4 w-72 h-72 bg-cyan-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
           <div className="absolute -bottom-8 left-1/3 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000"></div>
-            <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden opacity-[0.03] select-none">
-          <h1 className="text-[8vw] font-black uppercase tracking-[0.3em] text-slate-900 -rotate-45 whitespace-nowrap">
-            infoZenX IT
-          </h1>
-        </div>
+          <div className="fixed inset-0 z-50 pointer-events-none flex items-end overflow-hidden opacity-20 select-none">
+            <h1 className="text-2xl font-black uppercase tracking-[0.3em] text-slate-900  whitespace-nowrap">
+              infoZenX IT
+            </h1>
+          </div>
           <header className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/60 shadow-xl rounded-3xl p-10 max-w-2xl w-full flex flex-col items-center justify-center transition-all duration-300 hover:shadow-2xl hover:bg-white/70">
             <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-800 tracking-tight text-center mb-6 drop-shadow-sm">
               {currentUser.username}{" "}
@@ -1341,182 +1362,149 @@ export default function AdminPage() {
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-100">
                           {loans && loans.length > 0 ? (
-                            loans.map((loan) => {
-                              // 🟢 1. Calculate the total interest generated so far
-                              const totalInterestAccrued =
-                                calculateDynamicInterest(
-                                  loan.loanamount,
-                                  loan.createdAt,
-                                  loan.firstinterest,
-                                  loan.secondinterest,
-                                  loan.thirdinterest,
-                                );
+  loans.map((loan) => {
+    const activePendingInterest = loan.pendingInterest || 0;
+    const currentBalance = loan.currentBalance || 0;
+    const interestPaid = loan.interestPaid || 0;
 
-                              // 🟢 2. Calculate Pending Interest
-                              const interestPaid = loan.interestPaid || 0;
-                              const pendingInterest =
-                                totalInterestAccrued - interestPaid;
-                              const activePendingInterest =
-                                pendingInterest > 0 ? pendingInterest : 0;
+    return (
+      <tr
+        key={loan._id}
+        className="hover:bg-slate-50 transition-colors">
+        
+        <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-800">
+          {loan.paymentDate || loan.createdAt
+            ? new Date(
+                loan.paymentDate || loan.createdAt,
+              ).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "No Date"}
+        </td>
 
-                              // 🟢 3. Calculate Remaining Principal
-                              const principalPaid = loan.principalPaid || 0;
-                              const remainingPrincipal =
-                                loan.loanamount - principalPaid;
+        <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-800">
+          {loan.customer?.name || "Unknown"}
+        </td>
 
-                              // 🟢 4. Calculate Final Remaining Balance
-                              const remainingTotal =
-                                remainingPrincipal + activePendingInterest;
+        <td className="py-4 px-4 whitespace-nowrap text-sm text-slate-600">
+          <div className="flex items-center gap-1">
+            <span className="text-amber-600 font-bold">
+              {loan.product?.name || "Product"}
+            </span>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-800 font-semibold">
+              {loan.weight}g
+            </span>
+            <span className="text-slate-400">/</span>
+            <span
+              className="text-rose-500 font-semibold text-xs"
+              title="Stone Weight">
+              {loan.stoneweight}g
+            </span>
+          </div>
+        </td>
 
-                              return (
-                                <tr
-                                  key={loan._id}
-                                  className="hover:bg-slate-50 transition-colors">
-                                  {/* Date */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-800">
-                                    {loan.paymentDate || loan.createdAt
-                                      ? new Date(
-                                          loan.paymentDate || loan.createdAt,
-                                        ).toLocaleDateString("en-IN", {
-                                          day: "2-digit",
-                                          month: "short",
-                                          year: "numeric",
-                                        })
-                                      : "No Date"}
-                                  </td>
+        <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-600">
+          ₹{loan.goldrate}
+        </td>
 
-                                  {/* Customer */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-800">
-                                    {loan.customer?.name || "Unknown"}
-                                  </td>
+        <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-500 text-center">
+          <span className="bg-slate-100 px-2 py-1 rounded-md">
+            {loan.pawnpercentage}%
+          </span>
+        </td>
 
-                                  {/* Product Details */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm text-slate-600">
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-amber-600 font-bold">
-                                        {loan.product?.name || "Product"}
-                                      </span>
-                                      <span className="text-slate-400">/</span>
-                                      <span className="text-slate-800 font-semibold">
-                                        {loan.weight}g
-                                      </span>
-                                      <span className="text-slate-400">/</span>
-                                      <span
-                                        className="text-rose-500 font-semibold text-xs"
-                                        title="Stone Weight">
-                                        {loan.stoneweight}g
-                                      </span>
-                                    </div>
-                                  </td>
+        <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-600">
+          ₹{loan.loanamount?.toFixed(2)}
+        </td>
 
-                                  {/* Gold Rate */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-600">
-                                    ₹{loan.goldrate}
-                                  </td>
+        <td className="py-4 px-4 whitespace-nowrap text-sm">
+          {loan.isClosed ? (
+            <div className="relative inline-flex justify-start items-center mt-2">
+              <button
+                onClick={() => {
+                  setSelectedLoan(loan);
+                  setReceiptModal(true);
+                }}
+                className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-2 px-5 rounded-lg text-xs font-bold transition-all shadow-sm relative z-0">
+                ரசீது (Receipt)
+              </button>
+              <span className="absolute -top-3 -left-3 z-10 inline-block border-2 border-emerald-500 bg-emerald-50/90 backdrop-blur-sm text-emerald-600 font-black text-[10px] uppercase tracking-widest py-1 px-2 rounded-md transform -rotate-6 shadow-md pointer-events-none">
+                செலுத்தப்பட்டது (PAID)
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setSelectedLoan(loan);
+                  setPayLoanModal(true);
+                }}
+                className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
+                கடனை செலுத்து (Pay)
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedLoan(loan);
+                  setReceiptModal(true);
+                }}
+                className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
+                ரசீது (Receipt)
+              </button>
+            </div>
+          )}
+        </td>
 
-                                  {/* Pawn Percentage */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-500 text-center">
-                                    <span className="bg-slate-100 px-2 py-1 rounded-md">
-                                      {loan.pawnpercentage}%
-                                    </span>
-                                  </td>
+        <td className="py-4 px-4 whitespace-nowrap text-center">
+          {!loan.isBanked ? (
+            <div
+              onClick={() => {
+                setSelectedLoanForBank(loan);
+                setIsBankModalOpen(true);
+              }}
+              className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-slate-50 hover:bg-amber-50 rounded-full transition-all border border-transparent hover:border-amber-200"
+              title="Add to Owner's Bank">
+              <img
+                src={upi}
+                alt="UPI"
+                className="w-8 h-8 hover:scale-110 transition duration-150"
+              />
+            </div>
+          ) : (
+            <div className="inline-flex items-center justify-center p-1.5">
+              <img
+                src={ver}
+                alt="Verified"
+                className="w-8 h-8 drop-shadow-sm"
+              />
+            </div>
+          )}
+        </td>
 
-                                  {/* Loan Amount */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-600">
-                                    ₹{loan.loanamount?.toFixed(2)}
-                                  </td>
+        <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-right">
+          {loan.isClosed ||
+          (interestPaid > 0 && activePendingInterest <= 0) ? (
+            <span className="inline-flex items-center px-2 py-1 rounded text-[11px] font-black bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-sm">
+              ✓ Paid Interest
+            </span>
+          ) : (
+            <span className="text-rose-600">
+              + ₹{activePendingInterest.toFixed(2)}
+            </span>
+          )}
+        </td>
 
-                                  {/* Actions (Pay / Receipt) */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm">
-                                    {loan.isClosed ? (
-                                      <div className="relative inline-flex justify-start items-center mt-2">
-                                        <button
-                                          onClick={() => {
-                                            setSelectedLoan(loan);
-                                            setReceiptModal(true);
-                                          }}
-                                          className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-2 px-5 rounded-lg text-xs font-bold transition-all shadow-sm relative z-0">
-                                          ரசீது (Receipt)
-                                        </button>
-                                        <span className="absolute -top-3 -left-3 z-10 inline-block border-2 border-emerald-500 bg-emerald-50/90 backdrop-blur-sm text-emerald-600 font-black text-[10px] uppercase tracking-widest py-1 px-2 rounded-md transform -rotate-6 shadow-md pointer-events-none">
-                                          செலுத்தப்பட்டது (PAID)
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex flex-col gap-2">
-                                        <button
-                                          onClick={() => {
-                                            setSelectedLoan(loan);
-                                            setPayLoanModal(true);
-                                          }}
-                                          className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
-                                          கடனை செலுத்து (Pay)
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setSelectedLoan(loan);
-                                            setReceiptModal(true);
-                                          }}
-                                          className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
-                                          ரசீது (Receipt)
-                                        </button>
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* Locker Status / Bank */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-center">
-                                    {!loan.isBanked ? (
-                                      <div
-                                        onClick={() => {
-                                          setSelectedLoanForBank(loan);
-                                          setIsBankModalOpen(true);
-                                        }}
-                                        className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-slate-50 hover:bg-amber-50 rounded-full transition-all border border-transparent hover:border-amber-200"
-                                        title="Add to Owner's Bank">
-                                        <img
-                                          src={upi}
-                                          alt="UPI"
-                                          className="w-8 h-8 hover:scale-110 transition duration-150"
-                                        />
-                                      </div>
-                                    ) : (
-                                      <div className="inline-flex items-center justify-center p-1.5">
-                                        <img
-                                          src={ver}
-                                          alt="Verified"
-                                          className="w-8 h-8 drop-shadow-sm"
-                                        />
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* 🟢 UPDATED: Interest Column */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-right">
-                                    {loan.isClosed ||
-                                    (interestPaid > 0 &&
-                                      pendingInterest <= 0) ? (
-                                      <span className="inline-flex items-center px-2 py-1 rounded text-[11px] font-black bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-sm">
-                                        ✓ Paid Interest
-                                      </span>
-                                    ) : (
-                                      <span className="text-rose-600">
-                                        + ₹{loan.interestBreakdown?.tier1.toFixed(2)}
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* 🟢 UPDATED: Total Remaining Column */}
-                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-700 bg-emerald-50/50 text-right">
-                                    ₹
-                                    {loan.isClosed || remainingTotal <= 0
-                                      ? "0.00"
-                                      : remainingTotal.toFixed(2)}
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          ) : (
+        <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-700 bg-emerald-50/50 text-right">
+          ₹
+          {loan.isClosed || currentBalance <= 0
+            ? "0.00"
+            : currentBalance.toFixed(2)}
+        </td>
+      </tr>
+    );
+  })) : (
                             <tr>
                               <td
                                 colSpan="10"
@@ -1884,7 +1872,7 @@ export default function AdminPage() {
                                 {/* Tier 1: 1 to 3 Months */}
                                 <td className="py-3 px-6 whitespace-nowrap">
                                   <div className="font-bold text-emerald-600 text-sm">
-                                    ₹{loan.interestBreakdown?.tier1 || 0}
+                                    ₹{loan.interestBreakdown?.tier1Gross || 0}
                                   </div>
                                   <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
                                     {loan.dateRanges?.tier1 || "-"}
@@ -1894,7 +1882,7 @@ export default function AdminPage() {
                                 {/* Tier 2: 4 to 6 Months */}
                                 <td className="py-3 px-6 whitespace-nowrap">
                                   <div className="font-bold text-amber-500 text-sm">
-                                    ₹{loan.interestBreakdown?.tier2 || 0}
+                                    ₹{loan.interestBreakdown?.tier2Gross || 0}
                                   </div>
                                   <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
                                     {loan.dateRanges?.tier2 || "-"}
@@ -1903,7 +1891,7 @@ export default function AdminPage() {
 
                                 <td className="py-3 px-6 whitespace-nowrap">
                                   <div className="font-bold text-rose-600 text-sm">
-                                    ₹{loan.interestBreakdown?.tier3 || 0}
+                                    ₹{loan.interestBreakdown?.tier3Gross || 0}
                                   </div>
                                   <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
                                     {loan.dateRanges?.tier3 || "-"}
@@ -2136,260 +2124,402 @@ export default function AdminPage() {
 
         <section>
           {LoanModal && (
-  <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-200">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden max-h-[95vh]">
-      
-      {/* 🏷️ Modal Header (Fixed at top) */}
-      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
-        <h3 className="text-xl font-bold text-slate-800">
-          புதிய கடன் (New Loan Application)
-        </h3>
-        <button
-          onClick={() => {
-            setLoanModal(false);
-            setLoanCalc({
-              weight: "", stoneweight: "", goldrate: "", pawnpercentage: "",
-              firstinterest: "", secondinterest: "", thirdinterest: "",
-              firstInterestFrom: "", firstInterestTo: "",
-              secondInterestFrom: "", secondInterestTo: "",
-              thirdInterestFrom: "", thirdInterestTo: "",
-            });
-          }}
-          className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
-          ✕
-        </button>
-      </div>
-
-      {/* 📝 Modal Body (Scrollable if needed, but landscape prevents it) */}
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30 custom-scrollbar">
-        <form id="loan-form" onSubmit={handleLoanSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* ================= LEFT COLUMN (Basic Details) ================= */}
-          <div className="lg:col-span-5 space-y-5">
-            
-            {/* 👤 Customer Info Card */}
-            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg shadow-sm border border-indigo-200">
-                👤
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                  வாடிக்கையாளர் (Customer)
-                </p>
-                <p className="text-sm font-black text-slate-800">
-                  {selectedCustomer?.name}
-                </p>
-              </div>
-            </div>
-
-            {/* Product Selection */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                அடகு பொருள் (Product)
-              </label>
-              <select
-                name="productId"
-                className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none shadow-sm"
-                required>
-                <option value="">பொருளை தேர்ந்தெடுக்கவும் (Select Product)</option>
-                {products.map((p) => (
-                  <option key={p._id} value={p._id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Weight Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                  மொத்த எடை (Gross Wt)
-                </label>
-                <div className="relative">
-                  <input
-                    name="weight" type="number" step="0.01" placeholder="0.00"
-                    onChange={handleLoanCalcChange}
-                    className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8 shadow-sm"
-                    required
-                  />
-                  <span className="absolute right-3 top-2 text-slate-400 text-sm font-bold">g</span>
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden max-h-[95vh]">
+                {/* 🏷️ Modal Header (Fixed at top) */}
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
+                  <h3 className="text-xl font-bold text-slate-800">
+                    புதிய கடன் (New Loan Application)
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setLoanModal(false);
+                      setLoanCalc({
+                        weight: "",
+                        stoneweight: "",
+                        goldrate: "",
+                        pawnpercentage: "",
+                        firstinterest: "",
+                        secondinterest: "",
+                        thirdinterest: "",
+                        firstInterestFrom: "",
+                        firstInterestTo: "",
+                        secondInterestFrom: "",
+                        secondInterestTo: "",
+                        thirdInterestFrom: "",
+                        thirdInterestTo: "",
+                      });
+                    }}
+                    className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
+                    ✕
+                  </button>
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                  கல் எடை (Stone Wt)
-                </label>
-                <div className="relative">
-                  <input
-                    name="stoneweight" type="number" step="0.01" placeholder="0.00"
-                    onChange={handleLoanCalcChange}
-                    className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8 shadow-sm"
-                    required
-                  />
-                  <span className="absolute right-3 top-2 text-slate-400 text-sm font-bold">g</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Rate & Percentage Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                  தங்கம் விலை (Rate/g)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-slate-500 text-sm font-bold">₹</span>
-                  <input
-                    name="goldrate" type="number" placeholder="0.00"
-                    onChange={handleLoanCalcChange}
-                    className="block w-full rounded-lg border-slate-300 bg-white pl-7 pr-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none shadow-sm"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                  அடகு சதவீதம் (Pawn %)
-                </label>
-                <div className="relative">
-                  <input
-                    name="pawnpercentage" type="number" placeholder="0"
-                    onChange={handleLoanCalcChange}
-                    className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8 shadow-sm"
-                    required
-                  />
-                  <span className="absolute right-3 top-2 text-slate-400 text-sm font-bold">%</span>
-                </div>
-              </div>
-            </div>
+                {/* 📝 Modal Body (Scrollable if needed, but landscape prevents it) */}
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30 custom-scrollbar">
+                  <form
+                    id="loan-form"
+                    onSubmit={handleLoanSubmit}
+                    className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* ================= LEFT COLUMN (Basic Details) ================= */}
+                    <div className="lg:col-span-5 space-y-5">
+                      {/* 👤 Customer Info Card */}
+                      <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg shadow-sm border border-indigo-200">
+                          👤
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                            வாடிக்கையாளர் (Customer)
+                          </p>
+                          <p className="text-sm font-black text-slate-800">
+                            {selectedCustomer?.name}
+                          </p>
+                        </div>
+                      </div>
 
-            {/* 💰 Estimated Loan Display */}
-            <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center shadow-sm">
-              <p className="text-xs text-emerald-600 font-extrabold uppercase tracking-widest mb-1">
-                மதிப்பிடப்பட்ட கடன் (Estimated Loan)
-              </p>
-              <p className="text-3xl font-black text-emerald-700 tracking-tight">
-                ₹{estimatedAmount > 0 ? estimatedAmount.toFixed(2) : "0.00"}
-              </p>
-            </div>
-          </div>
+                      {/* Product Selection */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                          அடகு பொருள் (Product)
+                        </label>
+                        <select
+                          name="productId"
+                          className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none shadow-sm"
+                          required>
+                          <option value="">
+                            பொருளை தேர்ந்தெடுக்கவும் (Select Product)
+                          </option>
+                          {products.map((p) => (
+                            <option key={p._id} value={p._id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-          {/* ================= RIGHT COLUMN (Interest Configuration) ================= */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
-              <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">
-                வட்டி அமைப்புகள் (Interest Settings)
-              </h4>
+                      {/* Weight Grid */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                            மொத்த எடை (Gross Wt)
+                          </label>
+                          <div className="relative">
+                            <input
+                              name="weight"
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={handleLoanCalcChange}
+                              className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8 shadow-sm"
+                              required
+                            />
+                            <span className="absolute right-3 top-2 text-slate-400 text-sm font-bold">
+                              g
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                            கல் எடை (Stone Wt)
+                          </label>
+                          <div className="relative">
+                            <input
+                              name="stoneweight"
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              onChange={handleLoanCalcChange}
+                              className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8 shadow-sm"
+                              required
+                            />
+                            <span className="absolute right-3 top-2 text-slate-400 text-sm font-bold">
+                              g
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-              <div className="space-y-5">
-                {/* ---------------- முதல் வட்டி ---------------- */}
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                  <div className="flex justify-between items-center mb-3">
-                    <h5 className="text-xs font-bold text-indigo-700 uppercase">முதல் வட்டி (INT: 1)</h5>
-                    <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
-                      மதிப்பீடு: ₹{interest1Month > 0 ? interest1Month.toFixed(2) : "0.00"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">வட்டி வீதம்</label>
-                      <div className="relative">
-                        <input name="firstinterest" type="number" placeholder="0" value={loanCalc.firstinterest || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                        <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">%</span>
+                      {/* Rate & Percentage Grid */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                            தங்கம் விலை (Rate/g)
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-slate-500 text-sm font-bold">
+                              ₹
+                            </span>
+                            <input
+                              name="goldrate"
+                              type="number"
+                              placeholder="0.00"
+                              onChange={handleLoanCalcChange}
+                              className="block w-full rounded-lg border-slate-300 bg-white pl-7 pr-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none shadow-sm"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
+                            அடகு சதவீதம் (Pawn %)
+                          </label>
+                          <div className="relative">
+                            <input
+                              name="pawnpercentage"
+                              type="number"
+                              placeholder="0"
+                              onChange={handleLoanCalcChange}
+                              className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none pr-8 shadow-sm"
+                              required
+                            />
+                            <span className="absolute right-3 top-2 text-slate-400 text-sm font-bold">
+                              %
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 💰 Estimated Loan Display */}
+                      <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center shadow-sm">
+                        <p className="text-xs text-emerald-600 font-extrabold uppercase tracking-widest mb-1">
+                          மதிப்பிடப்பட்ட கடன் (Estimated Loan)
+                        </p>
+                        <p className="text-3xl font-black text-emerald-700 tracking-tight">
+                          ₹
+                          {estimatedAmount > 0
+                            ? estimatedAmount.toFixed(2)
+                            : "0.00"}
+                        </p>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">முதல் (From)</label>
-                      <input name="firstInterestFrom" type="number" placeholder="1" value={loanCalc.firstInterestFrom || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">வரை (To)</label>
-                      <input name="firstInterestTo" type="number" placeholder="90" value={loanCalc.firstInterestTo || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                    </div>
-                  </div>
-                </div>
 
-                {/* ---------------- இரண்டாவது வட்டி ---------------- */}
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                  <div className="flex justify-between items-center mb-3">
-                    <h5 className="text-xs font-bold text-indigo-700 uppercase">இரண்டாவது வட்டி (INT: 2)</h5>
-                    <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
-                      மதிப்பீடு: ₹{interest2Months > 0 ? interest2Months.toFixed(2) : "0.00"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">வட்டி வீதம்</label>
-                      <div className="relative">
-                        <input name="secondinterest" type="number" placeholder="0" value={loanCalc.secondinterest || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                        <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">%</span>
+                    {/* ================= RIGHT COLUMN (Interest Configuration) ================= */}
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
+                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">
+                          வட்டி அமைப்புகள் (Interest Settings)
+                        </h4>
+
+                        <div className="space-y-5">
+                          {/* ---------------- முதல் வட்டி ---------------- */}
+                          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                            <div className="flex justify-between items-center mb-3">
+                              <h5 className="text-xs font-bold text-indigo-700 uppercase">
+                                முதல் வட்டி (INT: 1)
+                              </h5>
+                              <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
+                                மதிப்பீடு: ₹
+                                {interest1Month > 0
+                                  ? interest1Month.toFixed(2)
+                                  : "0.00"}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  வட்டி வீதம்
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    name="firstinterest"
+                                    type="number"
+                                    placeholder="0"
+                                    value={loanCalc.firstinterest || ""}
+                                    onChange={handleLoanCalcChange}
+                                    className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    required
+                                  />
+                                  <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">
+                                    %
+                                  </span>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  முதல் (From)
+                                </label>
+                                <input
+                                  name="firstInterestFrom"
+                                  type="number"
+                                  placeholder="1"
+                                  value={loanCalc.firstInterestFrom || ""}
+                                  onChange={handleLoanCalcChange}
+                                  className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  வரை (To)
+                                </label>
+                                <input
+                                  name="firstInterestTo"
+                                  type="number"
+                                  placeholder="90"
+                                  value={loanCalc.firstInterestTo || ""}
+                                  onChange={handleLoanCalcChange}
+                                  className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  required
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ---------------- இரண்டாவது வட்டி ---------------- */}
+                          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                            <div className="flex justify-between items-center mb-3">
+                              <h5 className="text-xs font-bold text-indigo-700 uppercase">
+                                இரண்டாவது வட்டி (INT: 2)
+                              </h5>
+                              <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
+                                மதிப்பீடு: ₹
+                                {interest2Months > 0
+                                  ? interest2Months.toFixed(2)
+                                  : "0.00"}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  வட்டி வீதம்
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    name="secondinterest"
+                                    type="number"
+                                    placeholder="0"
+                                    value={loanCalc.secondinterest || ""}
+                                    onChange={handleLoanCalcChange}
+                                    className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    required
+                                  />
+                                  <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">
+                                    %
+                                  </span>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  முதல் (From)
+                                </label>
+                                <input
+                                  name="secondInterestFrom"
+                                  type="number"
+                                  placeholder="91"
+                                  value={loanCalc.secondInterestFrom || ""}
+                                  onChange={handleLoanCalcChange}
+                                  className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  வரை (To)
+                                </label>
+                                <input
+                                  name="secondInterestTo"
+                                  type="number"
+                                  placeholder="180"
+                                  value={loanCalc.secondInterestTo || ""}
+                                  onChange={handleLoanCalcChange}
+                                  className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  required
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ---------------- மூன்றாவது வட்டி ---------------- */}
+                          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                            <div className="flex justify-between items-center mb-3">
+                              <h5 className="text-xs font-bold text-indigo-700 uppercase">
+                                மூன்றாவது வட்டி (INT: 3)
+                              </h5>
+                              <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
+                                மதிப்பீடு: ₹
+                                {interest3Months > 0
+                                  ? interest3Months.toFixed(2)
+                                  : "0.00"}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  வட்டி வீதம்
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    name="thirdinterest"
+                                    type="number"
+                                    placeholder="0"
+                                    value={loanCalc.thirdinterest || ""}
+                                    onChange={handleLoanCalcChange}
+                                    className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    required
+                                  />
+                                  <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">
+                                    %
+                                  </span>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  முதல் (From)
+                                </label>
+                                <input
+                                  name="thirdInterestFrom"
+                                  type="number"
+                                  placeholder="181"
+                                  value={loanCalc.thirdInterestFrom || ""}
+                                  onChange={handleLoanCalcChange}
+                                  className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                  வரை (To)
+                                </label>
+                                <input
+                                  name="thirdInterestTo"
+                                  type="number"
+                                  placeholder="270"
+                                  value={loanCalc.thirdInterestTo || ""}
+                                  onChange={handleLoanCalcChange}
+                                  className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  required
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">முதல் (From)</label>
-                      <input name="secondInterestFrom" type="number" placeholder="91" value={loanCalc.secondInterestFrom || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">வரை (To)</label>
-                      <input name="secondInterestTo" type="number" placeholder="180" value={loanCalc.secondInterestTo || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                    </div>
-                  </div>
+                  </form>
                 </div>
 
-                {/* ---------------- மூன்றாவது வட்டி ---------------- */}
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                  <div className="flex justify-between items-center mb-3">
-                    <h5 className="text-xs font-bold text-indigo-700 uppercase">மூன்றாவது வட்டி (INT: 3)</h5>
-                    <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
-                      மதிப்பீடு: ₹{interest3Months > 0 ? interest3Months.toFixed(2) : "0.00"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">வட்டி வீதம்</label>
-                      <div className="relative">
-                        <input name="thirdinterest" type="number" placeholder="0" value={loanCalc.thirdinterest || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                        <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">%</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">முதல் (From)</label>
-                      <input name="thirdInterestFrom" type="number" placeholder="181" value={loanCalc.thirdInterestFrom || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">வரை (To)</label>
-                      <input name="thirdInterestTo" type="number" placeholder="270" value={loanCalc.thirdInterestTo || ""} onChange={handleLoanCalcChange} className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" required />
-                    </div>
-                  </div>
+                {/* 🛑 Footer Actions (Fixed at bottom) */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-4 shrink-0 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoanModal(false);
+                      setLoanCalc({});
+                    }}
+                    className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-100 transition-colors shadow-sm w-32">
+                    ரத்து (Cancel)
+                  </button>
+                  <button
+                    type="submit"
+                    form="loan-form" // This links the button to the form above!
+                    className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 w-48">
+                    உறுதி செய் (Submit)
+                  </button>
                 </div>
-
               </div>
             </div>
-          </div>
-        </form>
-      </div>
-
-      {/* 🛑 Footer Actions (Fixed at bottom) */}
-      <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-4 shrink-0 justify-end">
-        <button
-          type="button"
-          onClick={() => {
-            setLoanModal(false);
-            setLoanCalc({});
-          }}
-          className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-100 transition-colors shadow-sm w-32">
-          ரத்து (Cancel)
-        </button>
-        <button
-          type="submit"
-          form="loan-form" // This links the button to the form above!
-          className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 w-48">
-          உறுதி செய் (Submit)
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
+          )}
         </section>
 
         {ReceiptModal && selectedLoan && (
@@ -2630,11 +2760,7 @@ export default function AdminPage() {
                                     மீதமுள்ள தொகை (Remaining)
                                   </span>
                                   <span className="text-xl font-black text-rose-600 print:text-black">
-                                    ₹
-                                    {Math.max(
-                                      0,
-                                      selectedLoan.loanamount - totalPaid,
-                                    ).toFixed(2)}
+                                    ₹{selectedLoan.currentBalance?.toFixed(2)}
                                   </span>
                                 </div>
                               </div>

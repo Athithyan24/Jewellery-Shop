@@ -40,12 +40,15 @@ const MONGO_URI = process.env.MONGO_URI;
 
 mongoose
   .connect(MONGO_URI)
-  .then(async () => {
+  .then(() => {
     console.log("Connected to MongoDB Successfully");
-    await Products();
-    await Banks();
+    createSuperAdmin();
+    Products();
+    Banks();
   })
-  .catch((err) => console.log("Failed to connect to MongoDB", err));
+  .catch((err) => {
+    console.error("MongoDB Connection Error: ", err);
+  });
 
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -76,7 +79,6 @@ const createSuperAdmin = async () => {
     );
   }
 };
-createSuperAdmin();
 
 const customerSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -327,8 +329,8 @@ const calculateBackendInterest = (principal, createdAt, r1, r2, r3,
   const currentDate = new Date();
   
   const diffInTime = currentDate.getTime() - startDate.getTime();
-  const diffInDays = diffInTime / (1000 * 3600 * 24);
-  const months = Math.max(diffInDays / 30, 1); 
+  const exactDiffInDays = diffInTime / (1000 * 3600 * 24);
+  const diffInDays = Math.max(exactDiffInDays, 30); 
 
   const tier1Rate = parseFloat(r1) || 1;
   const tier2Rate = parseFloat(r2) || 1;
@@ -336,11 +338,17 @@ const calculateBackendInterest = (principal, createdAt, r1, r2, r3,
 
   const daysInTier1 = Math.max(0, Math.min(diffInDays, t1To) - (t1From - 1));
   const daysInTier2 = Math.max(0, Math.min(diffInDays, t2To) - (t2From - 1));
-  const daysInTier3 = Math.max(0, diffInDays - (t3From - 1));
+  const daysInTier3 = Math.max(0, Math.min(diffInDays, t3To) - (t3From - 1));
 
   const m1 = daysInTier1 / 30;                  
   const m2 = daysInTier2 / 30;  
   const m3 = daysInTier3 / 30;
+
+  const tier1Gross = (principal * tier1Rate * m1) / 100;
+  const tier2Gross = (principal * tier2Rate * m2) / 100;
+  const tier3Gross = (principal * tier3Rate * m3) / 100;
+
+  let totalInterestAccrued = tier1Gross + tier2Gross + tier3Gross;
 
   let interestAmount = 0;
   
@@ -348,7 +356,12 @@ const calculateBackendInterest = (principal, createdAt, r1, r2, r3,
     const tier2Interest = (principal * tier2Rate * m2) / (100);
     const tire3Interest = (principal * tier3Rate * m3) / (100);
     interestAmount = tier1Interest + tier2Interest + tire3Interest;
-  return Math.round(interestAmount);
+  return {
+    total: Math.round(totalInterestAccrued),
+    tier1Gross: Math.round(tier1Gross), 
+    tier2Gross: Math.round(tier2Gross),
+    tier3Gross: Math.round(tier3Gross)
+  };
 };
 
 const verifyToken = (req, res, next) => {
@@ -446,6 +459,77 @@ app.get("/api/loguser", verifyToken, async (req, res) => {
   }
 })
 
+app.get("/api/loans", verifyToken, async (req, res) => {
+  try {
+    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const loans = await Loan.find(query)
+      .populate("customer")
+      .populate("product")
+      .lean(); 
+
+    // நாட்களை கூட்ட உதவும் Function
+    const addDays = (date, days) => {
+      const result = new Date(date);
+      result.setDate(result.getDate() + (days || 0));
+      return result;
+    };
+
+    const loansWithCalculations = loans.map((loan) => {
+      const principalPaid = loan.principalPaid || 0;
+      const remainingPrincipal = loan.loanamount - principalPaid;
+      const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
+
+      // 🟢 மீதமுள்ள அசலை வைத்து Dynamic நாட்களின்படி வட்டி கணக்கிடுதல்
+      const interestData = calculateBackendInterest(
+        principalToCalculate, 
+        loan.createdAt,
+        loan.firstinterest, 
+        loan.secondinterest, 
+        loan.thirdinterest,
+        loan.firstInterestFrom,
+        loan.firstInterestTo,
+        loan.secondInterestFrom,
+        loan.secondInterestTo,
+        loan.thirdInterestFrom,
+        loan.thirdInterestTo
+      );
+
+      const totalInterest = interestData.total;
+
+      const interestPaid = loan.interestPaid || 0;
+      const pendingInterest = totalInterest - interestPaid;
+      const activePendingInterest = pendingInterest > 0 ? pendingInterest : 0;
+      
+      const currentBalance = principalToCalculate + activePendingInterest;
+
+      const startDate = loan.createdAt;
+      
+      const endTier1Date = addDays(startDate, loan.firstInterestTo || 90);
+      const endTier2Date = addDays(startDate, loan.secondInterestTo || 180);
+
+      const dateRanges = {
+        tier1: `${formatDate(startDate)} - ${formatDate(endTier1Date)}`,
+        tier2: `${formatDate(endTier1Date)} - ${formatDate(endTier2Date)}`,
+        tier3: `From ${formatDate(endTier2Date)}`
+      };
+
+      return {
+        ...loan,
+        interestBreakdown: interestData, 
+        dateRanges,
+        currentBalance,
+        pendingInterest: activePendingInterest,
+        formattedDate: loan.createdAt ? formatDate(loan.createdAt) : "No Date"
+      };
+    });
+
+    res.status(200).json(loansWithCalculations);
+  } catch (error) {
+    console.error("Error fetching loans:", error);
+    res.status(500).json({ message: "Failed to fetch loans" });
+  }
+});
+
 app.get("/api/customers", verifyToken, async (req, res) => {
   try {
     const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
@@ -462,55 +546,6 @@ app.get("/api/products", verifyToken, async (req, res) => {
     res.status(200).json(products);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch products", error });
-  }
-});
-
-app.get("/api/loans", verifyToken, async (req, res) => {
-  try {
-    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
-    const loans = await Loan.find(query)
-      .populate("customer")
-      .populate("product")
-      .lean(); 
-
-    const loansWithCalculations = loans.map((loan) => {
-      const principalPaid = loan.principalPaid || 0;
-      const remainingPrincipal = loan.loanamount - principalPaid;
-      const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
-
-      const interestBreakdown = calculateInterestBreakdown(principalToCalculate, loan.createdAt,
-        loan.firstinterest, loan.secondinterest, loan.thirdinterest
-      );
-
-      const interestPaid = loan.interestPaid || 0;
-      const pendingInterest = interestBreakdown.total - interestPaid;
-      
-      const currentBalance = principalToCalculate + (pendingInterest > 0 ? pendingInterest : 0);
-
-      const startDate = loan.createdAt;
-      const endTier1Date = addMonths(startDate, 3);
-      const endTier2Date = addMonths(startDate, 6);
-
-      const dateRanges = {
-        tier1: `${formatDate(startDate)} - ${formatDate(endTier1Date)}`,
-        tier2: `${formatDate(endTier1Date)} - ${formatDate(endTier2Date)}`,
-        tier3: `From ${formatDate(endTier2Date)}`
-      };
-
-      return {
-        ...loan,
-        interestBreakdown,
-        dateRanges,
-        currentBalance,
-        pendingInterest,
-        formattedDate: loan.createdAt ? formatDate(loan.createdAt) : "No Date"
-      };
-    });
-
-    res.status(200).json(loansWithCalculations);
-  } catch (error) {
-    console.error("Error fetching loans:", error);
-    res.status(500).json({ message: "Failed to fetch loans" });
   }
 });
 
@@ -638,20 +673,29 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
     if (!loan) return res.status(404).json({ message: "Loan not found" });
     if (loan.isClosed) return res.status(400).json({ message: "Loan is already closed." });
 
-    const currentInterest = calculateBackendInterest(
+    const previouslyPaidPrincipal = loan.principalPaid || 0;
+    const remainingPrincipal = loan.loanamount - previouslyPaidPrincipal;
+    const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
+
+    const interestData = calculateBackendInterest(
       loan.loanamount, 
       loan.createdAt, 
       loan.firstinterest, 
       loan.secondinterest, 
-      loan.thirdinterest
+      loan.thirdinterest,
+      loan.firstInterestFrom,
+      loan.firstInterestTo,
+      loan.secondInterestFrom,
+      loan.secondInterestTo,
+      loan.thirdInterestFrom,
+      loan.thirdInterestTo,
     );
     
-    const previouslyPaidInterest = loan.interestPaid || 0;
-    const pendingInterest = currentInterest - previouslyPaidInterest;
-    const activePendingInterest = pendingInterest > 0 ? pendingInterest : 0;
+    const currentInterests = interestData.total;
 
-    const previouslyPaidPrincipal = loan.principalPaid || 0;
-    const remainingPrincipal = loan.loanamount - previouslyPaidPrincipal;
+    const previouslyPaidInterest = loan.interestPaid || 0;
+    const pendingInterest = currentInterests - previouslyPaidInterest;
+    const activePendingInterest = pendingInterest > 0 ? pendingInterest : 0;
 
     const currentTotalDue = remainingPrincipal + activePendingInterest;
 
@@ -688,7 +732,7 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
       loan: loan._id,
       amountPaid: payment,
       payType: payType,
-      interestCalculated: currentInterest, 
+      interestCalculated: currentInterests, 
       remainingBalance: currentTotalDue - payment,
       createdBy: req.user.id, 
     });
