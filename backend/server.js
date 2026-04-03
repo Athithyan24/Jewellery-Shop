@@ -7,6 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import Counter from "./models/Counter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +86,7 @@ const createSuperAdmin = async () => {
 
 const customerSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  customerIdy: { type: String, unique: true },
   dob: { type: Date, required: true },
   address: { type: String, required: true },
   aadhar: { type: String, required: true, unique: true },
@@ -211,6 +213,7 @@ const calculateInterestBreakdown = (principal, createdAt, r1, r2, r3) => {
 };
 
 const loanSchema = new mongoose.Schema({
+  loanId: { type: String, unique: true },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Customer",
@@ -313,7 +316,10 @@ const bankDetailsSchema = new mongoose.Schema({
     ref: "Bank",
     required: true,
   },
+  ledgercreationdate: { type: String, required: true },
   branchname: { type: String, required: true },
+  obstaffname: { type: String },
+  obaccountno: { type: String },
   accountno: { type: String, required: true },
   lockerno: { type: String, required: true },
   createdBy: {
@@ -324,6 +330,14 @@ const bankDetailsSchema = new mongoose.Schema({
 });
 
 const BankDetails = mongoose.model("BankDetails", bankDetailsSchema);
+
+const expenseSchema = new mongoose.Schema({
+  name: { type: String, required: true }, 
+  amount: { type: Number, required: true },
+  date: { type: Date, default: Date.now },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+});
+const Expense = mongoose.model("Expense", expenseSchema);
 
 const addMonths = (dateString, months) => {
   const d = new Date(dateString);
@@ -415,6 +429,8 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       req.user.role === "superadmin"
         ? {}
         : { createdBy: new mongoose.Types.ObjectId(req.user.id) };
+
+    // 1. Get Daily Loans Given
     const dailyLoans = await Loan.aggregate([
       { $match: matchCondition },
       {
@@ -425,6 +441,7 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       },
     ]);
 
+    // 2. Get Daily Income (Loan Repayments)
     const dailyIncome = await PayLoan.aggregate([
       { $match: matchCondition },
       {
@@ -435,28 +452,54 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       },
     ]);
 
+    // 3. 🟢 NEW: Get Daily Expenses & Reasons
+    const dailyExpenses = await Expense.aggregate([
+      { $match: matchCondition },
+      {
+        $group: {
+          // Note: using "$date" because your Expense schema uses "date" instead of "createdAt"
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }, 
+          totalExpenses: { $sum: "$amount" },
+          expenseDetails: { $push: { name: "$name", amount: "$amount" } }, // Collects "Tea", "Snacks" into an array
+        },
+      },
+    ]);
+
     const statsMap = {};
 
-    dailyLoans.forEach((item) => {
-      statsMap[item._id] = {
-        date: item._id,
-        loanGiven: item.totalLoanGiven,
-        income: 0,
-      };
-    });
-
-    dailyIncome.forEach((item) => {
-      if (statsMap[item._id]) {
-        statsMap[item._id].income = item.totalIncome;
-      } else {
-        statsMap[item._id] = {
-          date: item._id,
+    // Helper function to initialize a date in the map if it doesn't exist yet
+    const initMapEntry = (date) => {
+      if (!statsMap[date]) {
+        statsMap[date] = {
+          date: date,
           loanGiven: 0,
-          income: item.totalIncome,
+          income: 0,
+          expenses: 0,
+          expenseDetails: [],
         };
       }
+    };
+
+    // Populate Loans
+    dailyLoans.forEach((item) => {
+      initMapEntry(item._id);
+      statsMap[item._id].loanGiven = item.totalLoanGiven;
     });
 
+    // Populate Income
+    dailyIncome.forEach((item) => {
+      initMapEntry(item._id);
+      statsMap[item._id].income = item.totalIncome;
+    });
+
+    // 🟢 NEW: Populate Expenses
+    dailyExpenses.forEach((item) => {
+      initMapEntry(item._id);
+      statsMap[item._id].expenses = item.totalExpenses;
+      statsMap[item._id].expenseDetails = item.expenseDetails;
+    });
+
+    // Convert map to array and sort by latest date first
     const statsArray = Object.values(statsMap).sort(
       (a, b) => new Date(b.date) - new Date(a.date),
     );
@@ -680,11 +723,27 @@ app.post("/api/users", verifyToken, async (req, res) => {
   }
 });
 
+app.post("/api/expenses", verifyToken, async (req, res) => {
+  try {
+    const { name, amount } = req.body;
+    const newExpense = new Expense({
+      name,
+      amount: Number(amount),
+      createdBy: req.user.id,
+    });
+    await newExpense.save();
+    res.status(201).json({ message: "Expense added", expense: newExpense });
+  } catch (error) {
+    res.status(500).json({ message: "Failed", error: error.message });
+  }
+});
+
 app.post("/api/bankDetails", verifyToken, async (req, res) => {
   try {
-    const { loanId, bankId, branchname, accountno, lockerno } = req.body;
+    const { loanId, bankId, branchname, ledgercreationdate, obstaffname, obaccountno, accountno, lockerno } = req.body;
     const loan = await Loan.findById(loanId);
-    if (!loan || !bankId || !branchname || !accountno || !lockerno) {
+    if (!loan || !bankId || !branchname || !ledgercreationdate
+      || !obstaffname || !obaccountno || !accountno || !lockerno) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -693,6 +752,9 @@ app.post("/api/bankDetails", verifyToken, async (req, res) => {
       loan: loanId,
       bank: bankId,
       branchname,
+      ledgercreationdate,
+      obstaffname,
+      obaccountno,
       accountno,
       lockerno,
       createdBy: req.user.id,
@@ -835,10 +897,7 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-app.post(
-  "/api/customers",
-  verifyToken,
-  upload.fields([
+app.post("/api/customers", verifyToken,upload.fields([
     { name: "aadharimage", maxCount: 1 },
     { name: "recentimage", maxCount: 1 },
   ]),
@@ -847,9 +906,7 @@ app.post(
       if (!req.body) {
         return res.status(400).json({ message: "Form data missing" });
       }
-
-      const { name, dob, address, aadhar, email, phone } = req.body;
-
+      
       if (
         !req.files ||
         !req.files["aadharimage"] ||
@@ -858,8 +915,18 @@ app.post(
         return res.status(400).json({ message: "Images not uploaded" });
       }
 
+      const counter = await Counter.findOneAndUpdate(
+      { name: "customerId" },
+      { $inc: { value: 1 } },
+      { new: true, upsert: true }
+    );
+
+      const { name, dob, address, aadhar, email, phone } = req.body;
+      const generatedCustomerId = "CUST" + String(counter.value).padStart(3, "0");
+
       const newCustomer = new Customer({
         name,
+        customerIdy: generatedCustomerId,
         dob,
         address,
         aadhar,
@@ -909,6 +976,14 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       thirdInterestTo,
     } = req.body;
 
+    const counter = await Counter.findOneAndUpdate(
+      { name: "loanId" },
+      { $inc: { value: 1 } },
+      { new: true, upsert: true }
+    );
+
+    const generatedLoanId = "LN" + String(counter.value).padStart(3, "0");
+
     const netWeight = weight - stoneweight;
 
     const goldValue = netWeight * goldrate;
@@ -916,6 +991,7 @@ app.post("/api/loans", verifyToken, async (req, res) => {
     const loanamount = (goldValue * pawnpercentage) / 100;
 
     const loan = new Loan({
+      loanId: generatedLoanId,
       customer: customerId,
       product,
       weight,

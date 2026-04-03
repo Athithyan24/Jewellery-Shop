@@ -15,6 +15,7 @@ const customerRxSchema = {
   properties: {
     id: { type: 'string', maxLength: 100 }, 
     name: { type: 'string' },
+    customerIdy : { type: 'string' },
     dob: { type: 'string' },
     address: { type: 'string' },
     aadhar: { type: 'string' },
@@ -26,7 +27,7 @@ const customerRxSchema = {
     updatedAt: { type: 'number' } ,
     isSynced: { type: 'boolean'},
   },
-  required: ['id', 'name', 'phone', 'createdBy', 'isSynced']
+  required: ['id', 'name', 'customerIdy', 'phone', 'createdBy', 'isSynced']
 };
 
 let dbPromise = null;

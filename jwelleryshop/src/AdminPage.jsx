@@ -13,6 +13,7 @@ import {
   Lock,
   TrendingUp,
   LogOut,
+  Search,
 } from "lucide-react";
 const TABS = [
   {
@@ -93,6 +94,10 @@ export default function AdminPage() {
   const [LoanModal, setLoanModal] = useState(false);
   const [PayLoanModal, setPayLoanModal] = useState(false);
   const [offlineCustomers, setOfflineCustomers] = useState([]);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [loanSearchQuery, setLoanSearchQuery] = useState("");
+  const [expenseName, setExpenseName] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
 
   const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
@@ -183,12 +188,39 @@ export default function AdminPage() {
     100;
 
   // 4. (Optional) If you want to show the TOTAL amount the customer has to pay back
-  const totalPayable1Month = estimatedAmount + interest1Month;
-  const totalPayable2Months = estimatedAmount + interest2Months;
-  const totalPayable3Months = estimatedAmount + interest3Months;
+  // const totalPayable1Month = estimatedAmount + interest1Month;
+  // const totalPayable2Months = estimatedAmount + interest2Months;
+  // const totalPayable3Months = estimatedAmount + interest3Months;
   const handleLoanCalcChange = (e) => {
     setLoanCalc({ ...loanCalc, [e.target.name]: e.target.value });
   };
+
+  // Add this right before your `return (` inside the AdminPage component
+  const filteredCustomers = customers.filter((customer) => {
+    if (!customerSearchQuery) return true; // If search is empty, show all
+
+    const searchLower = customerSearchQuery.toLowerCase();
+
+    return (
+      (customer.customerIdy &&
+        customer.customerIdy.toLowerCase().includes(searchLower)) ||
+      (customer.name && customer.name.toLowerCase().includes(searchLower)) ||
+      (customer.phone && customer.phone.toLowerCase().includes(searchLower))
+    );
+  });
+
+  const filteredLoans = loans.filter((loan) => {
+    if (!loanSearchQuery) return true; // If search is empty, show all
+
+    const searchLower = loanSearchQuery.toLowerCase();
+
+    return (
+      (loan.loanId && loan.loanId.toLowerCase().includes(searchLower)) ||
+      (loan.customer &&
+        loan.customer.name.toLowerCase().includes(searchLower)) ||
+      (loan.customer && loan.customer.phone.toLowerCase().includes(searchLower))
+    );
+  });
 
   const fetchBanks = async () => {
     try {
@@ -357,6 +389,25 @@ export default function AdminPage() {
       setDailyStats(res.data);
     } catch (error) {
       console.error("Error fetching daily stats:", error);
+    }
+  };
+
+  const handleAddExpense = async () => {
+    if (!expenseName || !expenseAmount)
+      return alert("Please fill both expense fields!");
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        "http://localhost:5000/api/expenses",
+        { name: expenseName, amount: expenseAmount },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setExpenseName("");
+      setExpenseAmount("");
+      // Fetch your dailyStats again here so the table updates instantly!
+      fetchDailyStats();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -543,12 +594,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (payType === "Full Pay" && selectedLoan) {
-      const remainingPrincipal = selectedLoan.loanamount - (selectedLoan.principalPaid || 0);
+      const remainingPrincipal =
+        selectedLoan.loanamount - (selectedLoan.principalPaid || 0);
       const principalDue = remainingPrincipal > 0 ? remainingPrincipal : 0;
 
-      
       const totalInterestAccrued = calculateDynamicInterest(
-        selectedLoan.loanamount, 
+        selectedLoan.loanamount,
         selectedLoan.createdAt,
         selectedLoan.firstinterest,
         selectedLoan.secondinterest,
@@ -558,11 +609,13 @@ export default function AdminPage() {
         selectedLoan.secondInterestFrom,
         selectedLoan.secondInterestTo,
         selectedLoan.thirdInterestFrom,
-        selectedLoan.thirdInterestTo
+        selectedLoan.thirdInterestTo,
       );
 
-      const remainingInterestDue = totalInterestAccrued - (selectedLoan.interestPaid || 0);
-      const finalInterestDue = remainingInterestDue > 0 ? remainingInterestDue : 0;
+      const remainingInterestDue =
+        totalInterestAccrued - (selectedLoan.interestPaid || 0);
+      const finalInterestDue =
+        remainingInterestDue > 0 ? remainingInterestDue : 0;
 
       const totalDue = principalDue + finalInterestDue;
 
@@ -620,7 +673,8 @@ export default function AdminPage() {
 
     await db.customers.insert({
       id: Date.now().toString(),
-      name: formValues.get("name") || "பெயர் இல்லை", // Gets the <input name="name">
+      name: formValues.get("name") || "பெயர் இல்லை",
+      customerIdy: "PENDING",
       dob: formValues.get("dob") || "",
       address: formValues.get("address") || "",
       aadhar: formValues.get("aadhar") || "",
@@ -679,12 +733,16 @@ export default function AdminPage() {
           if (aadharFile) formData.append("aadharimage", aadharFile);
         }
 
-        await axios.post("http://localhost:5000/api/customers", formData, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-            "Content-Type": "multipart/form-data",
+        const response = await axios.post(
+          "http://localhost:5000/api/customers",
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "Content-Type": "multipart/form-data",
+            },
           },
-        });
+        );
 
         const doc = await db.customers
           .findOne({ selector: { id: customer.id } })
@@ -749,62 +807,63 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex">
-          <header className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/60 shadow-xl rounded-3xl p-10 max-w-2xl w-full flex flex-col items-center justify-center transition-all duration-300 hover:shadow-2xl hover:bg-white/70">
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-800 tracking-tight text-center mb-6 drop-shadow-sm">
-              {currentUser.username}{" "}
-              <span className="inline-block mt-2 sm:mt-0 text-indigo-700 bg-indigo-100/80 px-4 py-1.5 rounded-xl shadow-sm border border-indigo-200/50">
-                {currentUser.shoptype || "Shop"}
-              </span>
-            </h1>
-            {currentUser.username && (
-              <div className="flex items-center gap-2 px-5 py-2 bg-white/80 border border-slate-200/60 rounded-full text-sm font-medium text-slate-600 shadow-sm backdrop-blur-md">
-                <svg
-                  className="w-5 h-5 text-indigo-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                <span className="tracking-wide">
-                  Proprietor:{" "}
-                  <span className="font-bold text-slate-900">
-                    {currentUser.username}
-                  </span>
+            <header className="relative z-10 bg-white/60 backdrop-blur-2xl border border-white/60 shadow-xl rounded-3xl p-10 max-w-2xl w-full flex flex-col items-center justify-center transition-all duration-300 hover:shadow-2xl hover:bg-white/70">
+              <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-800 tracking-tight text-center mb-6 drop-shadow-sm">
+                {currentUser.username}{" "}
+                <span className="inline-block mt-2 sm:mt-0 text-indigo-700 bg-indigo-100/80 px-4 py-1.5 rounded-xl shadow-sm border border-indigo-200/50">
+                  {currentUser.shoptype || "Shop"}
                 </span>
-              </div>
-            )}
-          </header>
-          
+              </h1>
+              {currentUser.username && (
+                <div className="flex items-center gap-2 px-5 py-2 bg-white/80 border border-slate-200/60 rounded-full text-sm font-medium text-slate-600 shadow-sm backdrop-blur-md">
+                  <svg
+                    className="w-5 h-5 text-indigo-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                  </svg>
+                  <span className="tracking-wide">
+                    Proprietor:{" "}
+                    <span className="font-bold text-slate-900">
+                      {currentUser.username}
+                    </span>
+                  </span>
+                </div>
+              )}
+            </header>
           </div>
         </div>
       )}
-<div>
-            <button className="bg-green-500 text-white px-5 items-center content-center justify-center">Add Shop Profile</button>
-          </div>
-      <button
-        onClick={syncOfflineCustomersToCloud}
-        className="mb-4 flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 font-bold transition-all active:scale-95">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round">
-          <path d="M21 2v6h-6"></path>
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-          <path d="M3 3v6h6"></path>
-        </svg>
-        தரவை ஒத்திசை (Sync to Cloud)
-      </button>
+      <div className="flex items-center gap-4 px-6 py-3 md:py-0 border-t md:border-t-0 border-slate-100 bg-slate-50 md:bg-transparent">
+        <button
+          onClick={syncOfflineCustomersToCloud}
+          className="mb-4 flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 font-bold transition-all active:scale-95">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round">
+            <path d="M21 2v6h-6"></path>
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v6h6"></path>
+          </svg>
+          தரவை ஒத்திசை (Sync to Cloud)
+        </button>
+        <button className="bg-green-500 hover:bg-green-600 cursor-pointer hover: font-bold ml-auto py-2 rounded-lg text-white px-5 items-center content-center justify-center">
+          + Add Shop Profile
+        </button>
+      </div>
       <div className="min-h-screen bg-gray-100 p-8 print:p-0 print:bg-white">
         <div
           className={`max-w-7xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 ${ReceiptModal ? "print:hidden" : ""}`}>
@@ -1060,6 +1119,40 @@ export default function AdminPage() {
 
               {activeTab === "பரிவர்த்தனைகளின்" && userRole === "worker" && (
                 <div className="p-6 overflow-x-auto animate-in fade-in duration-300">
+                  {/* 🟢 NEW: Quick Add Expense Bar */}
+                  <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="bg-orange-100 text-orange-600 p-2 rounded-lg">
+                        ☕
+                      </span>
+                      <h3 className="font-bold text-slate-700 whitespace-nowrap">
+                        கடை செலவு (Add Expense):
+                      </h3>
+                    </div>
+                    <div className="flex flex-1 gap-3 w-full sm:w-auto">
+                      <input
+                        type="text"
+                        placeholder="காரணம் (e.g., Tea, Snacks, Auto)"
+                        value={expenseName}
+                        onChange={(e) => setExpenseName(e.target.value)}
+                        className="flex-1 rounded-lg border-slate-300 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                      />
+                      <input
+                        type="number"
+                        placeholder="தொகை (₹)"
+                        value={expenseAmount}
+                        onChange={(e) => setExpenseAmount(e.target.value)}
+                        className="w-32 rounded-lg border-slate-300 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                      />
+                      <button
+                        onClick={handleAddExpense} // Triggers the save function
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">
+                        சேர்
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 🟢 EXISTING: Daily Ledger Table (Modified Columns) */}
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                       <h2 className="text-lg font-bold text-slate-800 tracking-wide">
@@ -1078,10 +1171,16 @@ export default function AdminPage() {
                               தேதி (Date)
                             </th>
                             <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                              வழங்கிய கடன் (Cash Out)
+                              வரவு / வட்டி (Cash In)
                             </th>
                             <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                              வரவு / வட்டி (Cash In)
+                              வழங்கிய கடன் (Loan Out)
+                            </th>
+                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                              கடை செலவுகள் (Exp. Out)
+                            </th>
+                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                              செலவு விவரம் (Reason)
                             </th>
                             <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               நிகர இருப்பு (Net Balance)
@@ -1091,7 +1190,10 @@ export default function AdminPage() {
                         <tbody className="bg-white divide-y divide-slate-100">
                           {dailyStats && dailyStats.length > 0 ? (
                             dailyStats.map((stat) => {
-                              const netBalance = stat.income - stat.loanGiven;
+                              // 🟢 Calculate new Net Balance deducting both Loans AND Expenses
+                              const expensesTotal = stat.expenses || 0;
+                              const netBalance =
+                                stat.income - (stat.loanGiven + expensesTotal);
 
                               return (
                                 <tr
@@ -1108,16 +1210,46 @@ export default function AdminPage() {
                                     )}
                                   </td>
 
+                                  <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-emerald-600">
+                                    {stat.income > 0
+                                      ? `+ ₹${stat.income.toFixed(2)}`
+                                      : "-"}
+                                  </td>
+
                                   <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-rose-600">
                                     {stat.loanGiven > 0
                                       ? `- ₹${stat.loanGiven.toFixed(2)}`
                                       : "-"}
                                   </td>
 
-                                  <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-emerald-600">
-                                    {stat.income > 0
-                                      ? `+ ₹${stat.income.toFixed(2)}`
+                                  {/* 🟢 Display Expense Amount */}
+                                  <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-orange-500">
+                                    {expensesTotal > 0
+                                      ? `- ₹${expensesTotal.toFixed(2)}`
                                       : "-"}
+                                  </td>
+
+                                  {/* 🟢 Display Expense Reason & Price Line-by-Line */}
+                                  <td className="py-3 px-6 text-sm font-medium text-slate-600">
+                                    {stat.expenseDetails &&
+                                    stat.expenseDetails.length > 0 ? (
+                                      <div className="flex flex-col gap-1.5">
+                                        {stat.expenseDetails.map((exp, idx) => (
+                                          <div
+                                            key={idx}
+                                            className="flex justify-between items-center bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 min-w-[120px]">
+                                            <span className="text-slate-600">
+                                              {exp.name}
+                                            </span>
+                                            <span className="font-bold text-orange-600 ml-3">
+                                              ₹{exp.amount}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400">-</span>
+                                    )}
                                   </td>
 
                                   <td className="py-4 px-6 whitespace-nowrap text-sm font-black">
@@ -1139,15 +1271,10 @@ export default function AdminPage() {
                           ) : (
                             <tr>
                               <td
-                                colSpan="4"
+                                colSpan="6"
                                 className="py-12 px-6 text-center text-slate-500 font-medium">
-                                <div className="flex flex-col items-center justify-center gap-2">
-                                  <span className="text-2xl">📊</span>
-                                  <p>
-                                    எந்த பரிவர்த்தனைகளும் இல்லை (No transactions
-                                    found).
-                                  </p>
-                                </div>
+                                எந்த பரிவர்த்தனைகளும் இல்லை (No transactions
+                                found).
                               </td>
                             </tr>
                           )}
@@ -1190,6 +1317,30 @@ export default function AdminPage() {
                         <h2 className="text-lg font-bold text-slate-800 tracking-wide">
                           வாடிக்கையாளர்கள் (Customers List)
                         </h2>
+                        {/* Add this right above your Customer Table / List */}
+                        <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                          <div className="relative w-full sm:w-96">
+                            <span className="absolute left-3 top-2 text-violet-400">
+                              <Search />
+                            </span>
+                            <input
+                              type="text"
+                              placeholder="Search by ID (CUST001), Name, or Phone..."
+                              value={customerSearchQuery}
+                              onChange={(e) =>
+                                setCustomerSearchQuery(e.target.value)
+                              }
+                              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm font-semibold text-slate-700"
+                            />
+                          </div>
+
+                          {/* You probably already have an "Add Customer" button here, keep it next to the search bar! */}
+                          <button
+                            onClick={() => setCustomerModal(true)}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 w-full sm:w-auto shrink-0">
+                            + புதிய வாடிக்கையாளர்
+                          </button>
+                        </div>
                         <span className="bg-white text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 shadow-sm">
                           Total:{" "}
                           {(customers?.length || 0) +
@@ -1203,6 +1354,9 @@ export default function AdminPage() {
                             <tr>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
                                 புகைப்படம்
+                              </th>
+                              <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                                வாடிக்கையாளர் அடையாள எண்
                               </th>
                               <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
                                 பெயர்
@@ -1241,6 +1395,10 @@ export default function AdminPage() {
                                         className="w-10 h-10 rounded-full object-cover border-2 border-rose-200 shadow-sm opacity-80"
                                       />
                                     </td>
+
+                                    <td className="py-3 px-6 whitespace-nowrap font-bold text-blue-600">
+                                      {customer.customerIdy}
+                                    </td>
                                     <td className="py-3 px-6 whitespace-nowrap font-bold text-slate-800">
                                       {customer.name}
                                       <span className="ml-2 text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold tracking-widest uppercase shadow-sm border border-rose-200">
@@ -1265,8 +1423,8 @@ export default function AdminPage() {
                                 ))}
 
                             {/* 🟢 ONLINE CUSTOMERS */}
-                            {customers && customers.length > 0
-                              ? customers.map((customer) => (
+                            {filteredCustomers.length > 0
+                              ? filteredCustomers.map((customer, index) => (
                                   <tr
                                     key={customer._id}
                                     className="hover:bg-slate-50 transition-colors">
@@ -1282,6 +1440,10 @@ export default function AdminPage() {
                                             "&background=F1F5F9&color=64748B";
                                         }}
                                       />
+                                    </td>
+
+                                    <td className="py-3 px-6 whitespace-nowrap font-bold text-blue-800">
+                                      {customer.customerIdy}
                                     </td>
                                     <td className="py-3 px-6 whitespace-nowrap font-bold text-slate-800">
                                       {customer.name}
@@ -1334,28 +1496,30 @@ export default function AdminPage() {
                   </div>
                 )}
 
-              {activeTab === "வாடிக்கையாளர்களின்" && userRole === "worker" && (
-                <div className="mt-4 mb-2 flex justify-start animate-in fade-in duration-300">
-                  <button
-                    onClick={() => setCustomerModal(true)}
-                    className="group flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition-all duration-200 hover:shadow-md active:scale-95">
-                    {/* சுழலும் பிளஸ் (+) ஐகான் அனிமேஷன் */}
-                    <span className="text-xl leading-none group-hover:rotate-90 transition-transform duration-300">
-                      +
-                    </span>
-                    <span>புதிய வாடிக்கையாளர் (Add Customer)</span>
-                  </button>
-                </div>
-              )}
-
               {activeTab === "கடன்களின்" && userRole === "worker" && (
                 <div className="p-6 animate-in fade-in duration-300">
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     {/* 🏷️ Card Header */}
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                      <h2 className="text-lg font-bold text-slate-800 tracking-wide">
+                      <h2 className="lg:text-lg md:text-sm font-bold text-slate-800 tracking-wide">
                         கடன்கள் பட்டியல் (Loans Ledger)
                       </h2>
+
+                      <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="relative w-full sm:w-96">
+                          <span className="absolute left-3 top-2 text-violet-400">
+                            <Search />
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="Search by ID (LOAN001), Name, or Phone..."
+                            value={loanSearchQuery}
+                            onChange={(e) => setLoanSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm font-semibold text-slate-700"
+                          />
+                        </div>
+                      </div>
+
                       <span className="bg-white text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 shadow-sm">
                         Total Loans: {loans?.length || 0}
                       </span>
@@ -1368,6 +1532,9 @@ export default function AdminPage() {
                           <tr>
                             <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               தேதி
+                            </th>
+                            <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                              Loan ID
                             </th>
                             <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               வாடிக்கையாளர்
@@ -1399,8 +1566,8 @@ export default function AdminPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-100">
-                          {loans && loans.length > 0 ? (
-                            loans.map((loan) => {
+                          {filteredLoans && filteredLoans.length > 0 ? (
+                            filteredLoans.map((loan) => {
                               const activePendingInterest =
                                 loan.pendingInterest || 0;
                               const currentBalance = loan.currentBalance || 0;
@@ -1420,6 +1587,10 @@ export default function AdminPage() {
                                           year: "numeric",
                                         })
                                       : "No Date"}
+                                  </td>
+
+                                  <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-fuchsia-500">
+                                    {loan.loanId || "Unknown"}
                                   </td>
 
                                   <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-800">
@@ -1716,25 +1887,36 @@ export default function AdminPage() {
                       <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
                         <thead className="bg-slate-50">
                           <tr>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                               புகைப்படம் (Photo)
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                               பெயர் (Name)
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                              Product kept in vault date
+                            </th>
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                               அடகு பொருள் (Product)
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                               வங்கி பெயர் (Bank Name)
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                              ஸ்டாஃப் பெயர் (OB Staff)
+                            </th>
+
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                              ob அக்கவுண்ட் எண் (OB Account No)
+                            </th>
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                               கிளை பெயர் (Branch)
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider text-center">
                               பெட்டக எண் (Locker No)
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider text-right">
+                            <th className="py-3 px-4 text-[10px] font-bold text-slate-600 uppercase tracking-wider text-right">
                               கடன் தொகை (Amount)
                             </th>
                           </tr>
@@ -1761,36 +1943,48 @@ export default function AdminPage() {
                                 </td>
 
                                 {/* Customer Name */}
-                                <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-800">
+                                <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-800">
                                   {item.customer?.name || "Unknown Customer"}
                                 </td>
 
+                                <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-700">
+                                  {item.ledgercreationdate || "N/A"}
+                                </td>
+
                                 {/* Product */}
-                                <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-amber-600">
+                                <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-amber-600">
                                   {item.loan?.product?.name ||
                                     item.loan?.product ||
                                     "N/A"}
                                 </td>
 
                                 {/* Bank Name */}
-                                <td className="py-4 px-6 whitespace-nowrap text-sm font-semibold text-slate-700">
+                                <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-700">
                                   {item.bank?.name || "N/A"}
                                 </td>
 
+                                <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-700">
+                                  {item.obstaffname || "N/A"}
+                                </td>
+
+                                <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-700">
+                                  {item.obaccountno || "N/A"}
+                                </td>
+
                                 {/* Branch Name */}
-                                <td className="py-4 px-6 whitespace-nowrap text-sm text-slate-500 font-medium">
+                                <td className="py-4 px-4 whitespace-nowrap text-sm text-slate-500 font-medium">
                                   {item.branchname || "-"}
                                 </td>
 
                                 {/* Locker No (Styled Pill) */}
-                                <td className="py-4 px-6 whitespace-nowrap text-sm text-center">
+                                <td className="py-4 px-4 whitespace-nowrap text-sm text-center">
                                   <span className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-md font-bold shadow-sm">
                                     {item.lockerno || "-"}
                                   </span>
                                 </td>
 
                                 {/* Loan Amount */}
-                                <td className="py-4 px-6 whitespace-nowrap text-sm font-black text-emerald-600 text-right">
+                                <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-600 text-right">
                                   ₹{item.loan?.loanamount?.toFixed(2) || "0.00"}
                                 </td>
                               </tr>
@@ -2040,6 +2234,19 @@ export default function AdminPage() {
                                 className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
                               />
                             </div>
+
+                            {/* <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                                வாடிக்கையாளர் அடையாள எண் (Customer ID)
+                              </label>
+                              <input
+                                type="text"
+                                name="customerIdy"
+                                required
+                                placeholder="எ.கா: CUS001"
+                                className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
+                              />
+                            </div> */}
 
                             <div>
                               <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
@@ -3076,6 +3283,51 @@ export default function AdminPage() {
                       name="branchname"
                       type="text"
                       placeholder="எ.கா: Main Branch"
+                      className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                    />
+                  </div>
+
+                  {/*Ledger creation date*/}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      லாக்கரில் வைக்கப்பட்ட பொருளின் தேதி (Ledger Creation) Date
+                    </label>
+                    <input
+                      required
+                      name="ledgercreationdate"
+                      type="text"
+                      placeholder="எ.கா: 10/10/2026"
+                      className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                    />
+                  </div>
+
+                  {/*OB Staff Name*/}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      பணியாளர் பெயர் (OB Staff Name)
+                    </label>
+                    <input
+                      required
+                      name="obstaffname"
+                      type="text"
+                      placeholder="எ.கா: Selvi"
+                      className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                    />
+                  </div>
+
+                  {/*OB Account Number*/}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      கணக்கு எண் (OB Account Number)
+                    </label>
+                    <input
+                      required
+                      name="obaccountno"
+                      type="text"
+                      placeholder="எ.கா: 65100xxxxx67809"
                       className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
                     />
                   </div>
