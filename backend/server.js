@@ -339,6 +339,18 @@ const expenseSchema = new mongoose.Schema({
 });
 const Expense = mongoose.model("Expense", expenseSchema);
 
+const shopProfileSchema = new mongoose.Schema({
+  shopName: { type: String, required: true },
+  ownerName: { type: String, required: true },
+  phone: { type: String, required: true },
+  email: { type: String },
+  address: { type: String, required: true },
+  shopimage: { type: String }, 
+  deletePassword: { type: String },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+});
+const ShopProfile = mongoose.model("ShopProfile", shopProfileSchema);
+
 const addMonths = (dateString, months) => {
   const d = new Date(dateString);
   d.setMonth(d.getMonth() + months);
@@ -680,6 +692,16 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
   }
 });
 
+app.get("/api/shop-profile", verifyToken, async (req, res) => {
+  try {
+    // We use findOne() because there is only one shop profile for the software
+    const profile = await ShopProfile.findOne(); 
+    res.status(200).json(profile);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch shop profile" });
+  }
+});
+
 app.post("/api/users", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "superadmin") {
@@ -774,6 +796,40 @@ app.post("/api/bankDetails", verifyToken, async (req, res) => {
       message: "Failed to save bank details",
       error: error.message || error,
     });
+  }
+});
+
+
+app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (req, res) => {
+  try {
+    const { shopName, ownerName, phone, email, address, deletePassword, currentPassword } = req.body;
+    const existingProfile = await ShopProfile.findOne();
+
+    if (existingProfile && existingProfile.deletePassword) {
+      if (!currentPassword) {
+        return res.status(401).json({ message: "மாற்றங்களைச் சேமிக்க தற்போதைய கடவுச்சொல்லை உள்ளிடவும்! (Current password required!)" });
+      }
+      if (currentPassword !== existingProfile.deletePassword) {
+        return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect current password!)" });
+      }
+    }
+
+    let updateData = { shopName, ownerName, phone, email, address, updatedBy: req.user.id };
+    
+    if (deletePassword && deletePassword.trim() !== "") {
+      updateData.deletePassword = deletePassword;
+    }
+    
+    if (req.file) {
+      updateData.shopimage = req.file.filename;
+    }
+    const profile = await ShopProfile.findOneAndUpdate(
+      {}, { $set: updateData }, { new: true, upsert: true }
+    );
+
+    res.status(200).json({ message: "Shop Profile updated successfully", profile });
+  } catch (error) {
+    res.status(500).json({ message: "Update failed", error: error.message });
   }
 });
 
@@ -1025,6 +1081,31 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       message: "Failed to create loan",
       error,
     });
+  }
+});
+
+// 🟢 NEW: Secure Loan Delete Route
+app.delete("/api/loans/:id", verifyToken, async (req, res) => {
+  try {
+    const { password } = req.body; 
+
+    const shopProfile = await ShopProfile.findOne();
+    if (!shopProfile || !shopProfile.deletePassword) {
+      return res.status(400).json({ message: "சுயவிவரத்தில் கடவுச்சொல் அமைக்கப்படவில்லை! (Delete password not set in Shop Profile)" });
+    }
+
+    if (password !== shopProfile.deletePassword) {
+      return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+    }
+
+    const deletedLoan = await Loan.findByIdAndDelete(req.params.id);
+    if (!deletedLoan) {
+      return res.status(404).json({ message: "Loan not found" });
+    }
+
+    res.status(200).json({ message: "Loan deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete loan", error: error.message });
   }
 });
 
