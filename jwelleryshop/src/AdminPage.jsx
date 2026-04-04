@@ -1426,25 +1426,28 @@ return (
                       <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
                         <thead className="bg-slate-50">
                           <tr>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-5 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               புகைப்படம்
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               வாடிக்கையாளர் அடையாள எண்
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-15 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                              ஆதார் புகைப்படம்
+                            </th>
+                            <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               பெயர்
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               தொலைபேசி எண்
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               ஆதார் எண்
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
                               முகவரி
                             </th>
-                            <th className="py-3 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">
+                            <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">
                               விருப்பங்கள்
                             </th>
                           </tr>
@@ -1502,11 +1505,11 @@ return (
                                 <tr
                                   key={customer._id}
                                   className="hover:bg-slate-50 transition-colors">
-                                  <td className="py-3 px-6 whitespace-nowrap">
+                                  <td className="py-3 px-2 whitespace-nowrap">
                                     <img
                                       src={`http://localhost:5000/uploads/${customer.recentimage}`}
                                       alt={customer.name}
-                                      className="w-10 h-10 rounded-full object-cover border-2 border-slate-200 shadow-sm"
+                                      className="w-25 h-30 rounded-full object-cover border-2 border-slate-200 shadow-sm"
                                       onError={(e) => {
                                         e.target.src =
                                           "https://ui-avatars.com/api/?name=" +
@@ -1516,22 +1519,29 @@ return (
                                     />
                                   </td>
 
-                                  <td className="py-3 px-6 whitespace-nowrap font-bold text-blue-800">
+                                  <td className="py-3 px-2 whitespace-nowrap font-bold text-blue-800">
                                     {customer.customerIdy}
                                   </td>
-                                  <td className="py-3 px-6 whitespace-nowrap font-bold text-slate-800">
+                                  <td className="py-3 px-2 whitespace-nowrap">
+                                    <img
+                                      src={`http://localhost:5000/uploads/${customer.aadharimage}`}
+                                      alt={customer.name}
+                                      className=" h-30 object-cover border-2 border-rose-200 shadow-sm opacity-80"
+                                    />
+                                  </td>
+                                  <td className="py-3 px-2 whitespace-nowrap font-bold text-slate-800">
                                     {customer.name}
                                   </td>
-                                  <td className="py-3 px-6 whitespace-nowrap font-semibold text-slate-600">
+                                  <td className="py-3 px-2 whitespace-nowrap font-semibold text-slate-600">
                                     {customer.phone}
                                   </td>
-                                  <td className="py-3 px-6 whitespace-nowrap font-medium text-slate-500">
+                                  <td className="py-3 px-2 whitespace-nowrap font-medium text-slate-500">
                                     {customer.aadhar}
                                   </td>
-                                  <td className="py-3 px-6 min-w-50 text-slate-600 leading-relaxed">
+                                  <td className="py-3 px-2 min-w-50 text-slate-600 leading-relaxed">
                                     {customer.address}
                                   </td>
-                                  <td className="py-3 px-6 whitespace-nowrap text-center">
+                                  <td className="py-3 px-2 whitespace-nowrap text-center">
                                     <button
                                       onClick={() => {
                                         setSelectedCustomer(customer);
