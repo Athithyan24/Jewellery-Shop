@@ -92,7 +92,7 @@ const customerSchema = new mongoose.Schema({
   aadhar: { type: String, required: true, unique: true },
   aadharimage: { type: String, required: true },
   recentimage: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+ 
   phone: { type: String, required: true },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -343,13 +343,18 @@ const shopProfileSchema = new mongoose.Schema({
   shopName: { type: String, required: true },
   ownerName: { type: String, required: true },
   phone: { type: String, required: true },
-  email: { type: String },
   address: { type: String, required: true },
   shopimage: { type: String }, 
   deletePassword: { type: String },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
 });
 const ShopProfile = mongoose.model("ShopProfile", shopProfileSchema);
+
+const dailyCashSchema = new mongoose.Schema({
+  date: { type: String, required: true, unique: true }, // Format: YYYY-MM-DD
+  amount: { type: Number, required: true, default: 0 }
+});
+const DailyCash = mongoose.model("DailyCash", dailyCashSchema);
 
 const addMonths = (dateString, months) => {
   const d = new Date(dateString);
@@ -442,7 +447,6 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
         ? {}
         : { createdBy: new mongoose.Types.ObjectId(req.user.id) };
 
-    // 1. Get Daily Loans Given
     const dailyLoans = await Loan.aggregate([
       { $match: matchCondition },
       {
@@ -453,7 +457,6 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       },
     ]);
 
-    // 2. Get Daily Income (Loan Repayments)
     const dailyIncome = await PayLoan.aggregate([
       { $match: matchCondition },
       {
@@ -464,12 +467,10 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       },
     ]);
 
-    // 3. 🟢 NEW: Get Daily Expenses & Reasons
     const dailyExpenses = await Expense.aggregate([
       { $match: matchCondition },
       {
         $group: {
-          // Note: using "$date" because your Expense schema uses "date" instead of "createdAt"
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }, 
           totalExpenses: { $sum: "$amount" },
           expenseDetails: { $push: { name: "$name", amount: "$amount" } }, // Collects "Tea", "Snacks" into an array
@@ -477,9 +478,10 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       },
     ]);
 
+    const dailyCash = await DailyCash.find({});
+
     const statsMap = {};
 
-    // Helper function to initialize a date in the map if it doesn't exist yet
     const initMapEntry = (date) => {
       if (!statsMap[date]) {
         statsMap[date] = {
@@ -488,30 +490,32 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
           income: 0,
           expenses: 0,
           expenseDetails: [],
+          startingCash: 0,
         };
       }
     };
 
-    // Populate Loans
     dailyLoans.forEach((item) => {
       initMapEntry(item._id);
       statsMap[item._id].loanGiven = item.totalLoanGiven;
     });
 
-    // Populate Income
     dailyIncome.forEach((item) => {
       initMapEntry(item._id);
       statsMap[item._id].income = item.totalIncome;
     });
 
-    // 🟢 NEW: Populate Expenses
     dailyExpenses.forEach((item) => {
       initMapEntry(item._id);
       statsMap[item._id].expenses = item.totalExpenses;
       statsMap[item._id].expenseDetails = item.expenseDetails;
     });
 
-    // Convert map to array and sort by latest date first
+    dailyCash.forEach((item) => {
+      initMapEntry(item.date);
+      statsMap[item.date].startingCash = item.amount;
+    });
+
     const statsArray = Object.values(statsMap).sort(
       (a, b) => new Date(b.date) - new Date(a.date),
     );
@@ -692,13 +696,80 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
   }
 });
 
+
+app.post("/api/backup/export", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "worker") {
+      return res.status(403).json({ message: "Access denied!" });
+    }
+    const { password } = req.body;
+    const shopProfile = await ShopProfile.findOne();
+    if (!shopProfile || shopProfile.deletePassword !== password) {
+      return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+    }
+    const backupData = {
+      customers: await Customer.find(),
+      loans: await Loan.find(),
+      expenses: await Expense.find(),
+    };
+
+    res.status(200).json(backupData);
+  } catch (error) {
+    res.status(500).json({ message: "Export failed", error: error.message });
+  }
+});
+
+app.post("/api/backup/import", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "worker") {
+      return res.status(403).json({ message: "Access denied!" });
+    }
+
+    const { password, backupData } = req.body;
+
+    const shopProfile = await ShopProfile.findOne();
+    if (!shopProfile || shopProfile.deletePassword !== password) {
+      return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+    }
+
+    
+    if (backupData.customers && backupData.customers.length > 0) {
+      await Customer.deleteMany({});
+      await Customer.insertMany(backupData.customers);
+    }
+    
+    if (backupData.loans && backupData.loans.length > 0) {
+      await Loan.deleteMany({});
+      await Loan.insertMany(backupData.loans);
+    }
+
+    if (backupData.expenses && backupData.expenses.length > 0) {
+      await Expense.deleteMany({});
+      await Expense.insertMany(backupData.expenses);
+    }
+
+    res.status(200).json({ message: "Backup restored successfully!" });
+  } catch (error) {
+    res.status(500).json({ message: "Import failed", error: error.message });
+  }
+});
+
 app.get("/api/shop-profile", verifyToken, async (req, res) => {
   try {
-    // We use findOne() because there is only one shop profile for the software
     const profile = await ShopProfile.findOne(); 
     res.status(200).json(profile);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch shop profile" });
+  }
+});
+
+app.get("/api/daily-cash", verifyToken, async (req, res) => {
+  try {
+    const today = new Date().toLocaleDateString('en-CA'); 
+    const cash = await DailyCash.findOne({ date: today });
+    res.status(200).json({ amount: cash ? cash.amount : 0 });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch cash", error: error.message });
   }
 });
 
@@ -802,7 +873,7 @@ app.post("/api/bankDetails", verifyToken, async (req, res) => {
 
 app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (req, res) => {
   try {
-    const { shopName, ownerName, phone, email, address, deletePassword, currentPassword } = req.body;
+    const { shopName, ownerName, phone, address, deletePassword, currentPassword } = req.body;
     const existingProfile = await ShopProfile.findOne();
 
     if (existingProfile && existingProfile.deletePassword) {
@@ -814,7 +885,7 @@ app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (re
       }
     }
 
-    let updateData = { shopName, ownerName, phone, email, address, updatedBy: req.user.id };
+    let updateData = { shopName, ownerName, phone, address, updatedBy: req.user.id };
     
     if (deletePassword && deletePassword.trim() !== "") {
       updateData.deletePassword = deletePassword;
@@ -830,6 +901,24 @@ app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (re
     res.status(200).json({ message: "Shop Profile updated successfully", profile });
   } catch (error) {
     res.status(500).json({ message: "Update failed", error: error.message });
+  }
+});
+
+app.post("/api/daily-cash", verifyToken, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const today = new Date().toLocaleDateString('en-CA'); 
+    
+    // We use $inc to ADD the amount. (If you put 5000 in the morning and 2000 later, it becomes 7000)
+    const dailyCash = await DailyCash.findOneAndUpdate(
+      { date: today },
+      { $inc: { amount: Number(amount) } }, 
+      { new: true, upsert: true }
+    );
+    
+    res.status(200).json({ message: "Cash added successfully", dailyCash });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to add cash", error: error.message });
   }
 });
 
@@ -977,7 +1066,7 @@ app.post("/api/customers", verifyToken,upload.fields([
       { new: true, upsert: true }
     );
 
-      const { name, dob, address, aadhar, email, phone } = req.body;
+      const { name, dob, address, aadhar, phone } = req.body;
       const generatedCustomerId = "CUST" + String(counter.value).padStart(3, "0");
 
       const newCustomer = new Customer({
@@ -988,7 +1077,6 @@ app.post("/api/customers", verifyToken,upload.fields([
         aadhar,
         aadharimage: req.files["aadharimage"][0].filename,
         recentimage: req.files["recentimage"][0].filename,
-        email,
         phone,
         createdBy: req.user.id,
       });

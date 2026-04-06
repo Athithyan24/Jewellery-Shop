@@ -21,7 +21,6 @@ const customerRxSchema = {
     aadhar: { type: 'string' },
     aadharimage: { type: 'string' }, 
     recentimage: { type: 'string' },
-    email: { type: 'string' },
     phone: { type: 'string' },
     createdBy: { type: 'string' },
     updatedAt: { type: 'number' } ,
