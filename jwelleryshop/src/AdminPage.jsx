@@ -349,6 +349,7 @@ export default function AdminPage() {
       );
       setDailyCashInput("");
       fetchDailyCash();
+      fetchDailyStats();
     } catch (error) {
       console.error("Failed to add cash:", error);
     }
@@ -1711,7 +1712,7 @@ export default function AdminPage() {
                                   <tr
                                     key={customer.id}
                                     className="bg-rose-50/40 hover:bg-rose-50 transition-colors border-l-4 border-l-rose-400">
-                                    <td className="py-3 px-6 whitespace-nowrap">
+                                    <td className="py-3 px-2 whitespace-nowrap">
                                       {/* Offline images are already Base64 strings */}
                                       <img
                                         src={
@@ -1719,29 +1720,40 @@ export default function AdminPage() {
                                           `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`
                                         }
                                         alt={customer.name}
-                                        className="w-10 h-10 rounded-full object-cover border-2 border-rose-200 shadow-sm opacity-80"
+                                        className="w-25 h-30 rounded-full object-cover border-2 border-slate-200 shadow-sm"
                                       />
                                     </td>
 
-                                    <td className="py-3 px-6 whitespace-nowrap font-bold text-blue-600">
+                                    <td className="py-3 px-2 whitespace-nowrap font-bold text-blue-600">
                                       {customer.customerIdy}
                                     </td>
-                                    <td className="py-3 px-6 whitespace-nowrap font-bold text-slate-800">
+                                    <td className="py-3 px-2 whitespace-nowrap">
+                                      {/* Offline images are already Base64 strings */}
+                                      <img
+                                        src={
+                                          customer.aadharimage ||
+                                          `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`
+                                        }
+                                        alt={customer.name}
+                                        className="h-30 object-cover border-2 border-rose-200 shadow-sm opacity-80"
+                                      />
+                                    </td>
+                                    <td className="py-3 px-2 whitespace-nowrap font-bold text-slate-800">
                                       {customer.name}
                                       <span className="ml-2 text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold tracking-widest uppercase shadow-sm border border-rose-200">
                                         Not Synced
                                       </span>
                                     </td>
-                                    <td className="py-3 px-6 whitespace-nowrap font-semibold text-slate-600">
+                                    <td className="py-3 px-2 whitespace-nowrap font-semibold text-slate-600">
                                       {customer.phone}
                                     </td>
-                                    <td className="py-3 px-6 whitespace-nowrap font-medium text-slate-500">
+                                    <td className="py-3 px-2 whitespace-nowrap font-medium text-slate-500">
                                       {customer.aadhar}
                                     </td>
-                                    <td className="py-3 px-6 min-w-50 text-slate-600 leading-relaxed">
+                                    <td className="py-3 px-2 min-w-50 text-slate-600 leading-relaxed">
                                       {customer.address}
                                     </td>
-                                    <td className="py-3 px-6 whitespace-nowrap text-center">
+                                    <td className="py-3 px-2 whitespace-nowrap text-center">
                                       <span className="text-xs font-bold text-rose-500 bg-white px-3 py-1.5 rounded-lg border border-rose-100">
                                         Sync to enable Loan
                                       </span>

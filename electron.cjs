@@ -10,7 +10,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    show:false,
+    show: false, 
     title: "Jewellery Shop Manager",
     webPreferences: {
       nodeIntegration: true,
@@ -18,11 +18,14 @@ function createWindow() {
     },
   });
 
-  setTimeout(() => {
-    mainWindow.loadFile(
-      path.join(__dirname, "jwelleryshop", "dist", "index.html"),
-    );
-  }, 2000);
+  mainWindow.loadFile(
+    path.join(__dirname, "jwelleryshop", "dist", "index.html")
+  );
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus(); 
+  });
 }
 
 app.whenReady().then(() => {
