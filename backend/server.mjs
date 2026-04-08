@@ -70,19 +70,19 @@ const User = mongoose.model("User", userSchema);
 
 const createSuperAdmin = async () => {
   const adminExists = await User.findOne(
-    { username: "admin" },
+    { username: "InfoZenX_It" },
     { username: "worker" },
   );
   if (!adminExists) {
     await User.create({
-      username: "admin",
-      password: "adminpassword",
+      username: "InfoZenX_It",
+      password: "Info@ZenXItadmin",
       role: "superadmin",
       shoptype: "Headquarters",
     });
 
     console.log(
-      "Super Admin account created! Username: admin | Password: adminpassword",
+      "Super Admin account created! Username: InfoZenX_It | Password: Info@ZenXItadmin",
     );
   }
 };
@@ -693,7 +693,7 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
       .populate("bank", "name")
       .populate({
         path: "loan",
-        select: "product loanamount",
+        select: "product loanamount loanId",
         populate: { path: "product", select: "name" },
       });
     res.status(200).json(locker);
@@ -712,14 +712,20 @@ app.post("/api/backup/export", verifyToken, async (req, res) => {
       return res.status(403).json({ message: "Access denied!" });
     }
     const { password } = req.body;
-    const shopProfile = await ShopProfile.findOne();
+    const shopProfile = await ShopProfile.findOne({ userId: req.user.id });
+
     if (!shopProfile || shopProfile.deletePassword !== password) {
       return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
     }
+
     const backupData = {
+      users: await User.find({ role: "worker" }), 
       customers: await Customer.find(),
       loans: await Loan.find(),
       expenses: await Expense.find(),
+      payLoans: await PayLoan.find(),         
+      bankDetails: await BankDetails.find(),  
+      dailyCash: await DailyCash.find(),      
     };
 
     res.status(200).json(backupData);
@@ -728,36 +734,107 @@ app.post("/api/backup/export", verifyToken, async (req, res) => {
   }
 });
 
+app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const customers = await Customer.find({ createdBy: userId });
+    const loans = await Loan.find({ createdBy: userId }).populate("customer");
+    const expenses = await Expense.find({ createdBy: userId });
+    const payLoans = await PayLoan.find({ createdBy: userId }).populate("customer");
+
+    const reportData = [];
+    customers.forEach((c) => {
+      reportData.push({
+        type: "புதிய வாடிக்கையாளர் (New Customer)",
+        description: c.name || "Customer",
+        amount: 0,
+        createdAt: c.createdAt || c._id.getTimestamp() 
+      });
+    });
+
+    loans.forEach((l) => {
+      reportData.push({
+        type: "கடன் வழங்கப்பட்டது (Loan Given)",
+        description: `${l.loanId || "Loan"} - ${l.customer?.name || "Unknown"}`,
+        amount: l.loanamount || 0,
+        createdAt: l.createdAt || l._id.getTimestamp()
+      });
+    });
+
+    expenses.forEach((e) => {
+      reportData.push({
+        type: "செலவு (Expense)",
+        description: e.expenseName || e.description || e.name || "Expense",
+        amount: parseFloat(e.expenseAmount) || parseFloat(e.amount) || 0,
+        createdAt: e.createdAt || (e._id ? e._id.getTimestamp() : new Date())
+      });
+    });
+
+    payLoans.forEach((p) => {
+      reportData.push({
+        type: "வரவு (Loan Payment)",
+        description: p.customer?.name ? `Payment from ${p.customer.name}` : "Payment Received",
+        amount: p.amountPaid || 0,
+        createdAt: p.paymentDate || p.createdAt || p._id.getTimestamp()
+      });
+    });
+
+    reportData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.status(200).json(reportData);
+  } catch (error) {
+    console.error("Export Error:", error);
+    res.status(500).json({ message: "Failed to generate Excel report", error: error.message });
+  }
+});
+
 app.post("/api/backup/import", verifyToken, async (req, res) => {
   try {
-    if (req.user.role !== "worker") {
+    if (req.user.role !== "superadmin" && req.user.role !== "worker") {
       return res.status(403).json({ message: "Access denied!" });
     }
-
+    
     const { password, backupData } = req.body;
-
-    const shopProfile = await ShopProfile.findOne();
-    if (!shopProfile || shopProfile.deletePassword !== password) {
-      return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+    
+    if (req.user.role === "worker") {
+      const shopProfile = await ShopProfile.findOne({ userId: req.user.id });
+      if (!shopProfile || shopProfile.deletePassword !== password) {
+        return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+      }
     }
 
-    
+    if (backupData.users && backupData.users.length > 0) {
+      await User.deleteMany({ role: "worker" }); 
+      await User.insertMany(backupData.users);
+    }
+
     if (backupData.customers && backupData.customers.length > 0) {
       await Customer.deleteMany({});
       await Customer.insertMany(backupData.customers);
     }
-    
     if (backupData.loans && backupData.loans.length > 0) {
       await Loan.deleteMany({});
       await Loan.insertMany(backupData.loans);
     }
-
     if (backupData.expenses && backupData.expenses.length > 0) {
       await Expense.deleteMany({});
       await Expense.insertMany(backupData.expenses);
     }
+    if (backupData.payLoans && backupData.payLoans.length > 0) {
+      await PayLoan.deleteMany({});
+      await PayLoan.insertMany(backupData.payLoans);
+    }
+    if (backupData.bankDetails && backupData.bankDetails.length > 0) {
+      await BankDetails.deleteMany({});
+      await BankDetails.insertMany(backupData.bankDetails);
+    }
+    if (backupData.dailyCash && backupData.dailyCash.length > 0) {
+      await DailyCash.deleteMany({});
+      await DailyCash.insertMany(backupData.dailyCash);
+    }
 
-    res.status(200).json({ message: "Backup restored successfully!" });
+    res.status(200).json({ message: "முழு தரவும் வெற்றிகரமாக மீட்டமைக்கப்பட்டது! (Full data imported successfully!)" });
   } catch (error) {
     res.status(500).json({ message: "Import failed", error: error.message });
   }
