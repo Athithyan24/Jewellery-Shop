@@ -1,6 +1,6 @@
 import { useState} from "react";
 import axios from "axios";
-import AdminPage from "./AdminPage";
+import AdminPage from "./AdminPages";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {

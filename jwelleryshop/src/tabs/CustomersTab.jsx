@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Search, Handshake } from "lucide-react";
+import { Search, Handshake, Users } from "lucide-react";
 import { getDatabase } from "../db";
 export default function CustomersTab() {
   const [offlineCustomers, setOfflineCustomers] = useState([]);
@@ -94,7 +94,7 @@ export default function CustomersTab() {
   };
 
   const filteredCustomers = customers.filter((customer) => {
-    if (!customerSearchQuery) return true; 
+    if (!customerSearchQuery) return true;
 
     const searchLower = customerSearchQuery.toLowerCase();
 
@@ -114,34 +114,13 @@ export default function CustomersTab() {
       (parseFloat(loanCalc.goldrate) || 0) *
       (parseFloat(loanCalc.pawnpercentage) || 0)) /
     100;
-  const t1Days =
-    (parseFloat(loanCalc.firstInterestTo) || 90) -
-    (parseFloat(loanCalc.firstInterestFrom) || 1) +
-    1;
-  const t2Days =
-    (parseFloat(loanCalc.secondInterestTo) || 180) -
-    (parseFloat(loanCalc.secondInterestFrom) || 91) +
-    1;
-  const t3Days =
-    (parseFloat(loanCalc.thirdInterestTo) || 270) -
-    (parseFloat(loanCalc.thirdInterestFrom) || 181) +
-    1;
 
   const interest1Month =
-    (estimatedAmount *
-      (parseFloat(loanCalc.firstinterest) || 0) *
-      (t1Days / 30)) /
-    100;
+    (estimatedAmount * (parseFloat(loanCalc.firstinterest) || 0)) / 100;
   const interest2Months =
-    (estimatedAmount *
-      (parseFloat(loanCalc.secondinterest) || 0) *
-      (t2Days / 30)) /
-    100;
+    (estimatedAmount * (parseFloat(loanCalc.secondinterest) || 0)) / 100;
   const interest3Months =
-    (estimatedAmount *
-      (parseFloat(loanCalc.thirdinterest) || 0) *
-      (t3Days / 30)) /
-    100;
+    (estimatedAmount * (parseFloat(loanCalc.thirdinterest) || 0)) / 100;
 
   const handleLoanSubmit = async (e) => {
     e.preventDefault();
@@ -207,7 +186,49 @@ export default function CustomersTab() {
   };
 
   const handleLoanCalcChange = (e) => {
-    setLoanCalc({ ...loanCalc, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    const updatedCalc = { ...loanCalc, [name]: value };
+
+    // 1. Calculate the actual Loan Principal (The 40,000 in your example)
+    const netWt =
+      (parseFloat(updatedCalc.weight) || 0) -
+      (parseFloat(updatedCalc.stoneweight) || 0);
+    const goldRt = parseFloat(updatedCalc.goldrate) || 0;
+    const pawnPct = parseFloat(updatedCalc.pawnpercentage) || 0;
+    const principal = (netWt * goldRt * pawnPct) / 100;
+
+    // 2. Helper to calculate "Monthly Slab" Interest
+    const calculateTierTotal = (ratePercent, fromDay, toDay) => {
+      const rate = parseFloat(ratePercent) || 0;
+      const days = (parseInt(toDay) || 0) - (parseInt(fromDay) || 0) + 1;
+
+      if (principal <= 0 || days <= 0) return 0;
+
+      // Convert days to months (rounding up: e.g., 1-30 days = 1 month, 31-60 = 2 months)
+      const months = Math.ceil(days / 30);
+
+      // Formula: Principal * (Rate/100) * Number of Months
+      return principal * (rate / 100) * months;
+    };
+
+    // 3. Update the state with new totals
+    updatedCalc.firstTierTotal = calculateTierTotal(
+      updatedCalc.firstinterest,
+      updatedCalc.firstInterestFrom,
+      updatedCalc.firstInterestTo,
+    );
+    updatedCalc.secondTierTotal = calculateTierTotal(
+      updatedCalc.secondinterest,
+      updatedCalc.secondInterestFrom,
+      updatedCalc.secondInterestTo,
+    );
+    updatedCalc.thirdTierTotal = calculateTierTotal(
+      updatedCalc.thirdinterest,
+      updatedCalc.thirdInterestFrom,
+      updatedCalc.thirdInterestTo,
+    );
+
+    setLoanCalc(updatedCalc);
   };
 
   const syncOfflineCustomersToCloud = async () => {
@@ -362,196 +383,202 @@ export default function CustomersTab() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800 tracking-wide">
-              வாடிக்கையாளர்கள் (Customers List)
-            </h2>
-            <div className="relative w-full sm:w-96">
-              <span className="absolute left-3 top-2.5 text-slate-400">
-                <Search size={18} />
+        <div className="p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 overflow-hidden">
+            <div className="px-6 py-6 bg-white flex flex-col xl:flex-row items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                <div className="flex">
+                  <Users className="mr-2 text-red-500" />
+                  <h2 className="lg:text-lg md:text-sm font-bold text-blue-800 tracking-wide">
+                    வாடிக்கையாளர்கள் (Customers)
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setCustomerModal(true)}
+                  className="bg-indigo-600 hover:scale-105 cursor-pointer transition-all duration-200 text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/20 active:scale-95 shrink-0">
+                  + புதிய வாடிக்கையாளர்
+                </button>
+              </div>
+
+              <div className="relative w-full xl:w-96 group">
+                <Search
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors duration-300"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Search by ID, Name, or Phone..."
+                  value={customerSearchQuery}
+                  onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-full text-sm font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all shadow-inner"
+                />
+              </div>
+
+              <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+                Total:{" "}
+                {(customers?.length || 0) +
+                  offlineCustomers.filter((c) => !c.isSynced).length}
               </span>
-              <input
-                type="text"
-                placeholder="Search by ID (CUST001), Name, or Phone..."
-                value={customerSearchQuery}
-                onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm font-semibold text-slate-700"
-              />
             </div>
 
-            <button
-              onClick={() => setCustomerModal(true)}
-              className="bg-indigo-600 hover:scale-105 cursor-pointer transition-all duration-150 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 w-full sm:w-auto shrink-0">
-              + புதிய வாடிக்கையாளர்
-            </button>
-            <span className="bg-white text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-              Total:{" "}
-              {(customers?.length || 0) +
-                offlineCustomers.filter((c) => !c.isSynced).length}
-            </span>
-          </div>
+            <div className="overflow-x-auto h-150 custom-scrollbar">
+              <table className="min-w-full text-sm text-left">
+                <thead className="bg-slate-800 sticky top-0 z-10 shadow-md">
+                  <tr>
+                    <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      புகைப்படம்
+                    </th>
+                    <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      அடையாள எண்
+                    </th>
+                    <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      ஆதார் புகைப்படம்
+                    </th>
+                    <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      பெயர் (Name)
+                    </th>
+                    <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      மொபைல் (Phone)
+                    </th>
+                    <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      ஆதார் எண்
+                    </th>
+                    <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      முகவரி (Address)
+                    </th>
+                    <th className="px-4 py-4 text-center text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
+                      செயல்
+                    </th>
+                  </tr>
+                </thead>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="py-3 px-5 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    புகைப்படம்
-                  </th>
-                  <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    வாடிக்கையாளர் அடையாள எண்
-                  </th>
-                  <th className="py-3 px-15 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    ஆதார் புகைப்படம்
-                  </th>
-                  <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    பெயர்
-                  </th>
-                  <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    தொலைபேசி எண்
-                  </th>
-                  <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    ஆதார் எண்
-                  </th>
-                  <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    முகவரி
-                  </th>
-                  <th className="py-3 px-2 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">
-                    விருப்பங்கள்
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
-                {offlineCustomers &&
-                  offlineCustomers
-                    .filter((c) => !c.isSynced)
-                    .map((customer) => (
-                      <tr
-                        key={customer.id}
-                        className="bg-rose-50/40 hover:bg-rose-50 transition-colors border-l-4 border-l-rose-400">
-                        <td className="py-3 px-2 whitespace-nowrap">
-                          <img
-                            src={
-                              customer.recentimage ||
-                              `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`
-                            }
-                            alt={customer.name}
-                            className="w-25 h-30 rounded-full object-cover border-2 border-slate-200 shadow-sm"
-                          />
-                        </td>
-
-                        <td className="py-3 px-2 whitespace-nowrap font-bold text-blue-600">
-                          {customer.customerIdy}
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap">
-                          <img
-                            src={
-                              customer.aadharimage ||
-                              `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`
-                            }
-                            alt={customer.name}
-                            className="h-30 object-cover border-2 border-rose-200 shadow-sm opacity-80"
-                          />
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap font-bold text-slate-800">
-                          {customer.name}
-                          <span className="ml-2 text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold tracking-widest uppercase shadow-sm border border-rose-200">
-                            Not Synced
-                          </span>
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap font-semibold text-slate-600">
-                          {customer.phone}
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap font-medium text-slate-500">
-                          {customer.aadhar}
-                        </td>
-                        <td className="py-3 px-2 min-w-50 text-slate-600 leading-relaxed">
-                          {customer.address}
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap text-center">
-                          <span className="text-xs font-bold text-rose-500 bg-white px-3 py-1.5 rounded-lg border border-rose-100">
-                            Sync to enable Loan
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-
-                {filteredCustomers.length > 0
-                  ? filteredCustomers.map((customer, index) => (
-                      <tr
-                        key={customer._id}
-                        className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-2 whitespace-nowrap">
-                          <img
-                            src={`http://localhost:5000/uploads/${customer.recentimage}`}
-                            alt={customer.name}
-                            className="w-25 h-30 rounded-full object-cover border-2 border-slate-200 shadow-sm"
-                            onError={(e) => {
-                              e.target.src =
-                                "https://ui-avatars.com/api/?name=" +
-                                customer.name +
-                                "&background=F1F5F9&color=64748B";
-                            }}
-                          />
-                        </td>
-
-                        <td className="py-3 px-2 whitespace-nowrap font-bold text-blue-800">
-                          {customer.customerIdy}
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap">
-                          <img
-                            src={`http://localhost:5000/uploads/${customer.aadharimage}`}
-                            alt={customer.name}
-                            className=" h-30 object-cover border-2 border-rose-200 shadow-sm opacity-80"
-                          />
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap font-bold text-slate-800">
-                          {customer.name}
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap font-semibold text-slate-600">
-                          {customer.phone}
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap font-medium text-slate-500">
-                          {customer.aadhar}
-                        </td>
-                        <td className="py-3 px-2 min-w-50 text-slate-600 leading-relaxed">
-                          {customer.address}
-                        </td>
-                        <td className="py-3 px-2 whitespace-nowrap text-center">
-                          <button
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setLoanModal(true);
-                              fetchProducts();
-                            }}
-                            className="inline-flex hover:scale-105 cursor-pointer  items-center justify-center bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 border border-emerald-200 hover:border-emerald-600 shadow-sm">
-                            கடன் வாங்கு (Loan)
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  : 
-                    offlineCustomers.filter((c) => !c.isSynced).length ===
-                      0 && (
-                      <tr>
-                        <td
-                          colSpan="6"
-                          className="py-12 px-6 text-center text-slate-500 font-medium">
-                          <div className="flex flex-col items-center justify-center gap-2">
-                            <span className="text-3xl text-purple-300">
-                              <Handshake />
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {offlineCustomers &&
+                    offlineCustomers
+                      .filter((c) => !c.isSynced)
+                      .map((customer) => (
+                        <tr
+                          key={customer.id}
+                          className="bg-rose-50/40 hover:bg-rose-50 transition-colors border-l-4 border-l-rose-400 group">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <img
+                              src={
+                                customer.recentimage ||
+                                `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`
+                              }
+                              alt={customer.name}
+                              className="w-25 h-30 rounded-xl object-cover border-2 border-slate-200 shadow-sm"
+                            />
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="font-mono text-xs font-bold px-3 py-1.5 rounded-lg bg-white text-blue-600 border border-blue-200 shadow-sm">
+                              {customer.customerIdy}
                             </span>
-                            <p>
-                              எந்த வாடிக்கையாளர்களும் இல்லை (No customers
-                              found).
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-              </tbody>
-            </table>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <img
+                              src={
+                                customer.aadharimage ||
+                                `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`
+                              }
+                              alt="Aadhaar"
+                              className="h-25 w-50 rounded-lg object-cover border-2 border-rose-200 shadow-sm opacity-80"
+                            />
+                          </td>
+                          <td className="px-4 py-3 font-black text-slate-800 uppercase">
+                            {customer.name}
+                            <span className="ml-2 block mt-1 w-max text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold tracking-widest uppercase shadow-sm border border-rose-200">
+                              Not Synced
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-slate-600">
+                            {customer.phone}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-slate-500">
+                            {customer.aadhar}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 text-sm font-medium min-w-[150px]">
+                            {customer.address}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-[10px] font-bold text-rose-500 bg-white px-3 py-1.5 rounded-lg border border-rose-100 shadow-sm">
+                              Sync to enable Loan
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+
+                  {filteredCustomers.length > 0
+                    ? filteredCustomers.map((customer) => (
+                        <tr
+                          key={customer._id}
+                          className="hover:bg-indigo-50/30 transition-colors duration-200 group">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <img
+                              src={`http://localhost:5000/uploads/${customer.recentimage}`}
+                              alt={customer.name}
+                              className="w-25 h-30 rounded-xl object-cover border-2 border-slate-200 shadow-sm"
+                              onError={(e) => {
+                                e.target.src = `https://ui-avatars.com/api/?name=${customer.name}&background=F1F5F9&color=64748B`;
+                              }}
+                            />
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="font-mono text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-700 group-hover:bg-white transition-all">
+                              {customer.customerIdy}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <img
+                              src={`http://localhost:5000/uploads/${customer.aadharimage}`}
+                              alt="Aadhaar"
+                              className="h-25 w-50 rounded-lg object-cover border-2 border-slate-200 shadow-sm opacity-90 group-hover:border-indigo-300 transition-all"
+                            />
+                          </td>
+                          <td className="px-4 py-3 font-black text-slate-800 uppercase tracking-wide">
+                            {customer.name}
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-slate-600">
+                            {customer.phone}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-slate-500">
+                            {customer.aadhar}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 text-sm font-medium min-w-[150px]">
+                            {customer.address}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => {
+                                setSelectedCustomer(customer);
+                                setLoanModal(true);
+                                fetchProducts();
+                              }}
+                              className="inline-flex items-center justify-center bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 border border-emerald-200 hover:border-emerald-600 shadow-sm hover:shadow-emerald-600/30 hover:-translate-y-0.5 active:scale-95 cursor-pointer">
+                              <Handshake size={16} className="mr-1 " />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    : offlineCustomers.filter((c) => !c.isSynced).length ===
+                        0 && (
+                        <tr>
+                          <td colSpan="8" className="px-6 py-16 text-center">
+                            <div className="flex flex-col items-center justify-center text-slate-400">
+                              <Search size={56} className="mb-4 opacity-20" />
+                              <p className="text-xl font-black text-slate-500 tracking-tight">
+                                எந்த வாடிக்கையாளரும் இல்லை!
+                              </p>
+                              <p className="text-sm font-semibold mt-2 opacity-70">
+                                (No customers found matching your search)
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -855,47 +882,79 @@ export default function CustomersTab() {
                 </div>
 
                 <div className="lg:col-span-7 space-y-4">
-                  <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
-                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">
+                  <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
+                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
                       வட்டி அமைப்புகள் (Interest Settings)
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
+                        Est. Loan: ₹
+                        {estimatedAmount > 0
+                          ? estimatedAmount.toFixed(2)
+                          : "0.00"}
+                      </span>
                     </h4>
 
-                    <div className="space-y-5">
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                    <div className="space-y-4">
+                      {/* TIER 1 */}
+                      <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 hover:border-indigo-200 transition-colors">
                         <div className="flex justify-between items-center mb-3">
-                          <h5 className="text-xs font-bold text-indigo-700 uppercase">
-                            முதல் வட்டி (INT: 1)
+                          <h5 className="text-xs font-black text-indigo-700 uppercase tracking-wider">
+                            முதல் வட்டி (Tier 1)
                           </h5>
-                          <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
-                            மதிப்பீடு: ₹
-                            {interest1Month > 0
-                              ? interest1Month.toFixed(2)
-                              : "0.00"}
+
+                          <span className="bg-indigo-100 text-indigo-800 text-xs font-black px-3 py-1 rounded-lg border border-indigo-200 shadow-sm font-mono flex flex-col items-end">
+                            <span className="text-[12px] opacity-70">
+                              ₹
+                              {(
+                                (((parseFloat(loanCalc.weight) -
+                                  parseFloat(loanCalc.stoneweight)) *
+                                  loanCalc.goldrate *
+                                  loanCalc.pawnpercentage) /
+                                  100) *
+                                (loanCalc.firstinterest / 100)
+                              ).toFixed(2)}{" "}
+                              /mo
+                            </span>
+
+                            <span className="text-sm">
+                              Total: ₹
+                              {loanCalc.firstTierTotal
+                                ? loanCalc.firstTierTotal.toFixed(2)
+                                : "0.00"}
+                            </span>
+
+                            <span className="text-[12px] opacity-50 italic">
+                              (
+                              {Math.ceil(
+                                (parseInt(loanCalc.firstInterestTo) -
+                                  parseInt(loanCalc.firstInterestFrom) +
+                                  1) /
+                                  30,
+                              )}{" "}
+                              Months)
+                            </span>
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-4">
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              வட்டி வீதம்
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              வட்டி வீதம் (%)
                             </label>
                             <div className="relative">
                               <input
                                 name="firstinterest"
                                 type="number"
+                                step="0.01"
                                 placeholder="0"
                                 value={loanCalc.firstinterest || ""}
                                 onChange={handleLoanCalcChange}
-                                className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-inner transition-all"
                                 required
                               />
-                              <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">
-                                %
-                              </span>
                             </div>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              முதல் (From)
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              முதல் (From Day)
                             </label>
                             <input
                               name="firstInterestFrom"
@@ -903,13 +962,13 @@ export default function CustomersTab() {
                               placeholder="1"
                               value={loanCalc.firstInterestFrom || ""}
                               onChange={handleLoanCalcChange}
-                              className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-inner transition-all"
                               required
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              வரை (To)
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              வரை (To Day)
                             </label>
                             <input
                               name="firstInterestTo"
@@ -917,48 +976,73 @@ export default function CustomersTab() {
                               placeholder="90"
                               value={loanCalc.firstInterestTo || ""}
                               onChange={handleLoanCalcChange}
-                              className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-inner transition-all"
                               required
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                      {/* TIER 2 */}
+                      <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 hover:border-amber-200 transition-colors">
                         <div className="flex justify-between items-center mb-3">
-                          <h5 className="text-xs font-bold text-indigo-700 uppercase">
-                            இரண்டாவது வட்டி (INT: 2)
+                          <h5 className="text-xs font-black text-amber-700 uppercase tracking-wider">
+                            2வது வட்டி (Tier 2)
                           </h5>
-                          <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
-                            மதிப்பீடு: ₹
-                            {interest2Months > 0
-                              ? interest2Months.toFixed(2)
-                              : "0.00"}
+                          <span className="bg-amber-100 text-amber-700 text-xs font-black px-3 py-1 rounded-lg border border-orange-200 shadow-sm font-mono flex flex-col items-end">
+                            <span className="text-[12px] opacity-70">
+                              ₹
+                              {(
+                                (((parseFloat(loanCalc.weight) -
+                                  parseFloat(loanCalc.stoneweight)) *
+                                  loanCalc.goldrate *
+                                  loanCalc.pawnpercentage) /
+                                  100) *
+                                (loanCalc.secondinterest / 100)
+                              ).toFixed(2)}{" "}
+                              /mo
+                            </span>
+
+                            <span className="text-sm">
+                              Total: ₹
+                              {loanCalc.secondTierTotal
+                                ? loanCalc.secondTierTotal.toFixed(2)
+                                : "0.00"}
+                            </span>
+
+                            <span className="text-[12px] opacity-50 italic">
+                              (
+                              {Math.ceil(
+                                (parseInt(loanCalc.secondInterestTo) -
+                                  parseInt(loanCalc.secondInterestFrom) +
+                                  1) /
+                                  30,
+                              )}{" "}
+                              Months)
+                            </span>
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-4">
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              வட்டி வீதம்
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              வட்டி வீதம் (%)
                             </label>
                             <div className="relative">
                               <input
                                 name="secondinterest"
                                 type="number"
+                                step="0.01"
                                 placeholder="0"
                                 value={loanCalc.secondinterest || ""}
                                 onChange={handleLoanCalcChange}
-                                className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-inner transition-all"
                                 required
                               />
-                              <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">
-                                %
-                              </span>
                             </div>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              முதல் (From)
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              முதல் (From Day)
                             </label>
                             <input
                               name="secondInterestFrom"
@@ -966,13 +1050,13 @@ export default function CustomersTab() {
                               placeholder="91"
                               value={loanCalc.secondInterestFrom || ""}
                               onChange={handleLoanCalcChange}
-                              className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-inner transition-all"
                               required
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              வரை (To)
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              வரை (To Day)
                             </label>
                             <input
                               name="secondInterestTo"
@@ -980,48 +1064,73 @@ export default function CustomersTab() {
                               placeholder="180"
                               value={loanCalc.secondInterestTo || ""}
                               onChange={handleLoanCalcChange}
-                              className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-inner transition-all"
                               required
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                      {/* TIER 3 */}
+                      <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 hover:border-rose-200 transition-colors">
                         <div className="flex justify-between items-center mb-3">
-                          <h5 className="text-xs font-bold text-indigo-700 uppercase">
-                            மூன்றாவது வட்டி (INT: 3)
+                          <h5 className="text-xs font-black text-rose-700 uppercase tracking-wider">
+                            3வது வட்டி (Tier 3)
                           </h5>
-                          <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-md">
-                            மதிப்பீடு: ₹
-                            {interest3Months > 0
-                              ? interest3Months.toFixed(2)
-                              : "0.00"}
+                          <span className="bg-rose-100 text-rose-700 text-xs font-black px-3 py-1 rounded-lg border border-rose-200 shadow-sm font-mono flex flex-col items-end">
+                            <span className="text-[12px] opacity-70">
+                              ₹
+                              {(
+                                (((parseFloat(loanCalc.weight) -
+                                  parseFloat(loanCalc.stoneweight)) *
+                                  loanCalc.goldrate *
+                                  loanCalc.pawnpercentage) /
+                                  100) *
+                                (loanCalc.thirdinterest / 100)
+                              ).toFixed(2)}{" "}
+                              /mo
+                            </span>
+
+                            <span className="text-sm">
+                              Total: ₹
+                              {loanCalc.thirdTierTotal
+                                ? loanCalc.thirdTierTotal.toFixed(2)
+                                : "0.00"}
+                            </span>
+
+                            <span className="text-[12px] opacity-50 italic font-bold">
+                              (
+                              {Math.ceil(
+                                (parseInt(loanCalc.thirdInterestTo) -
+                                  parseInt(loanCalc.thirdInterestFrom) +
+                                  1) /
+                                  30,
+                              )}{" "}
+                              Months)
+                            </span>
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-4">
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              வட்டி வீதம்
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              வட்டி வீதம் (%)
                             </label>
                             <div className="relative">
                               <input
                                 name="thirdinterest"
                                 type="number"
+                                step="0.01"
                                 placeholder="0"
                                 value={loanCalc.thirdinterest || ""}
                                 onChange={handleLoanCalcChange}
-                                className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 shadow-inner transition-all"
                                 required
                               />
-                              <span className="absolute right-2 top-1.5 text-slate-400 text-xs font-bold">
-                                %
-                              </span>
                             </div>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              முதல் (From)
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              முதல் (From Day)
                             </label>
                             <input
                               name="thirdInterestFrom"
@@ -1029,13 +1138,13 @@ export default function CustomersTab() {
                               placeholder="181"
                               value={loanCalc.thirdInterestFrom || ""}
                               onChange={handleLoanCalcChange}
-                              className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 shadow-inner transition-all"
                               required
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                              வரை (To)
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                              வரை (To Day)
                             </label>
                             <input
                               name="thirdInterestTo"
@@ -1043,7 +1152,7 @@ export default function CustomersTab() {
                               placeholder="270"
                               value={loanCalc.thirdInterestTo || ""}
                               onChange={handleLoanCalcChange}
-                              className="block w-full rounded border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 shadow-inner transition-all"
                               required
                             />
                           </div>
@@ -1067,7 +1176,7 @@ export default function CustomersTab() {
               </button>
               <button
                 type="submit"
-                form="loan-form" 
+                form="loan-form"
                 className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 w-48">
                 உறுதி செய் (Submit)
               </button>

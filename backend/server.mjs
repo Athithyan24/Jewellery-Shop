@@ -222,13 +222,11 @@ const loanSchema = new mongoose.Schema({
     ref: "Customer",
     required: true,
   },
-
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",
     required: true,
   },
-
   weight: Number,
   stoneweight: Number,
   goldrate: Number,
@@ -256,6 +254,8 @@ const loanSchema = new mongoose.Schema({
   principalPaid: { type: Number, default: 0 },
   interestPaid: { type: Number, default: 0 },
   isClosed: { type: Boolean, default: false },
+
+  isDeleted: { type: Boolean, default: false },
 
   createdAt: {
     type: Date,
@@ -565,74 +565,111 @@ app.get("/api/loguser", verifyToken, async (req, res) => {
   }
 });
 
+// 🟢 1. PERFECT PAWN SHOP MATH (Strictly Monthly, No Daily Trickle)
+const calculateAccruedInterest = (loanData, targetDate = new Date()) => {
+  if (!loanData || !loanData.createdAt) return { total: 0, activeTier: 1 };
+
+  const startDate = new Date(loanData.createdAt);
+  const endDate = new Date(targetDate);
+
+  let months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+  let days = endDate.getDate() - startDate.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) { months = 0; days = 0; }
+
+  const totalDaysElapsed = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+  let monthlyInterestRate = 0;
+  let activeTier = 1;
+
+  if (totalDaysElapsed <= (loanData.firstInterestTo || 90)) {
+    monthlyInterestRate = loanData.firstinterest || 0;
+    activeTier = 1;
+  } else if (totalDaysElapsed <= (loanData.secondInterestTo || 180)) {
+    monthlyInterestRate = loanData.secondinterest || 0;
+    activeTier = 2;
+  } else {
+    monthlyInterestRate = loanData.thirdinterest || 0;
+    activeTier = 3;
+  }
+
+  const principal = loanData.loanamount || 0;
+  const monthlyInterestAmount = (principal * monthlyInterestRate) / 100;
+
+  // 🟢 THE FIX: STRICTLY MONTHLY LOGIC
+  let chargeableMonths = months;
+
+  // Rule 1: Minimum 1 month interest is always charged when the loan is created.
+  if (chargeableMonths === 0) {
+    chargeableMonths = 1;
+  }
+
+  // Rule 2: We completely ignore the leftover 'days'. 
+  // Interest ONLY jumps when a full month completes.
+  const totalAccrued = Math.round(chargeableMonths * monthlyInterestAmount);
+
+  return { 
+    total: totalAccrued, 
+    activeTier,
+    tier1Gross: activeTier === 1 ? totalAccrued : 0,
+    tier2Gross: activeTier === 2 ? totalAccrued : 0,
+    tier3Gross: activeTier === 3 ? totalAccrued : 0,
+  };
+};
+
 app.get("/api/loans", verifyToken, async (req, res) => {
   try {
-    const query =
-      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
-    const loans = await Loan.find(query)
+    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const finalQuery = { ...query, isDeleted: { $ne: true } };
+
+    const loans = await Loan.find(finalQuery)
       .populate("customer")
       .populate("product")
-      .lean();
-
-    const addDays = (date, days) => {
-      const result = new Date(date);
-      result.setDate(result.getDate() + (days || 0));
-      return result;
-    };
+      .sort({ createdAt: -1 });
 
     const loansWithCalculations = loans.map((loan) => {
-      const principalPaid = loan.principalPaid || 0;
-      const remainingPrincipal = loan.loanamount - principalPaid;
-      const principalToCalculate =
-        remainingPrincipal > 0 ? remainingPrincipal : 0;
+      const loanObj = loan.toObject ? loan.toObject() : loan;
+      
+      // Calculate Interest Securely
+      const interestData = calculateAccruedInterest(loanObj);
+      const totalAccrued = interestData.total;
+      
+      const interestPaid = loanObj.interestPaid || 0;
+      const pendingInterest = totalAccrued > interestPaid ? totalAccrued - interestPaid : 0;
+      
+      // Calculate Principal Securely
+      const principalPaid = loanObj.principalPaid || 0;
+      const remainingPrincipal = loanObj.loanamount - principalPaid;
+      const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
+      
+      const currentBalance = principalToCalculate + pendingInterest;
 
-      const interestData = calculateBackendInterest(
-        loan.loanamount,
-        loan.createdAt,
-        loan.firstinterest,
-        loan.secondinterest,
-        loan.thirdinterest,
-        loan.firstInterestFrom,
-        loan.firstInterestTo,
-        loan.secondInterestFrom,
-        loan.secondInterestTo,
-        loan.thirdInterestFrom,
-        loan.thirdInterestTo,
-      );
-
-      const totalInterest = interestData.total;
-
-      const interestPaid = loan.interestPaid || 0;
-      const pendingInterest = totalInterest - interestPaid;
-      const activePendingInterest = pendingInterest > 0 ? pendingInterest : 0;
-
-      const currentBalance = principalToCalculate + activePendingInterest;
-
-      const startDate = loan.createdAt;
-
-      const endTier1Date = addDays(startDate, loan.firstInterestTo || 90);
-      const endTier2Date = addDays(startDate, loan.secondInterestTo || 180);
-
-      const dateRanges = {
-        tier1: `${formatDate(startDate)} - ${formatDate(endTier1Date)}`,
-        tier2: `${formatDate(endTier1Date)} - ${formatDate(endTier2Date)}`,
-        tier3: `From ${formatDate(endTier2Date)}`,
-      };
+      // Set up Date Strings for the Rates Tab
+      const startDateStr = new Date(loanObj.createdAt).toLocaleDateString("en-IN", {
+        day: "2-digit", month: "short", year: "numeric"
+      });
 
       return {
-        ...loan,
+        ...loanObj,
         interestBreakdown: interestData,
-        dateRanges,
-        currentBalance,
-        pendingInterest: activePendingInterest,
-        formattedDate: loan.createdAt ? formatDate(loan.createdAt) : "No Date",
+        pendingInterest: pendingInterest,
+        currentBalance: currentBalance,
+        dateRanges: {
+           tier1: interestData.activeTier === 1 ? `${startDateStr} - To Date` : "-",
+           tier2: interestData.activeTier === 2 ? `${startDateStr} - To Date` : "-",
+           tier3: interestData.activeTier === 3 ? `${startDateStr} - To Date` : "-",
+        }
       };
     });
 
-    res.status(200).json(loansWithCalculations);
+    return res.status(200).json(loansWithCalculations);
   } catch (error) {
     console.error("Error fetching loans:", error);
-    res.status(500).json({ message: "Failed to fetch loans" });
+    return res.status(500).json({ message: "Failed to fetch loans", error: error.message });
   }
 });
 
@@ -1272,7 +1309,6 @@ app.post("/api/loans", verifyToken, async (req, res) => {
   }
 });
 
-// 🟢 NEW: Secure Loan Delete Route
 app.delete("/api/loans/:id", verifyToken, async (req, res) => {
   try {
     const { password } = req.body; 
@@ -1286,7 +1322,12 @@ app.delete("/api/loans/:id", verifyToken, async (req, res) => {
       return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
     }
 
-    const deletedLoan = await Loan.findByIdAndDelete(req.params.id);
+    const deletedLoan = await Loan.findByIdAndUpdate(
+      req.params.id, 
+      { isDeleted: true },
+      { returnDocument: "after" }
+    );
+
     if (!deletedLoan) {
       return res.status(404).json({ message: "Loan not found" });
     }

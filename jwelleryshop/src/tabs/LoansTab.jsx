@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
-import { Search, Trash2, FileChartColumn } from "lucide-react";
+import {
+  Search,
+  Trash2,
+  FileChartColumn,
+  HeartHandshakeIcon,
+  Printer,
+} from "lucide-react";
 import upi from "../assets/upi.png";
 import ver from "../assets/approved.png";
 import axios from "axios";
+
 export default function LoansTab() {
   const [loanSearchQuery, setLoanSearchQuery] = useState("");
   const [loans, setLoans] = useState([]);
@@ -20,6 +27,24 @@ export default function LoansTab() {
   const [currentUser, setCurrentUser] = useState(null);
   const [payAmount, setPayAmount] = useState("");
   const [bankList, setBankList] = useState([]);
+
+  // 🟢 1. PERFECT PAWN SHOP MATH (Calendar Months + Leftover Days)
+  // 🟢 SECURE MATH FROM BACKEND
+  const pendingInterest = selectedLoan?.pendingInterest || 0;
+  const totalBalance = selectedLoan?.currentBalance || 0;
+
+  const originalPrincipal = selectedLoan?.loanamount || 0;
+  const principalPaid = selectedLoan?.principalPaid || 0;
+  const remainingPrincipal = originalPrincipal - principalPaid;
+  const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
+
+  useEffect(() => {
+    if (payType === "Full Pay") {
+      setPayAmount(totalBalance);
+    } else if (payType === "Initial Pay" || payType === "Partially Pay") {
+      setPayAmount("");
+    }
+  }, [payType, totalBalance]);
 
   const filteredLoans = loans.filter((loan) => {
     if (!loanSearchQuery) return true;
@@ -63,7 +88,7 @@ export default function LoansTab() {
 
   const handlePayLoanSubmit = async (e) => {
     e.preventDefault();
-    const payAmount = e.target.payAmount.value;
+    // Use the payAmount state instead of raw event target to prevent bugs
     try {
       const res = await axios.post(
         "http://localhost:5000/api/payLoan",
@@ -82,6 +107,8 @@ export default function LoansTab() {
 
       alert(res.data.message);
       setPayLoanModal(false);
+      setPayType("");
+      setPayAmount("");
 
       fetchLoans();
       fetchPaidLoanDetails();
@@ -108,6 +135,7 @@ export default function LoansTab() {
       );
 
       alert("கடன் வெற்றிகரமாக நீக்கப்பட்டது! (Loan deleted successfully!)");
+      setLoans((prevLoans) => prevLoans.filter((loan) => loan._id !== loanToDelete._id));
       setDeleteLoanModal(false);
       setDeletePasswordInput("");
       setLoanToDelete(null);
@@ -196,23 +224,28 @@ export default function LoansTab() {
 
   return (
     <>
-      <div className="p-6 animate-in fade-in duration-300">
+      <div className="p-6 animate-in fade-in duration-300 print:hidden">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <h2 className="lg:text-lg md:text-sm font-bold text-slate-800 tracking-wide">
-              கடன்கள் பட்டியல் (Loans Ledger)
-            </h2>
+            <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+              <HeartHandshakeIcon className="mr-2 text-pink-600" />
+              <h2 className="lg:text-lg md:text-sm font-bold text-blue-800 tracking-wide">
+                கடன்கள் பட்டியல் (Loans Ledger)
+              </h2>
+            </div>
 
-            <div className="relative w-full sm:w-96">
-              <span className="absolute left-3 top-2.5 text-slate-400">
-                <Search size={18} />
-              </span>
+            <div className="relative w-full sm:w-96 group">
+              <Search
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors duration-300"
+                size={18}
+              />
+
               <input
                 type="text"
                 placeholder="Search by ID (LOAN001), Name, or Phone..."
                 value={loanSearchQuery}
                 onChange={(e) => setLoanSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all text-sm font-semibold text-slate-700"
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-full text-sm font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all shadow-inner"
               />
             </div>
 
@@ -221,49 +254,52 @@ export default function LoansTab() {
             </span>
           </div>
 
-          {/* 📊 Table Section */}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
-              <thead className="bg-slate-50">
+              <thead className="bg-slate-800 sticky top-0 z-10 shadow-md">
                 <tr>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     தேதி
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     Loan ID
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     வாடிக்கையாளர்
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     அடகு பொருள்
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     தங்கம் விலை
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
                     அடகு%
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     கடன் தொகை
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     நடவடிக்கை
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
                     பெட்டக நிலை
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-right">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
                     வட்டி / வட்டி நிலை
                   </th>
-                  <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-right">
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
                     மீதமுள்ள தொகை
+                  </th>
+                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
+                    அழி
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
                 {filteredLoans && filteredLoans.length > 0 ? (
                   filteredLoans.map((loan) => {
+                    
                     const activePendingInterest = loan.pendingInterest || 0;
                     const currentBalance = loan.currentBalance || 0;
                     const interestPaid = loan.interestPaid || 0;
@@ -271,8 +307,9 @@ export default function LoansTab() {
                     return (
                       <tr
                         key={loan._id}
-                        className="hover:bg-slate-50 transition-colors">
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-800">
+                        className="hover:bg-indigo-50/30 transition-colors duration-200 group border-b border-slate-100/50"
+                      >
+                        <td className="py-4 px-4 whitespace-nowrap text-xs font-semibold text-slate-500">
                           {loan.paymentDate || loan.createdAt
                             ? new Date(
                                 loan.paymentDate || loan.createdAt,
@@ -284,59 +321,63 @@ export default function LoansTab() {
                             : "No Date"}
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-fuchsia-500">
-                          {loan.loanId || "Unknown"}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          <span className="font-mono text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-700 group-hover:bg-white transition-all">
+                            {loan.loanId || "Unknown"}
+                          </span>
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-800">
+                        <td className="py-4 px-4 whitespace-nowrap font-black text-slate-800 uppercase tracking-wide">
                           {loan.customer?.name || "Unknown"}
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm text-slate-600">
-                          <div className="flex items-center gap-1">
-                            <span className="text-amber-600 font-bold">
+                        <td className="py-4 px-4 whitespace-nowrap text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-indigo-600 font-bold tracking-tight">
                               {loan.product?.name || "Product"}
                             </span>
-                            <span className="text-slate-400">/</span>
-                            <span className="text-slate-800 font-semibold">
-                              {loan.weight}g
-                            </span>
-                            <span className="text-slate-400">/</span>
-                            <span
-                              className="text-rose-500 font-semibold text-xs"
-                              title="Stone Weight">
-                              {loan.stoneweight}g
-                            </span>
+                            <div className="flex items-center gap-1 border-l-2 border-slate-200 pl-2">
+                              <span className="text-slate-600 font-mono font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-xs shadow-inner">
+                                {loan.weight}g
+                              </span>
+                              <span
+                                className="text-rose-600 font-mono font-semibold bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded text-xs shadow-sm"
+                                title="Stone Weight"
+                              >
+                                {loan.stoneweight}g
+                              </span>
+                            </div>
                           </div>
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-semibold text-slate-600">
+                        <td className="py-4 px-4 whitespace-nowrap font-mono text-sm font-semibold text-slate-600">
                           ₹{loan.goldrate}
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-slate-500 text-center">
-                          <span className="bg-slate-100 px-2 py-1 rounded-md">
+                        <td className="py-4 px-4 whitespace-nowrap text-center">
+                          <span className="bg-slate-800 text-white px-2.5 py-1 rounded-md text-xs font-black shadow-sm">
                             {loan.pawnpercentage}%
                           </span>
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-600">
+                        <td className="py-4 px-4 whitespace-nowrap font-black text-emerald-600 text-base">
                           ₹{loan.loanamount?.toFixed(2)}
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm">
+                        <td className="py-4 px-4 whitespace-nowrap">
                           {loan.isClosed ? (
-                            <div className="relative inline-flex justify-start items-center mt-2">
+                            <div className="relative inline-flex">
                               <button
                                 onClick={() => {
                                   setSelectedLoan(loan);
                                   setReceiptModal(true);
                                 }}
-                                className="bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-2 px-5 rounded-lg text-xs font-bold transition-all shadow-sm relative z-0">
+                                className="bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 py-2 px-5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 duration-200"
+                              >
                                 ரசீது (Receipt)
                               </button>
-                              <span className="absolute -top-3 -left-3 z-10 inline-block border-2 border-emerald-500 bg-emerald-50/90 backdrop-blur-sm text-emerald-600 font-black text-[10px] uppercase tracking-widest py-1 px-2 rounded-md transform -rotate-6 shadow-md pointer-events-none">
-                                செலுத்தப்பட்டது (PAID)
+                              <span className="absolute -top-2.5 -right-2 z-10 border border-emerald-400 bg-emerald-100/95 backdrop-blur-sm text-emerald-700 font-black text-[9px] uppercase tracking-widest py-0.5 px-2 rounded-md shadow-sm pointer-events-none">
+                                PAID
                               </span>
                             </div>
                           ) : (
@@ -346,7 +387,8 @@ export default function LoansTab() {
                                   setSelectedLoan(loan);
                                   setPayLoanModal(true);
                                 }}
-                                className="bg-rose-50 hover:bg-rose-600 cursor-pointer duration-150 hover:scale-105 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
+                                className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-rose-600/20 hover:-translate-y-0.5 active:scale-95"
+                              >
                                 கடனை செலுத்து (Pay)
                               </button>
                               <button
@@ -354,7 +396,8 @@ export default function LoansTab() {
                                   setSelectedLoan(loan);
                                   setReceiptModal(true);
                                 }}
-                                className="bg-blue-50 cursor-pointer duration-150 hover:scale-105 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 py-1.5 px-3 rounded-lg text-xs font-bold transition-all shadow-sm">
+                                className="bg-slate-100 hover:bg-indigo-600 text-slate-600 hover:text-white border border-slate-200 hover:border-indigo-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-indigo-600/20 hover:-translate-y-0.5 active:scale-95"
+                              >
                                 ரசீது (Receipt)
                               </button>
                             </div>
@@ -368,53 +411,52 @@ export default function LoansTab() {
                                 setSelectedLoanForBank(loan);
                                 setIsBankModalOpen(true);
                               }}
-                              className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-slate-50 hover:bg-amber-50 rounded-full transition-all border border-transparent hover:border-amber-200"
-                              title="Add to Owner's Bank">
-                              <img
-                                src={upi}
-                                alt="UPI"
-                                className="w-8 h-8 hover:scale-110 transition duration-150"
-                              />
+                              className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-white hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 hover:border-indigo-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95"
+                              title="Add to Owner's Bank"
+                            >
+                              <img src={upi} alt="UPI" className="w-7 h-7" />
                             </div>
                           ) : (
-                            <div className="inline-flex items-center justify-center p-1.5">
+                            <div className="inline-flex items-center justify-center p-1.5 bg-emerald-50 rounded-xl border border-emerald-100">
                               <img
                                 src={ver}
                                 alt="Verified"
-                                className="w-8 h-8 drop-shadow-sm"
+                                className="w-7 h-7 drop-shadow-sm"
                               />
                             </div>
                           )}
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-bold text-right">
+                        <td className="py-4 px-4 whitespace-nowrap text-right">
                           {loan.isClosed ||
                           (interestPaid > 0 && activePendingInterest <= 0) ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded text-[11px] font-black bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-sm">
-                              ✓ Paid Interest
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm uppercase tracking-widest">
+                              ✓ Paid
                             </span>
                           ) : (
-                            <span className="text-rose-600">
+                            <span className="text-rose-600 font-mono font-bold bg-rose-50 px-2.5 py-1 rounded-md border border-rose-100 text-xs shadow-sm">
                               + ₹{activePendingInterest.toFixed(2)}
                             </span>
                           )}
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm font-black text-emerald-700 bg-emerald-50/50 text-right">
+                        <td className="py-4 px-4 whitespace-nowrap font-black text-emerald-700 bg-emerald-50/40 text-right font-mono text-base border-l border-emerald-100/50">
                           ₹
                           {loan.isClosed || currentBalance <= 0
                             ? "0.00"
                             : currentBalance.toFixed(2)}
                         </td>
-                        <td className="py-3 px-6 whitespace-nowrap text-center">
+
+                        <td className="py-4 px-4 whitespace-nowrap text-center">
                           <button
                             onClick={() => {
-                              setLoanToDelete(loan); 
+                              setLoanToDelete(loan);
                               setDeleteLoanModal(true);
                             }}
-                            className="text-rose-500 hover:scale-105 cursor-pointer hover:text-rose-700 bg-rose-50 hover:bg-rose-100 p-2 rounded-lg transition-colors border border-rose-200 shadow-sm"
-                            title="Delete Loan">
-                            <Trash2 />
+                            className="inline-flex items-center justify-center w-9 h-9 bg-slate-100 text-slate-400 rounded-xl hover:bg-rose-600 hover:text-white hover:shadow-lg hover:shadow-rose-600/30 hover:-translate-y-0.5 transition-all active:scale-95 duration-200"
+                            title="Delete Loan"
+                          >
+                            <Trash2 size={18} className="stroke-[2.5]" />
                           </button>
                         </td>
                       </tr>
@@ -422,15 +464,8 @@ export default function LoansTab() {
                   })
                 ) : (
                   <tr>
-                    <td
-                      colSpan="10"
-                      className="py-12 px-6 text-center text-slate-500 font-medium">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <span className="text-3xl text-blue-300">
-                          <FileChartColumn />
-                        </span>
-                        <p>எந்த கடன்களும் இல்லை (No loans found).</p>
-                      </div>
+                    <td colSpan="12" className="text-center py-12 text-slate-500">
+                      எந்த கடன்களும் காணப்படவில்லை (No loans found)
                     </td>
                   </tr>
                 )}
@@ -439,43 +474,47 @@ export default function LoansTab() {
           </div>
         </div>
       </div>
+
       {ReceiptModal && selectedLoan && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-300 print:p-0 print:bg-white print:block">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none relative flex flex-col max-h-[95vh] print:max-h-none print:block overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-300 print:static print:inset-auto print:p-0 print:m-0 print:h-fit print:bg-white print:block">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none relative flex flex-col max-h-[95vh] print:max-h-none print:h-auto print:block overflow-hidden print:overflow-visible">
             <div
               id="printable-receipt"
-              className="p-8 print:p-0 relative bg-white overflow-y-auto flex-1 print:overflow-visible print:block custom-scrollbar">
-              <div className="hidden print:flex absolute inset-0 items-center justify-center opacity-[0.03] pointer-events-none z-0">
-                <span className="text-4xl font-black uppercase tracking-widest transform -rotate-45 text-center leading-relaxed">
-                  {shopProfile?.shopName || currentUser.username} <br />
+              className="p-8 print:p-0 relative bg-white print:bg-transparent overflow-y-auto print:overflow-visible print:block custom-scrollbar"
+            >
+              <div className="hidden print:flex fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 items-center justify-center opacity-[0.04] pointer-events-none z-[-1]">
+                <span className="text-5xl font-black uppercase tracking-widest transform -rotate-45 text-center leading-relaxed whitespace-nowrap">
+                  {shopProfile?.shopName || currentUser?.username} <br />
                   {shopProfile?.phone}
                 </span>
               </div>
 
-              <div className="relative z-10">
-                <div className="text-center mb-6 border-b-2 border-dashed border-slate-300 pb-6 print:border-black flex flex-col items-center">
+              <div className="relative z-10 print:bg-transparent">
+                <div className="text-center mb-6 print:mb-2 border-b-2 border-dashed border-slate-300 pb-6 print:pb-2 print:border-black flex flex-col items-center">
                   {shopProfile?.shopimage ? (
                     <img
                       src={`http://localhost:5000/uploads/${shopProfile.shopimage}`}
                       alt="Shop Logo"
-                      className="w-16 h-16 object-contain mb-3 rounded-xl print:w-16 print:h-16"
+                      className="w-16 h-16 object-contain mb-3 print:mb-1 rounded-xl print:w-14 print:h-14"
                     />
                   ) : (
                     <div className="inline-flex items-center justify-center bg-amber-100 text-amber-600 w-12 h-12 rounded-full mb-3 print:hidden shadow-sm">
                       <span className="text-2xl">
-                        <Landmark />
+                        <FileChartColumn />
                       </span>
                     </div>
                   )}
 
-                  <h2 className="text-3xl font-black text-slate-800 uppercase tracking-widest print:text-black">
+                  <h2 className="text-3xl print:text-2xl font-black text-slate-800 uppercase tracking-widest print:text-black">
                     {shopProfile?.shopName ||
-                      `${currentUser.username} ${currentUser.shoptype || ""}`}
+                      `${currentUser?.username || "Shop"} ${
+                        currentUser?.shoptype || ""
+                      }`}
                   </h2>
                   <p className="text-slate-500 font-bold mt-1 text-xs tracking-widest uppercase print:text-black">
                     பில் ரசீது (Official Receipt)
                   </p>
-                  <p className="text-slate-600 font-bold mt-3 text-sm print:text-black max-w-md mx-auto leading-relaxed">
+                  <p className="text-slate-600 font-bold mt-3 print:mt-1 text-sm print:text-xs print:text-black max-w-md mx-auto leading-relaxed">
                     {shopProfile?.address || "Address not updated"} <br />
                     <span className="font-mono">
                       Phone: {shopProfile?.phone || "+91 XXXXXXXXXX"}
@@ -483,13 +522,12 @@ export default function LoansTab() {
                   </p>
                 </div>
 
-                {/* 🟢 LOAN ID & DATE */}
-                <div className="flex justify-between items-center mb-6 px-6 py-4 bg-slate-50 rounded-xl border border-slate-100 print:bg-transparent print:border-b print:border-t print:border-slate-300 print:rounded-none print:px-0 print:py-2">
+                <div className="flex justify-between items-center mb-6 print:mb-3 px-6 py-4 bg-slate-50 rounded-xl border border-slate-100 print:bg-transparent print:border-b print:border-t print:border-slate-300 print:rounded-none print:px-0 print:py-1">
                   <div>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest print:text-slate-600">
                       கடன் எண் (Loan No)
                     </p>
-                    <p className="text-xl font-black text-indigo-700 print:text-black font-mono tracking-wider">
+                    <p className="text-xl print:text-lg font-black text-indigo-700 print:text-black font-mono tracking-wider">
                       {selectedLoan.loanId}
                     </p>
                   </div>
@@ -497,7 +535,7 @@ export default function LoansTab() {
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest print:text-slate-600">
                       தேதி (Date)
                     </p>
-                    <p className="text-lg font-black text-slate-800 print:text-black">
+                    <p className="text-lg print:text-base font-black text-slate-800 print:text-black">
                       {new Date(selectedLoan.createdAt).toLocaleDateString(
                         "en-IN",
                         {
@@ -510,14 +548,13 @@ export default function LoansTab() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-8">
-                  <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:p-0 w-full">
-                    <h4 className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2 print:border-black print:text-black uppercase text-xs tracking-widest">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-6 print:gap-2 mb-8 print:mb-3 print:break-inside-avoid">
+                  <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:bg-transparent print:p-0 w-full">
+                    <h4 className="font-bold text-slate-800 mb-3 print:mb-1 border-b border-slate-100 pb-2 print:pb-1 print:border-black print:text-black uppercase text-xs tracking-widest">
                       வாடிக்கையாளர் விவரங்கள்
                     </h4>
 
-                    {/* 🟢 CUSTOMER DETAILS INCLUDING CUSTOMER ID */}
-                    <div className="space-y-2 text-sm text-slate-700 print:text-black">
+                    <div className="space-y-2 print:space-y-1 text-sm print:text-xs text-slate-700 print:text-black">
                       <p className="flex items-center">
                         <span className="font-semibold w-24 text-slate-500 print:text-slate-600">
                           எண் (ID):
@@ -558,7 +595,7 @@ export default function LoansTab() {
                     <img
                       src={`http://localhost:5000/uploads/${selectedLoan.customer?.recentimage}`}
                       alt="Customer"
-                      className="w-24 h-24 rounded-lg object-cover border-2 border-slate-200 shadow-sm print:border-black print:rounded-none"
+                      className="w-24 h-24 print:w-16 print:h-16 rounded-lg object-cover border-2 border-slate-200 shadow-sm print:border-black print:rounded-none"
                       onError={(e) => {
                         e.target.src =
                           "https://ui-avatars.com/api/?name=" +
@@ -569,35 +606,35 @@ export default function LoansTab() {
                   </div>
                 </div>
 
-                <table className="w-full mb-8 text-sm border-collapse">
+                <table className="w-full mb-8 print:mb-3 text-sm print:text-xs border-collapse print:break-inside-avoid">
                   <thead>
                     <tr className="border-b-2 border-slate-300 print:border-black bg-slate-50 print:bg-transparent">
-                      <th className="py-3 px-2 text-left font-bold text-slate-700 uppercase tracking-wider text-xs print:text-black">
+                      <th className="py-3 print:py-1 px-2 text-left font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
                         பொருள் விளக்கம்
                       </th>
-                      <th className="py-3 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-black">
+                      <th className="py-3 print:py-1 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
                         மொத்த Wt
                       </th>
-                      <th className="py-3 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-black">
+                      <th className="py-3 print:py-1 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
                         கல் எடை
                       </th>
-                      <th className="py-3 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-black">
+                      <th className="py-3 print:py-1 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
                         நிகர எடை
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-dashed border-slate-200 print:border-black">
-                      <td className="py-4 px-2 font-bold text-slate-800 print:text-black">
+                    <tr className="border-b border-dashed border-slate-200 print:border-black print:break-inside-avoid">
+                      <td className="py-4 print:py-2 px-2 font-bold text-slate-800 print:text-black">
                         {selectedLoan.product?.name || "Gold Item"}
                       </td>
-                      <td className="py-4 px-2 text-right font-semibold text-slate-600 print:text-black">
+                      <td className="py-4 print:py-2 px-2 text-right font-semibold text-slate-600 print:text-black">
                         {selectedLoan.weight}g
                       </td>
-                      <td className="py-4 px-2 text-right font-semibold text-slate-600 print:text-black">
+                      <td className="py-4 print:py-2 px-2 text-right font-semibold text-slate-600 print:text-black">
                         {selectedLoan.stoneweight}g
                       </td>
-                      <td className="py-4 px-2 text-right font-black text-slate-800 print:text-black bg-slate-50 print:bg-transparent">
+                      <td className="py-4 print:py-2 px-2 text-right font-black text-slate-800 print:text-black bg-slate-50 print:bg-transparent">
                         {(
                           selectedLoan.weight - selectedLoan.stoneweight
                         ).toFixed(2)}
@@ -607,9 +644,9 @@ export default function LoansTab() {
                   </tbody>
                 </table>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-6">
-                  <div className="space-y-3 print:pt-2">
-                    <p className="flex justify-between text-sm border-b border-slate-100 pb-2 print:border-slate-300">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 print:gap-4 mt-6 print:mt-2">
+                  <div className="space-y-3 print:space-y-1 print:pt-1 print:break-inside-avoid">
+                    <p className="flex justify-between text-sm print:text-xs border-b border-slate-100 pb-2 print:pb-1 print:border-slate-300">
                       <span className="text-slate-500 font-semibold print:text-slate-600">
                         தங்கம் விலை (Gold Rate):
                       </span>
@@ -617,7 +654,7 @@ export default function LoansTab() {
                         ₹{selectedLoan.goldrate}/g
                       </span>
                     </p>
-                    <p className="flex justify-between text-sm border-b border-slate-100 pb-2 print:border-slate-300">
+                    <p className="flex justify-between text-sm print:text-xs border-b border-slate-100 pb-2 print:pb-1 print:border-slate-300">
                       <span className="text-slate-500 font-semibold print:text-slate-600">
                         அடகு சதவீதம் (Pawn %):
                       </span>
@@ -627,18 +664,18 @@ export default function LoansTab() {
                     </p>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-emerald-50 p-4 rounded-xl border border-emerald-100 print:bg-transparent print:border-black print:rounded-none print:p-2">
-                      <p className="text-emerald-700 font-bold text-xs uppercase tracking-widest print:text-black">
+                  <div className="space-y-4 print:space-y-2">
+                    <div className="flex justify-between items-center bg-emerald-50 p-4 print:p-2 rounded-xl border border-emerald-100 print:bg-transparent print:border-black print:rounded-none print:break-inside-avoid">
+                      <p className="text-emerald-700 font-bold text-xs print:text-[10px] uppercase tracking-widest print:text-black">
                         மொத்த கடன்
                       </p>
-                      <p className="text-2xl font-black text-emerald-800 print:text-black">
+                      <p className="text-2xl print:text-xl font-black text-emerald-800 print:text-black">
                         ₹{selectedLoan.loanamount?.toFixed(2)}
                       </p>
                     </div>
 
-                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 print:bg-transparent print:border-black print:rounded-none print:p-2 flex flex-col">
-                      <p className="text-indigo-700 font-bold text-xs uppercase tracking-widest print:text-black mb-3 border-b border-indigo-200 pb-2 print:border-black">
+                    <div className="bg-indigo-50 p-4 print:p-2 rounded-xl border border-indigo-100 print:bg-transparent print:border-black print:rounded-none flex flex-col">
+                      <p className="text-indigo-700 font-bold text-xs print:text-[10px] uppercase tracking-widest print:text-black mb-3 print:mb-1 border-b border-indigo-200 pb-2 print:pb-1 print:border-black">
                         செலுத்திய விவரங்கள் (Payment History)
                       </p>
 
@@ -652,7 +689,7 @@ export default function LoansTab() {
 
                         if (relatedPayments.length === 0) {
                           return (
-                            <div className="text-sm font-semibold text-indigo-400 print:text-slate-500 py-2">
+                            <div className="text-sm print:text-xs font-semibold text-indigo-400 print:text-slate-500 py-2 print:py-1">
                               பணம் எதுவும் செலுத்தப்படவில்லை (No payments yet)
                             </div>
                           );
@@ -664,12 +701,13 @@ export default function LoansTab() {
                         );
 
                         return (
-                          <div className="space-y-2 w-full">
+                          <div className="space-y-2 print:space-y-1 w-full">
                             {relatedPayments.map((payment, index) => (
                               <div
                                 key={payment._id || index}
-                                className="flex justify-between items-center text-sm font-semibold text-slate-700 print:text-black">
-                                <span className="text-slate-500 print:text-black text-xs">
+                                className="flex justify-between items-center text-sm print:text-xs font-semibold text-slate-700 print:text-black print:break-inside-avoid"
+                              >
+                                <span className="text-slate-500 print:text-black text-xs print:text-[10px]">
                                   {payment.paymentDate
                                     ? new Date(
                                         payment.paymentDate,
@@ -686,21 +724,21 @@ export default function LoansTab() {
                               </div>
                             ))}
 
-                            <div className="flex flex-col gap-2 mt-4 pt-4 border-t-2 border-dashed border-indigo-200 print:border-black">
+                            <div className="flex flex-col gap-2 print:gap-1 mt-4 print:mt-2 pt-4 print:pt-2 border-t-2 border-dashed border-indigo-200 print:border-black print:break-inside-avoid">
                               <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold text-indigo-900 print:text-black uppercase tracking-widest">
+                                <span className="text-xs print:text-[10px] font-bold text-indigo-900 print:text-black uppercase tracking-widest">
                                   மொத்தம் (Total Paid)
                                 </span>
-                                <span className="text-xl font-black text-indigo-800 print:text-black">
+                                <span className="text-xl print:text-lg font-black text-indigo-800 print:text-black">
                                   ₹{totalPaid.toFixed(2)}
                                 </span>
                               </div>
 
                               <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold text-rose-600 print:text-black uppercase tracking-widest">
+                                <span className="text-xs print:text-[10px] font-bold text-rose-600 print:text-black uppercase tracking-widest">
                                   மீதமுள்ள தொகை (Remaining)
                                 </span>
-                                <span className="text-xl font-black text-rose-600 print:text-black">
+                                <span className="text-xl print:text-lg font-black text-rose-600 print:text-black">
                                   ₹
                                   {selectedLoan.currentBalance?.toFixed(2) ||
                                     (
@@ -716,7 +754,7 @@ export default function LoansTab() {
                   </div>
                 </div>
 
-                <div className="mt-8 pt-4 border-t border-slate-200 print:border-black text-[9px] text-slate-400 print:text-slate-600 leading-relaxed uppercase tracking-wider text-justify">
+                <div className="mt-8 print:mt-4 pt-4 print:pt-2 border-t border-slate-200 print:border-black text-[9px] print:text-[8px] text-slate-400 print:text-slate-600 leading-relaxed uppercase tracking-wider text-justify print:break-inside-avoid">
                   <span className="font-bold text-slate-500 print:text-black">
                     கவனத்திற்கு:
                   </span>{" "}
@@ -725,7 +763,7 @@ export default function LoansTab() {
                   அல்லது அசலை செலுத்தாவிட்டால் பொருள் ஏலம் விடப்படும்.
                 </div>
 
-                <div className="mt-16 flex justify-between text-center text-sm font-bold text-slate-400 print:text-black pb-4 print:pb-0">
+                <div className="mt-16 print:mt-6 flex justify-between text-center text-sm font-bold text-slate-400 print:text-black pb-4 print:pb-0 print:break-inside-avoid">
                   <div className="border-t-2 border-slate-300 w-40 pt-2 print:border-black uppercase tracking-wider text-[10px]">
                     வாடிக்கையாளர் கையொப்பம்
                   </div>
@@ -742,48 +780,38 @@ export default function LoansTab() {
                   setReceiptModal(false);
                   setSelectedLoan(null);
                 }}
-                className="flex-1 bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-sm">
+                className="flex-1 bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-sm"
+              >
                 மூடு (Close)
               </button>
               <button
                 onClick={() => window.print()}
-                className="flex-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm flex justify-center items-center gap-2 active:scale-95">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-                  />
-                </svg>
+                className="flex-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm flex justify-center items-center gap-2 active:scale-95"
+              >
+                <Printer size={18} />
                 ரசீதை அச்சிடு (Print Receipt)
               </button>
             </div>
           </div>
         </div>
       )}
+
       {PayLoanModal && selectedLoan && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200 print:p-0 print:bg-white print:block">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 print:shadow-none print:border-none print:rounded-none print:w-full print:max-w-none">
-            {/* 🏷️ Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center print:bg-transparent print:border-black">
               <h3 className="text-xl font-bold text-slate-800 print:text-black">
                 கடன் செலுத்துதல் (Pay Loan)
               </h3>
               <button
                 onClick={() => setPayLoanModal(false)}
-                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors print:hidden">
+                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors print:hidden"
+              >
                 ✕
               </button>
             </div>
 
             <div className="p-6 print:p-0 print:mt-6">
-              {/* 👤 Customer Info & Receipt Header */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6 shadow-sm print:bg-transparent print:border-black print:shadow-none">
                 <div className="flex items-center gap-4">
                   <img
@@ -816,10 +844,9 @@ export default function LoansTab() {
                 </div>
               </div>
 
-              {/* 💰 Total Loan Amount Highlight */}
               <div className="flex flex-col items-center justify-center mb-8">
                 <p className="text-slate-500 uppercase text-xs font-bold tracking-widest mb-1 print:text-black">
-                  மொத்த கடன் தொகை (Total Loan Amount)
+                  மொத்த கடன் தொகை (Original Loan Amount)
                 </p>
                 <p className="text-4xl font-black text-slate-900 tracking-tight print:text-black border-b-4 border-double border-transparent print:border-black pb-1">
                   <span className="text-slate-400 font-medium mr-1 print:text-black">
@@ -829,10 +856,33 @@ export default function LoansTab() {
                 </p>
               </div>
 
-              {/* 📝 Payment Form */}
+              <div className="flex justify-between items-end mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-slate-500">
+                    அசல் (Principal Remaining):{" "}
+                    <span className="text-slate-800">
+                      ₹{principalToCalculate.toFixed(2)}
+                    </span>
+                  </p>
+                  <p className="text-xs font-bold text-slate-500">
+                    வட்டி (Interest Remaining):{" "}
+                    <span className="text-rose-600">
+                      + ₹{pendingInterest.toFixed(2)}
+                    </span>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                    மொத்த இருப்பு (Total Balance)
+                  </p>
+                  <p className="text-2xl font-black text-indigo-700">
+                    ₹{totalBalance.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
               <form onSubmit={handlePayLoanSubmit}>
                 <div className="space-y-5">
-                  {/* Pay Type Selection */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide print:text-black">
                       செலுத்தும் முறை (Pay Type)
@@ -842,7 +892,8 @@ export default function LoansTab() {
                       className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none cursor-pointer print:bg-transparent print:border-black print:appearance-none print:text-black"
                       value={payType}
                       onChange={(e) => setPayType(e.target.value)}
-                      required>
+                      required
+                    >
                       <option value="" disabled>
                         செலுத்தும் முறையை தேர்ந்தெடுக்கவும் (Select Pay Type)
                       </option>
@@ -855,7 +906,6 @@ export default function LoansTab() {
                     </select>
                   </div>
 
-                  {/* Pay Amount Input & Estimation */}
                   {payType && (
                     <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
                       <div>
@@ -871,14 +921,18 @@ export default function LoansTab() {
                             type="number"
                             step="0.01"
                             placeholder="0.00"
-                            value={payAmount}
+                            value={
+                              payType === "Full Pay"
+                                ? totalBalance
+                                : payAmount
+                            }
                             onChange={(e) =>
                               setPayAmount(parseFloat(e.target.value) || 0)
                             }
                             readOnly={payType === "Full Pay"}
                             className={`block w-full rounded-lg pl-8 pr-4 py-3 text-sm font-bold outline-none transition-all print:bg-transparent print:border-black print:text-black ${
                               payType === "Full Pay"
-                                ? "bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed"
+                                ? "bg-slate-100 border-slate-200 text-indigo-700 cursor-not-allowed shadow-inner"
                                 : "bg-slate-50 border-slate-300 text-slate-900 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20"
                             }`}
                             required
@@ -886,7 +940,6 @@ export default function LoansTab() {
                         </div>
                       </div>
 
-                      {/* Final Calculation Box */}
                       <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center shadow-inner print:bg-transparent print:border-black print:shadow-none">
                         <p className="text-xs text-emerald-700 font-extrabold uppercase tracking-widest mb-1 print:text-black">
                           {payType === "Full Pay"
@@ -895,7 +948,9 @@ export default function LoansTab() {
                         </p>
                         <p className="text-3xl font-black text-emerald-700 tracking-tight print:text-black">
                           ₹
-                          {payAmount > 0
+                          {payType === "Full Pay"
+                            ? totalBalance.toFixed(2)
+                            : payAmount > 0
                             ? Number(payAmount).toFixed(2)
                             : "0.00"}
                         </p>
@@ -904,27 +959,36 @@ export default function LoansTab() {
                   )}
                 </div>
 
-                {/* 🛑 Actions - இந்த பகுதி பிரிண்ட் செய்யும் போது மறைந்துவிடும் (print:hidden) */}
                 <div className="flex gap-3 mt-8 pt-4 border-t border-slate-100 print:hidden">
                   <button
                     type="button"
-                    onClick={() => setPayLoanModal(false)}
-                    className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+                    onClick={() => {
+                      setPayLoanModal(false);
+                      setPayType("");
+                      setPayAmount("");
+                    }}
+                    className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                  >
                     ரத்து (Cancel)
                   </button>
 
-                  {/* 🖨️ பிரிண்ட் பட்டன் சேர்க்கப்பட்டுள்ளது */}
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="flex-1 bg-blue-50 border border-blue-200 text-blue-700 font-bold py-3 rounded-lg hover:bg-blue-100 transition-colors shadow-sm">
+                    className="flex-1 bg-blue-50 border border-blue-200 text-blue-700 font-bold py-3 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                  >
                     🖨️ பிரிண்ட்
                   </button>
 
                   <button
                     type="submit"
-                    disabled={!payType || payAmount <= 0}
-                    className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:active:scale-100">
+                    disabled={
+                      !payType ||
+                      (payType === "Initial Pay" && payAmount <= 0) ||
+                      (payType === "Full Pay" && totalBalance <= 0)
+                    }
+                    className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:active:scale-100"
+                  >
                     பணம் செலுத்து
                   </button>
                 </div>
@@ -934,36 +998,35 @@ export default function LoansTab() {
         </div>
       )}
 
-      {isBankModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
-            {/* 🏷️ Modal Header */}
+      {isBankModalOpen && selectedLoanForBank && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-slate-800">
-                வங்கி விவரங்கள் (Bank Details)
-              </h2>
+              <h3 className="text-xl font-bold text-slate-800">
+                உரிமையாளர் வங்கி விவரங்கள்
+              </h3>
               <button
                 onClick={() => setIsBankModalOpen(false)}
-                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
+                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
+              >
                 ✕
               </button>
             </div>
 
-            <div className="p-6">
-              <form onSubmit={handleBankSubmit} className="space-y-5">
+            <form onSubmit={handleBankSubmit} className="p-6">
+              <div className="space-y-5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    வங்கி (Bank)
+                    வங்கி பெயரைத் தேர்ந்தெடுக்கவும் (Select Bank)
                   </label>
                   <select
                     name="bankId"
+                    className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
                     required
-                    defaultValue=""
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none cursor-pointer">
-                    <option value="" disabled>
-                      வங்கியை தேர்ந்தெடுக்கவும் (Select Bank)
+                  >
+                    <option value="" disabled selected>
+                      -- வங்கியைக் குறிக்கவும் --
                     </option>
-
                     {bankList.map((bank) => (
                       <option key={bank._id} value={bank._id}>
                         {bank.name}
@@ -972,124 +1035,114 @@ export default function LoansTab() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    கிளை (Branch Name)
-                  </label>
-                  <input
-                    required
-                    name="branchname"
-                    type="text"
-                    placeholder="எ.கா: Main Branch"
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      கிளை பெயர் (Branch)
+                    </label>
+                    <input
+                      name="branchname"
+                      type="text"
+                      className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      தேதி (Date)
+                    </label>
+                    <input
+                      name="ledgercreationdate"
+                      type="date"
+                      className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                      required
+                    />
+                  </div>
                 </div>
 
-                {/*Ledger creation date*/}
-
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    லாக்கரில் வைக்கப்பட்ட பொருளின் தேதி (Ledger Creation) Date
+                    ஊழியர் பெயர் (Staff Name)
                   </label>
                   <input
-                    required
-                    name="ledgercreationdate"
-                    type="text"
-                    placeholder="எ.கா: 10/10/2026"
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
-                  />
-                </div>
-
-                {/*OB Staff Name*/}
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    பணியாளர் பெயர் (OB Staff Name)
-                  </label>
-                  <input
-                    required
                     name="obstaffname"
                     type="text"
-                    placeholder="எ.கா: Selvi"
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                    className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                    required
                   />
                 </div>
 
-                {/*OB Account Number*/}
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    கணக்கு எண் (OB Account Number)
-                  </label>
-                  <input
-                    required
-                    name="obaccountno"
-                    type="text"
-                    placeholder="எ.கா: 65100xxxxx67809"
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      கணக்கு எண் (Account No)
+                    </label>
+                    <input
+                      name="obaccountno"
+                      type="number"
+                      className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      கடனுக்கான கணக்கு எண் (Loan A/C No)
+                    </label>
+                    <input
+                      name="accountno"
+                      type="number"
+                      className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                      required
+                    />
+                  </div>
                 </div>
 
-                {/* Account Number */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    கணக்கு எண் (Account No)
+                    பெட்டக எண் (Locker No)
                   </label>
                   <input
-                    required
-                    name="accountno"
-                    type="text"
-                    placeholder="எ.கா: 1234567890"
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none tracking-wider"
-                  />
-                </div>
-
-                {/* Locker Number */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    லாக்கர் எண் (Locker Number)
-                  </label>
-                  <input
-                    required
                     name="lockerno"
                     type="text"
-                    placeholder="எ.கா: A-12"
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-bold focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                    className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                    required
                   />
                 </div>
+              </div>
 
-                {/* 🛑 Actions */}
-                <div className="flex gap-3 mt-8 pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsBankModalOpen(false)}
-                    className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-2.5 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
-                    ரத்து (Cancel)
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 shadow-sm transition-all active:scale-95">
-                    சேமி (Save)
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="mt-8 flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsBankModalOpen(false)}
+                  className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  ரத்து செய் (Cancel)
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                  சேமி (Save)
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
       {deleteLoanModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 transition-transform">
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm border-4 border-rose-50">
-                🔒
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border border-slate-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mb-4 border-4 border-rose-50">
+                <Trash2 className="text-rose-600" size={28} />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">
-                பாதுகாப்பு சரிபார்ப்பு
-              </h3>
-              <p className="text-sm text-slate-500 mb-6">
-                இந்த கடனை நீக்க உரிமையாளரின்{" "}
+              <h2 className="text-2xl font-black text-slate-800 mb-2">
+                கடன் நீக்கம்!
+              </h2>
+              <p className="text-sm font-medium text-slate-500 mb-6 leading-relaxed">
+                இந்த கடனை நிரந்தரமாக நீக்க கடை உரிமையாளரின்
+                <br />
                 <span className="font-bold text-rose-600">
                   ரகசிய கடவுச்சொல்லை
                 </span>{" "}
@@ -1104,18 +1157,20 @@ export default function LoansTab() {
                 className="w-full text-center tracking-widest text-lg rounded-xl border-slate-300 bg-slate-50 px-4 py-3 font-bold focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/20 transition-all outline-none shadow-inner mb-6"
               />
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 w-full">
                 <button
                   onClick={() => {
                     setDeleteLoanModal(false);
                     setDeletePasswordInput("");
                   }}
-                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                >
                   ரத்து (Cancel)
                 </button>
                 <button
                   onClick={confirmDeleteLoan}
-                  className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-sm">
+                  className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-sm"
+                >
                   நீக்கு (Delete)
                 </button>
               </div>

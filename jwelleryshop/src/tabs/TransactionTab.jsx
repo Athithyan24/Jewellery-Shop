@@ -7,6 +7,7 @@ import {
   HandCoins,
   Import,
   FileDown,
+  Calendar,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -24,6 +25,18 @@ export default function TransactionTab() {
   const [shopProfile, setShopProfile] = useState({});
   const [selectedBackupFile, setSelectedBackupFile] = useState(null);
   const [importPassword, setImportPassword] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+
+  const filteredStats = dailyStats.filter((stat) => {
+    if (!filterDate) return true; // If no date is selected, show everything
+    return stat.date === filterDate;
+  });
+
+  const todayStr = new Date().toLocaleDateString('en-CA'); 
+
+  const todaysStat = dailyStats.find((stat) => stat.date === todayStr);
+
+  const totalExpenses = todaysStat ? todaysStat.expenses : 0;
   
   const handleExportDailyExcel = async () => {
     try {
@@ -36,34 +49,62 @@ export default function TransactionTab() {
       );
       
       const backendData = res.data;
-
       if (!backendData || backendData.length === 0) {
         return alert("ஏற்றுமதி செய்ய எந்த தரவும் இல்லை! (No data to export!)");
       }
 
-      const excelData = backendData.map((item, index) => {
-        const dateObj = new Date(item.createdAt);
-        const formattedDate = dateObj.toLocaleDateString("ta-IN");
-        const formattedTime = dateObj.toLocaleTimeString("ta-IN", { hour: '2-digit', minute: '2-digit' });
+      const groupedData = backendData.reduce((acc, item) => {
+        const dateKey = new Date(item.createdAt).toLocaleDateString("ta-IN");
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(item);
+        return acc;
+      }, {});
 
-        return {
-          "வ.எண் (S.No)": index + 1,
-          "தேதி (Date)": `${formattedDate} ${formattedTime}`,
-          "பரிவர்த்தனை வகை (Type)": item.type,
-          "விவரம் (Description)": item.description,
-          "தொகை (Amount)": item.amount > 0 ? item.amount : "-",
-        };
+      let finalExcelRows = [];
+
+      Object.keys(groupedData).forEach((date) => {
+        const dayTransactions = groupedData[date];
+
+        finalExcelRows.push({
+          "வ.எண் (S.No)": `தேதி: ${date}`,
+          "தேதி (Date)": "",
+          "பரிவர்த்தனை வகை (Type)": "",
+          "விவரம் (Description)": "",
+          "தொகை (Amount)": ""
+        });
+
+        dayTransactions.forEach((item, index) => {
+          const time = new Date(item.createdAt).toLocaleTimeString("ta-IN", { hour: '2-digit', minute: '2-digit' });
+          
+          finalExcelRows.push({
+            "வ.எண் (S.No)": index + 1,
+            "தேதி (Date)": time,
+            "பரிவர்த்தனை வகை (Type)": item.type, 
+            "விவரம் (Description)": item.description,
+            "தொகை (Amount)": item.amount || 0,
+          });
+        });
+
+        finalExcelRows.push({}); 
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
-      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(finalExcelRows);
 
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Worker Transactions");
       
-      const today = new Date().toLocaleDateString("en-GB").replace(/\//g, "-");
-      const fileName = `Worker_Report_${today}.xlsx`;
+      const columnWidths = [
+        { wch: 20 }, 
+        { wch: 15 }, 
+        { wch: 25 }, 
+        { wch: 40 }, 
+        { wch: 15 }, 
+      ];
+      worksheet["!cols"] = columnWidths;
 
-      XLSX.writeFile(workbook, fileName);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Transactions");
+      
+      const fileDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-");
+      XLSX.writeFile(workbook, `PawnShop_Report_${fileDate}.xlsx`);
       
     } catch (error) {
       console.error("Excel generation failed:", error);
@@ -324,7 +365,7 @@ const fetchDailyCash = async () => {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <form onSubmit={handleAddExpense} className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 placeholder="காரணம் (Reason)"
@@ -340,10 +381,19 @@ const fetchDailyCash = async () => {
                 className="w-full sm:w-32 rounded-xl border border-rose-200 px-4 py-3 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-white transition-colors font-bold text-rose-900"
               />
               <button
-                onClick={handleAddExpense}
+                type="submit"
                 className="bg-rose-600 hover:bg-rose-700 cursor-pointer duration-150 hover:scale-110 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 whitespace-nowrap">
                 சேர் (Add)
               </button>
+            </form>
+
+            <div className="mt-4 pt-3 border-t border-red-200/60 flex justify-between items-center">
+              <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">
+                இன்றைய மொத்த செலவு:
+              </span>
+              <span className="text-lg font-black text-rose-700">
+                ₹{totalExpenses || 0}
+              </span>
             </div>
           </div>
         </div>
@@ -356,6 +406,36 @@ const fetchDailyCash = async () => {
               </span>{" "}
               தினசரி பரிவர்த்தனைகள் (Daily Ledger)
             </h2>
+            <div className="mb-6 flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 transition-all hover:shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-50 p-2.5 rounded-xl text-indigo-600 shadow-sm border border-indigo-100">
+              <Calendar size={20} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 tracking-wide">தேதி வாரியாக தேடு</h3>
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Search by Date</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto">
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-full sm:w-auto border border-slate-200 rounded-xl pl-4 pr-4 py-2.5 text-sm font-bold text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm cursor-pointer"
+              />
+            </div>
+            {filterDate && (
+              <button
+                onClick={() => setFilterDate("")}
+                className="text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 px-4 py-2.5 rounded-xl transition-all shadow-sm border border-rose-100 hover:border-rose-500 active:scale-95"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          </div>
             <span className="bg-white text-slate-600 text-xs font-bold px-4 py-1.5 rounded-full border border-slate-200 shadow-sm">
               Total Days: {dailyStats?.length || 0}
             </span>
@@ -405,8 +485,8 @@ const fetchDailyCash = async () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
-                {dailyStats && dailyStats.length > 0 ? (
-                  dailyStats.map((stat) => {
+                {filteredStats && filteredStats.length > 0 ? (
+                  filteredStats.map((stat) => {
                     const expensesTotal = stat.expenses || 0;
                     const startingCash = stat.startingCash || 0; // Fetched from backend daily stats
                     const income = stat.income || 0;
