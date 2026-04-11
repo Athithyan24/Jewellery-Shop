@@ -1,0 +1,21 @@
+.mesh-gradient {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1; /* CRITICAL: Must be negative */
+  pointer-events: none;
+  background-color: #ffffff;
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(210,100%,90%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, hsla(225,100%,92%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(35,100%,92%,1) 0, transparent 50%); /* Added gold tint */
+  filter: blur(60px); /* Slightly reduced blur to make colors pop more */
+  animation: mesh-move 15s ease infinite alternate;
+}
+
+@keyframes mesh-move {
+  from { transform: scale(1); }
+  to { transform: scale(1.2) translate(1%, 1%); }
+}

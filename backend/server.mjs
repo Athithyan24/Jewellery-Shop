@@ -565,59 +565,70 @@ app.get("/api/loguser", verifyToken, async (req, res) => {
   }
 });
 
-// 🟢 1. PERFECT PAWN SHOP MATH (Strictly Monthly, No Daily Trickle)
-const calculateAccruedInterest = (loanData, targetDate = new Date()) => {
-  if (!loanData || !loanData.createdAt) return { total: 0, activeTier: 1 };
+const calculateAccruedInterest = (loan, targetDate = new Date()) => {
+  if (!loan || !loan.createdAt) return { total: 0, pending: 0, months: 0, effectivePrincipal: 0, tier1: 0, tier2: 0, tier3: 0 };
 
-  const startDate = new Date(loanData.createdAt);
+  const startDate = new Date(loan.createdAt);
   const endDate = new Date(targetDate);
 
   let months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
   let days = endDate.getDate() - startDate.getDate();
+  if (days < 0) months -= 1;
+  const chargeableMonths = Math.max(months, 1);
 
-  if (days < 0) {
-    months -= 1;
-    const prevMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 0);
-    days += prevMonth.getDate();
+  let runningPrincipal = (loan.loanamount || 0);
+  let totalInterestAccrued = 0;
+  let remainingPaidInterest = loan.interestPaid || 0;
+
+  // 🟢 Initialize Tier Accumulators
+  let tier1Accrued = 0;
+  let tier2Accrued = 0;
+  let tier3Accrued = 0;
+
+  for (let m = 1; m <= chargeableMonths; m++) {
+    const daysElapsedAtThisMonth = m * 30;
+    let rate = loan.firstinterest || 1;
+    
+    // Determine rate and accumulate by tier
+    if (daysElapsedAtThisMonth > 180) {
+        rate = loan.thirdinterest || 2;
+    } else if (daysElapsedAtThisMonth > 90) {
+        rate = loan.secondinterest || 1.5;
+    }
+
+    const interestForThisMonth = (runningPrincipal * rate) / 100;
+    totalInterestAccrued += interestForThisMonth;
+
+    // 🟢 Assign interest to the correct tier breakdown
+    if (m <= 3) tier1Accrued += interestForThisMonth;
+    else if (m <= 6) tier2Accrued += interestForThisMonth;
+    else tier3Accrued += interestForThisMonth;
+
+    // Compounding logic: If interest wasn't paid, add to principal for next month
+    if (remainingPaidInterest >= interestForThisMonth) {
+      remainingPaidInterest -= interestForThisMonth;
+    } else {
+      const unpaidPortion = interestForThisMonth - remainingPaidInterest;
+      remainingPaidInterest = 0;
+      runningPrincipal += unpaidPortion; 
+    }
   }
-  if (months < 0) { months = 0; days = 0; }
 
-  const totalDaysElapsed = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
-  let monthlyInterestRate = 0;
-  let activeTier = 1;
+  const finalTotal = Math.round(totalInterestAccrued);
+  const pending = Math.max(finalTotal - (loan.interestPaid || 0), 0);
 
-  if (totalDaysElapsed <= (loanData.firstInterestTo || 90)) {
-    monthlyInterestRate = loanData.firstinterest || 0;
-    activeTier = 1;
-  } else if (totalDaysElapsed <= (loanData.secondInterestTo || 180)) {
-    monthlyInterestRate = loanData.secondinterest || 0;
-    activeTier = 2;
-  } else {
-    monthlyInterestRate = loanData.thirdinterest || 0;
-    activeTier = 3;
-  }
-
-  const principal = loanData.loanamount || 0;
-  const monthlyInterestAmount = (principal * monthlyInterestRate) / 100;
-
-  // 🟢 THE FIX: STRICTLY MONTHLY LOGIC
-  let chargeableMonths = months;
-
-  // Rule 1: Minimum 1 month interest is always charged when the loan is created.
-  if (chargeableMonths === 0) {
-    chargeableMonths = 1;
-  }
-
-  // Rule 2: We completely ignore the leftover 'days'. 
-  // Interest ONLY jumps when a full month completes.
-  const totalAccrued = Math.round(chargeableMonths * monthlyInterestAmount);
-
-  return { 
-    total: totalAccrued, 
-    activeTier,
-    tier1Gross: activeTier === 1 ? totalAccrued : 0,
-    tier2Gross: activeTier === 2 ? totalAccrued : 0,
-    tier3Gross: activeTier === 3 ? totalAccrued : 0,
+  return {
+    total: finalTotal,
+    pending: pending,
+    months: chargeableMonths,
+    effectivePrincipal: runningPrincipal,
+    // 🟢 Return the breakdown fields the API expects
+    tier1: Math.round(tier1Accrued),
+    tier2: Math.round(tier2Accrued),
+    tier3: Math.round(tier3Accrued),
+    tier1Gross: Math.round(tier1Accrued), // Added for frontend compatibility
+    tier2Gross: Math.round(tier2Accrued),
+    tier3Gross: Math.round(tier3Accrued)
   };
 };
 
@@ -626,50 +637,33 @@ app.get("/api/loans", verifyToken, async (req, res) => {
     const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const finalQuery = { ...query, isDeleted: { $ne: true } };
 
-    const loans = await Loan.find(finalQuery)
-      .populate("customer")
-      .populate("product")
-      .sort({ createdAt: -1 });
+    const loans = await Loan.find(finalQuery).populate("customer").populate("product").sort({ createdAt: -1 });
 
     const loansWithCalculations = loans.map((loan) => {
-      const loanObj = loan.toObject ? loan.toObject() : loan;
-      
-      // Calculate Interest Securely
+      const loanObj = loan.toObject();
       const interestData = calculateAccruedInterest(loanObj);
-      const totalAccrued = interestData.total;
       
       const interestPaid = loanObj.interestPaid || 0;
-      const pendingInterest = totalAccrued > interestPaid ? totalAccrued - interestPaid : 0;
+      const pendingInterest = Math.max(interestData.total - interestPaid, 0);
+      const remainingPrincipal = Math.max(loanObj.loanamount - (loanObj.principalPaid || 0), 0);
       
-      // Calculate Principal Securely
-      const principalPaid = loanObj.principalPaid || 0;
-      const remainingPrincipal = loanObj.loanamount - principalPaid;
-      const principalToCalculate = remainingPrincipal > 0 ? remainingPrincipal : 0;
-      
-      const currentBalance = principalToCalculate + pendingInterest;
-
-      // Set up Date Strings for the Rates Tab
-      const startDateStr = new Date(loanObj.createdAt).toLocaleDateString("en-IN", {
-        day: "2-digit", month: "short", year: "numeric"
-      });
-
       return {
         ...loanObj,
-        interestBreakdown: interestData,
+        interestBreakdown: interestData, // Now contains tier1, tier2, tier3
         pendingInterest: pendingInterest,
-        currentBalance: currentBalance,
+        currentBalance: remainingPrincipal + pendingInterest,
         dateRanges: {
-           tier1: interestData.activeTier === 1 ? `${startDateStr} - To Date` : "-",
-           tier2: interestData.activeTier === 2 ? `${startDateStr} - To Date` : "-",
-           tier3: interestData.activeTier === 3 ? `${startDateStr} - To Date` : "-",
+           // 🟢 These will now work because interestData.tier1 is defined
+           tier1: `Month 1-3 (₹${interestData.tier1})`,
+           tier2: interestData.tier2 > 0 ? `Month 4-6 (₹${interestData.tier2})` : "-",
+           tier3: interestData.tier3 > 0 ? `Month 7+ (₹${interestData.tier3})` : "-",
         }
       };
     });
 
     return res.status(200).json(loansWithCalculations);
   } catch (error) {
-    console.error("Error fetching loans:", error);
-    return res.status(500).json({ message: "Failed to fetch loans", error: error.message });
+    return res.status(500).json({ message: "Error", error: error.message });
   }
 });
 
@@ -775,12 +769,25 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
+    const dailyCash = await DailyCash.find({ userId: userId }); // Fetch Initial Cash
     const customers = await Customer.find({ createdBy: userId });
     const loans = await Loan.find({ createdBy: userId }).populate("customer");
     const expenses = await Expense.find({ createdBy: userId });
-    const payLoans = await PayLoan.find({ createdBy: userId }).populate("customer");
+    const payLoans = await PayLoan.find({ createdBy: userId })
+      .populate("customer")
+      .populate("loan");
 
     const reportData = [];
+
+    dailyCash.forEach((c) => {
+      reportData.push({
+        type: "தொடக்க இருப்பு (Starting Cash)",
+        description: "அன்றைய தின கல்லா இருப்பு",
+        amount: c.amount || 0,
+        createdAt: c.date || c.createdAt
+      });
+    });
+
     customers.forEach((c) => {
       reportData.push({
         type: "புதிய வாடிக்கையாளர் (New Customer)",
@@ -793,7 +800,7 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
     loans.forEach((l) => {
       reportData.push({
         type: "கடன் வழங்கப்பட்டது (Loan Given)",
-        description: `${l.loanId || "Loan"} - ${l.customer?.name || "Unknown"}`,
+        description: `Loan No: ${l.loanId} - ${l.customer?.name || "Unknown"}`,
         amount: l.loanamount || 0,
         createdAt: l.createdAt || l._id.getTimestamp()
       });
@@ -809,15 +816,21 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
     });
 
     payLoans.forEach((p) => {
+      const actualLoanId = p.loan?.loanId || p.loanId || "N/A";
+      const loanNo = actualLoanId !== "N/A" ? `Loan No: ${actualLoanId}` : "Loan N/A";
+      
+      const custName = p.customer?.name || "Unknown";
+      const interestDetail = p.interestPaid ? `(Int: ₹${p.interestPaid})` : "";
+
       reportData.push({
         type: "வரவு (Loan Payment)",
-        description: p.customer?.name ? `Payment from ${p.customer.name}` : "Payment Received",
+        description: `${loanNo} - ${custName} ${interestDetail}`,
         amount: p.amountPaid || 0,
         createdAt: p.paymentDate || p.createdAt || p._id.getTimestamp()
       });
     });
 
-    reportData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    reportData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
     res.status(200).json(reportData);
   } catch (error) {
