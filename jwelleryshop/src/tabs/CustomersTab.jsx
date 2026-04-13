@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Search, Handshake, Users } from "lucide-react";
+import { Search, Handshake, Users, X } from "lucide-react";
 import { getDatabase } from "../db";
 export default function CustomersTab() {
   const [offlineCustomers, setOfflineCustomers] = useState([]);
@@ -384,8 +384,8 @@ export default function CustomersTab() {
         )}
 
         <div className="p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 overflow-hidden">
-            <div className="px-6 py-6 bg-white flex flex-col xl:flex-row items-center justify-between gap-4">
+          <div className="bg-white/50 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 overflow-hidden">
+            <div className="px-6 py-6 bg-white/50 flex flex-col xl:flex-row items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
                 <div className="flex">
                   <Users className="mr-2 text-red-500" />
@@ -395,8 +395,26 @@ export default function CustomersTab() {
                 </div>
                 <button
                   onClick={() => setCustomerModal(true)}
-                  className="bg-indigo-600 hover:scale-105 cursor-pointer transition-all duration-200 text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/20 active:scale-95 shrink-0">
-                  + புதிய வாடிக்கையாளர்
+                  className="group relative animated-button flex items-center justify-center gap-2 px-10 py-3 border-2 border-indigo-600 bg-transparent rounded-full font-bold text-sm text-indigo-600 cursor-pointer overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] hover:text-white hover:rounded-xl hover:shadow-lg hover:shadow-indigo-600/30 active:scale-95 shrink-0">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="absolute w-5 fill-indigo-600 z-10 left-[-25%] transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:left-4 group-hover:fill-white"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
+                  </svg>
+
+                  <span className="relative z-10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] -translate-x-2 group-hover:translate-x-3">
+                    + புதிய வாடிக்கையாளர்
+                  </span>
+
+                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-indigo-600 rounded-full opacity-0 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:w-[300px] group-hover:h-[300px] group-hover:opacity-100"></span>
+
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="absolute w-5 fill-indigo-600 z-10 right-4 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:right-[-25%] group-hover:fill-white"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
+                  </svg>
                 </button>
               </div>
 
@@ -452,7 +470,7 @@ export default function CustomersTab() {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 bg-white">
+                <tbody className="divide-y divide-slate-100 bg-white/50">
                   {offlineCustomers &&
                     offlineCustomers
                       .filter((c) => !c.isSynced)
@@ -554,8 +572,18 @@ export default function CustomersTab() {
                                 setLoanModal(true);
                                 fetchProducts();
                               }}
-                              className="inline-flex items-center justify-center bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 border border-emerald-200 hover:border-emerald-600 shadow-sm hover:shadow-emerald-600/30 hover:-translate-y-0.5 active:scale-95 cursor-pointer">
-                              <Handshake size={16} className="mr-1 " />
+                              className="group relative inline-flex items-center justify-center 
+               w-12 h-12 bg-white text-emerald-600 border border-emerald-200 
+               rounded-full scale-75 p-3 cursor-pointer transition-all duration-300 
+               hover:scale-110 hover:p-1 hover:bg-emerald-600 hover:text-white 
+               hover:shadow-lg hover:shadow-emerald-600/30 active:scale-95"
+                              title="Create Loan">
+                              {/* Lucide Handshake Icon */}
+                              <Handshake
+                                size={24}
+                                strokeWidth={2.5}
+                                className="transition-transform duration-300 group-hover:scale-110"
+                              />
                             </button>
                           </td>
                         </tr>
@@ -584,137 +612,157 @@ export default function CustomersTab() {
       </div>
 
       {CustomerModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <span className="text-2xl">👤</span> புதிய வாடிக்கையாளர் (Add
-                Customer)
-              </h2>
-              <button
-                onClick={() => setCustomerModal(false)}
-                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
-                ✕
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white">
-              <form onSubmit={saveCustomerOffline} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      பெயர் (Name)
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      required
-                      placeholder="எ.கா: Kumar"
-                      className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
-                    />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white p-6 md:p-10 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 my-auto">
+            {/* Header Section */}
+            <div className="flex flex-wrap gap-5 items-center w-full mb-8">
+              <div className="flex flex-wrap flex-1 shrink gap-5 items-center self-stretch my-auto basis-0 min-w-[240px]">
+                <div className="flex relative flex-col justify-center self-stretch bg-gray-100 h-[70px] min-h-[70px] rounded-[16px] overflow-hidden w-[70px]">
+                  <div className="flex items-center justify-center bg-violet-100 h-[70px] min-h-[70px] rounded-[16px] w-[70px] text-violet-600">
+            <Users size={32} strokeWidth={2.5} />
+          </div>
+                </div>
+                <div className="flex flex-col self-stretch my-auto">
+                  <div className="text-xl font-bold text-gray-800">
+                    புதிய வாடிக்கையாளர்
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      தொலைபேசி எண் (Phone)
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      required
-                      placeholder="எ.கா: 9876543210"
-                      className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      ஆதார் எண் (Aadhar No)
-                    </label>
-                    <input
-                      type="text"
-                      name="aadhar"
-                      required
-                      placeholder="எ.கா: 1234 5678 9012"
-                      className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      பிறந்த தேதி (DOB)
-                    </label>
-                    <input
-                      type="date"
-                      name="dob"
-                      required
-                      className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none cursor-pointer"
-                    />
+                  <div className="text-sm text-gray-500 uppercase tracking-wider">
+                    Add New Customer
                   </div>
                 </div>
+              </div>
+              <button 
+          onClick={() => setCustomerModal(false)}
+          className="text-slate-400 hover:text-rose-500 transition-colors p-2 rounded-xl hover:bg-rose-50"
+        >
+          <X size={24} />
+        </button>
+            </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    முகவரி (Address)
+            <form onSubmit={saveCustomerOffline}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {/* Name Input */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    className="block w-full text-sm h-[50px] px-4 text-slate-900 bg-white rounded-[8px] border border-violet-200 appearance-none focus:border-transparent focus:outline focus:outline-2 focus:outline-violet-500 focus:ring-0 peer"
+                    placeholder=" "
+                  />
+                  <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
+                    பெயர் (Name)
                   </label>
+                </div>
+
+                {/* Phone Input */}
+                <div className="relative">
+                  <input
+                    type="tel"
+                    name="phone"
+                    required
+                    className="block w-full text-sm h-[50px] px-4 text-slate-900 bg-white rounded-[8px] border border-violet-200 appearance-none focus:border-transparent focus:outline focus:outline-2 focus:outline-violet-500 focus:ring-0 peer"
+                    placeholder=" "
+                  />
+                  <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
+                    தொலைபேசி எண் (Phone)
+                  </label>
+                </div>
+
+                {/* Aadhaar Input */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="aadhar"
+                    required
+                    className="block w-full text-sm h-[50px] px-4 text-slate-900 bg-white rounded-[8px] border border-violet-200 appearance-none focus:border-transparent focus:outline focus:outline-2 focus:outline-violet-500 focus:ring-0 peer"
+                    placeholder=" "
+                  />
+                  <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
+                    ஆதார் எண் (Aadhar No)
+                  </label>
+                </div>
+
+                {/* DOB Input */}
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="dob"
+                    required
+                    className="block w-full text-sm h-[50px] px-4 text-slate-900 bg-white rounded-[8px] border border-violet-200 appearance-none focus:border-transparent focus:outline focus:outline-2 focus:outline-violet-500 focus:ring-0 peer cursor-pointer"
+                    placeholder=" "
+                  />
+                  <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
+                    பிறந்த தேதி (DOB)
+                  </label>
+                </div>
+
+                {/* Address Input - Full Width */}
+                <div className="relative md:col-span-2">
                   <textarea
                     name="address"
                     required
                     rows="2"
-                    placeholder="முழு முகவரி..."
-                    className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none resize-none"></textarea>
+                    className="block w-full text-sm pt-4 px-4 text-slate-900 bg-white rounded-[8px] border border-violet-200 appearance-none focus:border-transparent focus:outline focus:outline-2 focus:outline-violet-500 focus:ring-0 peer resize-none"
+                    placeholder=" "></textarea>
+                  <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
+                    முகவரி (Address)
+                  </label>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2 p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
-                      புகைப்படம் (Recent Photo)
-                    </label>
-                    <input
-                      type="file"
-                      name="recentimage"
-                      accept="image/*"
-                      required
-                      className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-all cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
-                      ஆதார் படம் (Aadhar Image)
-                    </label>
-                    <input
-                      type="file"
-                      name="aadharimage"
-                      accept="image/*"
-                      required
-                      className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 transition-all cursor-pointer"
-                    />
-                  </div>
+              {/* File Upload Section */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 mb-6">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-600 uppercase">
+                    Recent Photo
+                  </label>
+                  <input
+                    type="file"
+                    name="recentimage"
+                    accept="image/*"
+                    required
+                    className="text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-violet-100 file:text-violet-700 hover:file:bg-violet-200 transition-all cursor-pointer"
+                  />
                 </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-600 uppercase">
+                    Aadhar Image
+                  </label>
+                  <input
+                    type="file"
+                    name="aadharimage"
+                    accept="image/*"
+                    required
+                    className="text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-all cursor-pointer"
+                  />
+                </div>
+              </div>
 
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
-                  <p className="text-xs text-amber-700 font-bold flex items-center gap-2">
-                    <span className="text-lg">⚡</span>
-                    இணையம் இல்லாவிட்டாலும் (Offline) வாடிக்கையாளரை சேமிக்கலாம்.
-                    இணையம் வந்ததும் Sync செய்துகொள்ளவும்.
-                  </p>
-                </div>
+              {/* Offline Banner */}
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-8">
+                <p className="text-[11px] md:text-xs text-amber-700 font-medium flex items-center gap-2">
+                  <span className="text-lg">⚡</span>
+                  இணையம் இல்லாவிட்டாலும் சேமிக்கலாம். இணையம் வந்ததும் Sync
+                  செய்யவும்.
+                </p>
+              </div>
 
-                <div className="flex gap-3 pt-6 mt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setCustomerModal(false)}
-                    className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-                    ரத்து (Cancel)
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-2 bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
-                    சேமி (Save Customer)
-                  </button>
-                </div>
-              </form>
-            </div>
+              {/* Action Buttons */}
+              <div className="flex flex-row-reverse gap-4">
+                <button
+                  type="submit"
+                  className="flex-1 md:flex-none md:min-w-[160px] rounded-lg text-sm px-5 py-2 focus:outline-none h-[50px] bg-violet-600 hover:bg-violet-700 text-white font-bold shadow-lg shadow-violet-200 transition-all duration-300 active:scale-95">
+                  Save Customer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomerModal(false)}
+                  className="flex-1 md:flex-none md:min-w-[120px] rounded-lg text-sm px-5 py-2 focus:outline-none h-[50px] border border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50 transition-all">
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

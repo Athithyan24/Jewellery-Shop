@@ -135,7 +135,9 @@ export default function LoansTab() {
       );
 
       alert("கடன் வெற்றிகரமாக நீக்கப்பட்டது! (Loan deleted successfully!)");
-      setLoans((prevLoans) => prevLoans.filter((loan) => loan._id !== loanToDelete._id));
+      setLoans((prevLoans) =>
+        prevLoans.filter((loan) => loan._id !== loanToDelete._id),
+      );
       setDeleteLoanModal(false);
       setDeletePasswordInput("");
       setLoanToDelete(null);
@@ -225,8 +227,8 @@ export default function LoansTab() {
   return (
     <>
       <div className="p-6 animate-in fade-in duration-300 print:hidden">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="bg-white/50 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
               <HeartHandshakeIcon className="mr-2 text-pink-600" />
               <h2 className="lg:text-lg md:text-sm font-bold text-blue-800 tracking-wide">
@@ -296,10 +298,9 @@ export default function LoansTab() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
+              <tbody className="bg-white/50 divide-y divide-slate-100">
                 {filteredLoans && filteredLoans.length > 0 ? (
                   filteredLoans.map((loan) => {
-                    
                     const activePendingInterest = loan.pendingInterest || 0;
                     const currentBalance = loan.currentBalance || 0;
                     const interestPaid = loan.interestPaid || 0;
@@ -307,8 +308,7 @@ export default function LoansTab() {
                     return (
                       <tr
                         key={loan._id}
-                        className="hover:bg-indigo-50/30 transition-colors duration-200 group border-b border-slate-100/50"
-                      >
+                        className="hover:bg-indigo-50/30 transition-colors duration-200 group border-b border-slate-100/50">
                         <td className="py-4 px-4 whitespace-nowrap text-xs font-semibold text-slate-500">
                           {loan.paymentDate || loan.createdAt
                             ? new Date(
@@ -342,8 +342,7 @@ export default function LoansTab() {
                               </span>
                               <span
                                 className="text-rose-600 font-mono font-semibold bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded text-xs shadow-sm"
-                                title="Stone Weight"
-                              >
+                                title="Stone Weight">
                                 {loan.stoneweight}g
                               </span>
                             </div>
@@ -372,8 +371,7 @@ export default function LoansTab() {
                                   setSelectedLoan(loan);
                                   setReceiptModal(true);
                                 }}
-                                className="bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 py-2 px-5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 duration-200"
-                              >
+                                className="bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 py-2 px-5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 duration-200">
                                 ரசீது (Receipt)
                               </button>
                               <span className="absolute -top-2.5 -right-2 z-10 border border-emerald-400 bg-emerald-100/95 backdrop-blur-sm text-emerald-700 font-black text-[9px] uppercase tracking-widest py-0.5 px-2 rounded-md shadow-sm pointer-events-none">
@@ -387,8 +385,7 @@ export default function LoansTab() {
                                   setSelectedLoan(loan);
                                   setPayLoanModal(true);
                                 }}
-                                className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-rose-600/20 hover:-translate-y-0.5 active:scale-95"
-                              >
+                                className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-rose-600/20 hover:-translate-y-0.5 active:scale-95">
                                 கடனை செலுத்து (Pay)
                               </button>
                               <button
@@ -396,8 +393,7 @@ export default function LoansTab() {
                                   setSelectedLoan(loan);
                                   setReceiptModal(true);
                                 }}
-                                className="bg-slate-100 hover:bg-indigo-600 text-slate-600 hover:text-white border border-slate-200 hover:border-indigo-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-indigo-600/20 hover:-translate-y-0.5 active:scale-95"
-                              >
+                                className="bg-slate-100 hover:bg-indigo-600 text-slate-600 hover:text-white border border-slate-200 hover:border-indigo-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-indigo-600/20 hover:-translate-y-0.5 active:scale-95">
                                 ரசீது (Receipt)
                               </button>
                             </div>
@@ -412,16 +408,15 @@ export default function LoansTab() {
                                 setIsBankModalOpen(true);
                               }}
                               className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-white hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 hover:border-indigo-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95"
-                              title="Add to Owner's Bank"
-                            >
+                              title="Add to Owner's Bank">
                               <img src={upi} alt="UPI" className="w-7 h-7" />
                             </div>
                           ) : (
-                            <div className="inline-flex items-center justify-center p-1.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <div className="inline-flex items-center justify-center rounded-xl ">
                               <img
                                 src={ver}
                                 alt="Verified"
-                                className="w-7 h-7 drop-shadow-sm"
+                                className="w-15 h-15 drop-shadow-sm"
                               />
                             </div>
                           )}
@@ -449,22 +444,59 @@ export default function LoansTab() {
 
                         <td className="py-4 px-4 whitespace-nowrap text-center">
                           <button
-                            onClick={() => {
-                              setLoanToDelete(loan);
-                              setDeleteLoanModal(true);
-                            }}
-                            className="inline-flex items-center justify-center w-9 h-9 bg-slate-100 text-slate-400 rounded-xl hover:bg-rose-600 hover:text-white hover:shadow-lg hover:shadow-rose-600/30 hover:-translate-y-0.5 transition-all active:scale-95 duration-200"
-                            title="Delete Loan"
-                          >
-                            <Trash2 size={18} className="stroke-[2.5]" />
-                          </button>
+  onClick={() => {
+    setLoanToDelete(loan);
+    setDeleteLoanModal(true);
+  }}
+  className="group relative flex h-12 w-12 flex-col items-center justify-center overflow-hidden rounded-full bg-[#141414] border-none cursor-pointer transition-all duration-300 shadow-lg hover:bg-rose-600 active:scale-90 shrink-0"
+  title="Delete"
+>
+  {/* 1. The "Paper" SVG - Hidden at top, drops on hover */}
+  <svg
+    viewBox="0 0 1.625 1.625"
+    className="absolute -top-7 fill-white delay-100 transition-all duration-500 group-hover:top-3 group-hover:animate-[spin_1.4s_linear_infinite]"
+    height="12"
+    width="12"
+  >
+    <path d="M.471 1.024v-.52a.1.1 0 0 0-.098.098v.618c0 .054.044.098.098.098h.487a.1.1 0 0 0 .098-.099h-.39c-.107 0-.195 0-.195-.195" />
+    <path d="M1.219.601h-.163A.1.1 0 0 1 .959.504V.341A.033.033 0 0 0 .926.309h-.26a.1.1 0 0 0-.098.098v.618c0 .054.044.098.098.098h.487a.1.1 0 0 0 .098-.099v-.39a.033.033 0 0 0-.032-.033" />
+    <path d="m1.245.465-.15-.15a.02.02 0 0 0-.016-.006.023.023 0 0 0-.023.022v.108c0 .036.029.065.065.065h.107a.023.023 0 0 0 .023-.023.02.02 0 0 0-.007-.016" />
+  </svg>
+
+  {/* 2. The Trash Lid - Flips open */}
+  <svg
+    width="16"
+    fill="none"
+    viewBox="0 0 39 7"
+    className="origin-right duration-500 transition-transform group-hover:rotate-90 group-hover:translate-x-1 group-hover:translate-y-2 z-10"
+  >
+    <line strokeWidth="4" stroke="white" y2="5" x2="39" y1="5" />
+    <line strokeWidth="3" stroke="white" y2="1.5" x2="26.0357" y1="1.5" x1="12" />
+  </svg>
+
+  {/* 3. The Trash Body */}
+  <svg width="16" fill="none" viewBox="0 0 33 39" className="transition-all duration-300">
+    <mask fill="white" id="bin-mask-fixed">
+      <path d="M0 0H33V35C33 37.2091 31.2091 39 29 39H4C1.79086 39 0 37.2091 0 35V0Z" />
+    </mask>
+    <path
+      mask="url(#bin-mask-fixed)"
+      fill="white"
+      d="M0 0H33H0ZM37 35C37 39.4183 33.4183 43 29 43H4C-0.418278 43 -4 39.4183 -4 35H4H29H37ZM4 43C-0.418278 43 -4 39.4183 -4 35V0H4V35V43ZM37 0V35C37 39.4183 33.4183 43 29 43V35V0H37Z"
+    />
+    <path strokeWidth="4" stroke="white" d="M12 6L12 29" />
+    <path strokeWidth="4" stroke="white" d="M21 6V29" />
+  </svg>
+</button>
                         </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan="12" className="text-center py-12 text-slate-500">
+                    <td
+                      colSpan="12"
+                      className="text-center py-12 text-slate-500">
                       எந்த கடன்களும் காணப்படவில்லை (No loans found)
                     </td>
                   </tr>
@@ -480,8 +512,7 @@ export default function LoansTab() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none relative flex flex-col max-h-[95vh] print:max-h-none print:h-auto print:block overflow-hidden print:overflow-visible">
             <div
               id="printable-receipt"
-              className="p-8 print:p-0 relative bg-white print:bg-transparent overflow-y-auto print:overflow-visible print:block custom-scrollbar"
-            >
+              className="p-8 print:p-0 relative bg-white print:bg-transparent overflow-y-auto print:overflow-visible print:block custom-scrollbar">
               <div className="hidden print:flex fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 items-center justify-center opacity-[0.04] pointer-events-none z-[-1]">
                 <span className="text-5xl font-black uppercase tracking-widest transform -rotate-45 text-center leading-relaxed whitespace-nowrap">
                   {shopProfile?.shopName || currentUser?.username} <br />
@@ -705,8 +736,7 @@ export default function LoansTab() {
                             {relatedPayments.map((payment, index) => (
                               <div
                                 key={payment._id || index}
-                                className="flex justify-between items-center text-sm print:text-xs font-semibold text-slate-700 print:text-black print:break-inside-avoid"
-                              >
+                                className="flex justify-between items-center text-sm print:text-xs font-semibold text-slate-700 print:text-black print:break-inside-avoid">
                                 <span className="text-slate-500 print:text-black text-xs print:text-[10px]">
                                   {payment.paymentDate
                                     ? new Date(
@@ -780,14 +810,12 @@ export default function LoansTab() {
                   setReceiptModal(false);
                   setSelectedLoan(null);
                 }}
-                className="flex-1 bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-sm"
-              >
+                className="flex-1 bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-sm">
                 மூடு (Close)
               </button>
               <button
                 onClick={() => window.print()}
-                className="flex-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm flex justify-center items-center gap-2 active:scale-95"
-              >
+                className="flex-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm flex justify-center items-center gap-2 active:scale-95">
                 <Printer size={18} />
                 ரசீதை அச்சிடு (Print Receipt)
               </button>
@@ -805,8 +833,7 @@ export default function LoansTab() {
               </h3>
               <button
                 onClick={() => setPayLoanModal(false)}
-                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors print:hidden"
-              >
+                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors print:hidden">
                 ✕
               </button>
             </div>
@@ -892,8 +919,7 @@ export default function LoansTab() {
                       className="block w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all outline-none cursor-pointer print:bg-transparent print:border-black print:appearance-none print:text-black"
                       value={payType}
                       onChange={(e) => setPayType(e.target.value)}
-                      required
-                    >
+                      required>
                       <option value="" disabled>
                         செலுத்தும் முறையை தேர்ந்தெடுக்கவும் (Select Pay Type)
                       </option>
@@ -922,9 +948,7 @@ export default function LoansTab() {
                             step="0.01"
                             placeholder="0.00"
                             value={
-                              payType === "Full Pay"
-                                ? totalBalance
-                                : payAmount
+                              payType === "Full Pay" ? totalBalance : payAmount
                             }
                             onChange={(e) =>
                               setPayAmount(parseFloat(e.target.value) || 0)
@@ -951,8 +975,8 @@ export default function LoansTab() {
                           {payType === "Full Pay"
                             ? totalBalance.toFixed(2)
                             : payAmount > 0
-                            ? Number(payAmount).toFixed(2)
-                            : "0.00"}
+                              ? Number(payAmount).toFixed(2)
+                              : "0.00"}
                         </p>
                       </div>
                     </div>
@@ -967,16 +991,14 @@ export default function LoansTab() {
                       setPayType("");
                       setPayAmount("");
                     }}
-                    className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-                  >
+                    className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
                     ரத்து (Cancel)
                   </button>
 
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="flex-1 bg-blue-50 border border-blue-200 text-blue-700 font-bold py-3 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
-                  >
+                    className="flex-1 bg-blue-50 border border-blue-200 text-blue-700 font-bold py-3 rounded-lg hover:bg-blue-100 transition-colors shadow-sm">
                     🖨️ பிரிண்ட்
                   </button>
 
@@ -987,8 +1009,7 @@ export default function LoansTab() {
                       (payType === "Initial Pay" && payAmount <= 0) ||
                       (payType === "Full Pay" && totalBalance <= 0)
                     }
-                    className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:active:scale-100"
-                  >
+                    className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:active:scale-100">
                     பணம் செலுத்து
                   </button>
                 </div>
@@ -1007,8 +1028,7 @@ export default function LoansTab() {
               </h3>
               <button
                 onClick={() => setIsBankModalOpen(false)}
-                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
-              >
+                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
                 ✕
               </button>
             </div>
@@ -1022,8 +1042,7 @@ export default function LoansTab() {
                   <select
                     name="bankId"
                     className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
-                    required
-                  >
+                    required>
                     <option value="" disabled selected>
                       -- வங்கியைக் குறிக்கவும் --
                     </option>
@@ -1114,14 +1133,12 @@ export default function LoansTab() {
                 <button
                   type="button"
                   onClick={() => setIsBankModalOpen(false)}
-                  className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
-                >
+                  className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
                   ரத்து செய் (Cancel)
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
-                >
+                  className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm">
                   சேமி (Save)
                 </button>
               </div>
@@ -1163,14 +1180,12 @@ export default function LoansTab() {
                     setDeleteLoanModal(false);
                     setDeletePasswordInput("");
                   }}
-                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
-                >
+                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
                   ரத்து (Cancel)
                 </button>
                 <button
                   onClick={confirmDeleteLoan}
-                  className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-sm"
-                >
+                  className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-sm">
                   நீக்கு (Delete)
                 </button>
               </div>

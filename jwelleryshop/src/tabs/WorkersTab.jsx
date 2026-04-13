@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+
 export default function WorkersTab() {
   const [workers, setWorkers] = useState([]);
   const [workerUsername, setWorkerUsername] = useState("");
@@ -211,9 +212,7 @@ export default function WorkersTab() {
                   <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
                     பங்கு
                   </th>
-                  <th className="px-6 py-4 text-center font-extrabold text-slate-600 uppercase tracking-wider text-xs">
-                    செயல்
-                  </th>
+                  
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
@@ -236,25 +235,7 @@ export default function WorkersTab() {
                           {worker.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          className="text-slate-300 hover:text-rose-600 hover:bg-rose-50 p-2 rounded-lg transition-all"
-                          title="பணியாளரை நீக்கு">
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
-                      </td>
+                      
                     </tr>
                   ))
                 ) : (
