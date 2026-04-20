@@ -305,7 +305,7 @@ export default function TransactionTab() {
   {/* Icon Wrapper */}
   <div className="relative transition-all duration-500 group-hover:translate-x-11.25 group-hover:rotate-12 group-hover:scale-125">
     {/* Lucide FileDown Icon */}
-    <div className="transform transition-transform duration-500 group-hover:animate-bounce">
+    <div className="transform transition-transform duration-500 group-hover:animate-bounce hover:pl-5">
         <FileDown size={20} strokeWidth={2.5} />
     </div>
   </div>
@@ -316,17 +316,22 @@ export default function TransactionTab() {
   </span>
 
   {/* Hidden Text that appears on hover */}
-  <span className="absolute -translate-x-full opacity-0 transition-all duration-500 group-hover:translate-x-[-15px] group-hover:opacity-100">
+  <span className="absolute -translate-x-full opacity-0 transition-all duration-500 group-hover:-translate-x-3.75 group-hover:opacity-100">
     Download
   </span>
 </button>
           <button
-            type="button"
-            onClick={() => setIsBackupMenuModalOpen(true)}
-            title="தரவு பாதுகாப்பு (Backup & Restore)"
-            className="p-3 hover:scale-120 duration-200 cursor-pointer bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition-all shadow-sm hover:shadow group flex items-center justify-center">
-            <Import size={18} className="text-orange-500" />
-          </button>
+  type="button"
+  onClick={() => setIsBackupMenuModalOpen(true)}
+  title="தரவு பாதுகாப்பு (Backup & Restore)"
+  className="group relative inline-flex items-center justify-center w-[50px] h-[50px] bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-full shadow-lg transform scale-100 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-300 active:scale-95"
+>
+  <Import 
+    size={26} 
+    strokeWidth={2.5}
+    className="transition-all duration-300 ease-out group-hover:-rotate-45 group-hover:scale-75" 
+  />
+</button>
 
           <button
   onClick={() => setProfileModal(true)}
@@ -484,9 +489,9 @@ export default function TransactionTab() {
               </span>{" "}
               தினசரி பரிவர்த்தனைகள் (Daily Ledger)
             </h2>
-            <div className="mb-6 flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 transition-all hover:shadow-md">
+            <div className="mb-6 flex flex-col sm:flex-row items-center justify-between bg-white/50 p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 transition-all hover:shadow-md">
               <div className="flex items-center gap-3">
-                <div className="bg-indigo-50 p-2.5 rounded-xl text-indigo-600 shadow-sm border border-indigo-100">
+                <div className="bg-indigo-50/10 p-2.5 rounded-xl text-indigo-600 shadow-sm border border-indigo-100">
                   <Calendar size={20} strokeWidth={2.5} />
                 </div>
                 <div>

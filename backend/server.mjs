@@ -1006,7 +1006,6 @@ app.post("/api/bankDetails", verifyToken, async (req, res) => {
   }
 });
 
-
 app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (req, res) => {
   try {
     const { shopName, ownerName, phone, address, deletePassword, currentPassword } = req.body;
@@ -1039,9 +1038,8 @@ app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (re
       updateData.shopimage = req.file.filename;
     }
     
-    // 🟢 CHANGE: Update only THIS user's profile, not everyone's
     const profile = await ShopProfile.findOneAndUpdate(
-      { userId: req.user.id }, // <-- Filter by User
+      { userId: req.user.id }, 
       { $set: updateData }, 
       { new: true, upsert: true }
     );

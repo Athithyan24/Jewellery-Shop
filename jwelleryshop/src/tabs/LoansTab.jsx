@@ -6,8 +6,8 @@ import {
   HeartHandshakeIcon,
   Printer,
 } from "lucide-react";
-import upi from "../assets/upi.png";
-import ver from "../assets/approved.png";
+import upi from "/upi.png";
+import ver from "/approved.png";
 import axios from "axios";
 
 export default function LoansTab() {
@@ -308,7 +308,7 @@ export default function LoansTab() {
                     return (
                       <tr
                         key={loan._id}
-                        className="hover:bg-indigo-50/30 transition-colors duration-200 group border-b border-slate-100/50">
+                        className="hover:bg-indigo-50 transition-colors duration-200 group border-b border-slate-100/50">
                         <td className="py-4 px-4 whitespace-nowrap text-xs font-semibold text-slate-500">
                           {loan.paymentDate || loan.createdAt
                             ? new Date(

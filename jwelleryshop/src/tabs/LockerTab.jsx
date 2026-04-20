@@ -39,11 +39,11 @@ export default function LockerTab() {
   return (
     <>
       <div className="p-6 animate-in fade-in duration-300">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="bg-white/50 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
               <Landmark className="mr-2 text-red-600" />
-              <h2 className="lg:text-lg md:text-sm font-bold text-blue-800 tracking-wide">
+              <h2 className="lg:text-lg md:text-sm font-bold text-white tracking-wide">
                 வங்கி பெட்டக விவரங்கள் (Bank Locker Details)
               </h2>
             </div>
@@ -79,12 +79,12 @@ export default function LockerTab() {
                   <th className="py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-right">கடன் தொகை (Amount)</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
+              <tbody className="bg-white/50 divide-y divide-slate-100">
                 {filteredLockerByLoan.length > 0 ? (
                   filteredLockerByLoan.map((item) => (
                     <tr
                       key={item._id}
-                      className="hover:bg-indigo-50/30 transition-colors duration-200 group border-b border-slate-100/50"
+                      className="hover:bg-indigo-50 transition-colors duration-200 group border-b border-slate-100/50"
                     >
                       <td className="py-3 px-4 whitespace-nowrap">
                         <img

@@ -530,7 +530,7 @@ export default function CustomersTab() {
                     ? filteredCustomers.map((customer) => (
                         <tr
                           key={customer._id}
-                          className="hover:bg-indigo-50/30 transition-colors duration-200 group">
+                          className="hover:bg-indigo-50 transition-colors duration-200 group">
                           <td className="px-4 py-3 whitespace-nowrap">
                             <img
                               src={`http://localhost:5000/uploads/${customer.recentimage}`}

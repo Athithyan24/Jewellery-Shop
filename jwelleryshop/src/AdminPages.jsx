@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import infozenxLogo from "./assets/infozenxit.jpg";
+import infozenxLogo from "/infozenxit.jpg";
 import {
   Users,
   ArrowRightLeft,

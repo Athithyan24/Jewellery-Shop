@@ -35,17 +35,17 @@ export default function ProfileTab() {
   return (
     <>
       <div className="p-6 animate-in fade-in duration-300">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="bg-white/50 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
               <ScrollText className="mr-2 text-lime-500" />
-              <h2 className="text-lg font-bold text-blue-800 tracking-wide">
+              <h2 className="text-lg font-bold text-white tracking-wide">
                 செலுத்தப்பட்ட கடன்கள் (Paid Loans History)
               </h2>
             </div>
-            <div className="mb-6 flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 transition-all hover:shadow-md">
+            <div className="mb-6 flex flex-col sm:flex-row items-center justify-between bg-white/50 p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 transition-all hover:shadow-md">
               <div className="flex items-center gap-3">
-                <div className="bg-indigo-50 p-2.5 rounded-xl text-lime-500 shadow-sm border border-indigo-100">
+                <div className="bg-indigo-50/10 p-2.5 rounded-xl text-lime-500 shadow-sm border border-indigo-100">
                   <Calendar size={20} strokeWidth={2.5} />
                 </div>
                 <div>
@@ -85,14 +85,15 @@ export default function ProfileTab() {
             <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
               <thead className="bg-slate-800 text-white">
                 <tr>
-                  <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
-                    கடன் தேதி (Loan Date)
-                  </th>
                   <th className="py-3 px-6 text-xs font-bold  uppercase tracking-wider">
                     செலுத்திய தேதி (Paid Date)
                   </th>
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
-                    படம் (Photo)
+                    கடன் தேதி (Loan Date)
+                  </th>
+
+                  <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
+                    கடன் எண் (Loan ID)
                   </th>
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
                     பெயர் (Name)
@@ -108,14 +109,28 @@ export default function ProfileTab() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-slate-100 bg-white/50">
                 {filteredPaidLoans && filteredPaidLoans.length > 0 ? (
                   filteredPaidLoans.map((pl, index) => (
                     <tr
                       key={pl._id || index}
                       className="hover:bg-slate-50 transition-colors group">
+                      
+
                       <td className="py-4 px-6 whitespace-nowrap text-sm font-semibold text-slate-500">
-                        {/* 🟢 FIX: Handle Missing Dates gracefully */}
+                        {pl.paymentDate
+                          ? new Date(pl.paymentDate).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )
+                          : "-"}
+                      </td>
+
+                      <td className="py-4 px-6 whitespace-nowrap text-sm font-semibold text-slate-500">
                         {pl.loan?.createdAt ? (
                           new Date(pl.loan.createdAt).toLocaleDateString(
                             "en-IN",
@@ -138,19 +153,6 @@ export default function ProfileTab() {
 
                       <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-800">
                         {pl.customer?.name || "Unknown"}
-                      </td>
-
-                      <td className="py-4 px-6 whitespace-nowrap text-sm font-semibold text-slate-500">
-                        {pl.paymentDate
-                          ? new Date(pl.paymentDate).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )
-                          : "-"}
                       </td>
 
                       <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-amber-600">
