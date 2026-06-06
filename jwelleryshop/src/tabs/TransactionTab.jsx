@@ -9,9 +9,9 @@ import {
   FileDown,
   Calendar,
   Plus,
+  Mail,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-
 
 export default function TransactionTab() {
   const [isBackupMenuModalOpen, setIsBackupMenuModalOpen] = useState(false);
@@ -28,6 +28,8 @@ export default function TransactionTab() {
   const [selectedBackupFile, setSelectedBackupFile] = useState(null);
   const [importPassword, setImportPassword] = useState("");
   const [filterDate, setFilterDate] = useState("");
+ 
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const filteredStats = dailyStats.filter((stat) => {
     if (!filterDate) return true;
@@ -121,6 +123,85 @@ export default function TransactionTab() {
     } catch (error) {
       console.error("Excel generation failed:", error);
       alert("எக்செல் பதிவிறக்குவதில் பிழை! (Error downloading Excel)");
+    }
+  };
+
+ const handleAutoEmailBackup = async () => {
+    setIsSendingEmail(true);
+
+    try {
+      const token = localStorage.getItem("token");
+
+      // Fetch the data from the backend for the Excel Sheet
+      const res = await axios.post(
+        "http://localhost:5000/api/reports/excel-export",
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const backendData = res.data;
+      if (!backendData || backendData.length === 0) {
+        setIsSendingEmail(false);
+        return alert("அனுப்ப எந்த தரவும் இல்லை! (No data to send!)");
+      }
+
+      // Format Data into Rows for Excel
+      const groupedData = backendData.reduce((acc, item) => {
+        const dateKey = new Date(item.createdAt).toLocaleDateString("ta-IN");
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(item);
+        return acc;
+      }, {});
+
+      let finalExcelRows = [];
+      Object.keys(groupedData).forEach((date) => {
+        const dayTransactions = groupedData[date];
+        finalExcelRows.push({
+          "வ.எண் (S.No)": `📅 தேதி: ${date}`,
+          "நேரம் (Time)": "=================",
+          "பரிவர்த்தனை வகை (Type)": "===========================",
+          "விவரம் (Description)": "===============================================",
+          "தொகை (Amount)": "=======",
+        });
+
+        dayTransactions.forEach((item, index) => {
+          const time = new Date(item.createdAt).toLocaleTimeString("ta-IN", { hour: "2-digit", minute: "2-digit" });
+          finalExcelRows.push({
+            "வ.எண் (S.No)": index + 1,
+            "நேரம் (Time)": time,
+            "பரிவர்த்தனை வகை (Type)": item.type,
+            "விவரம் (Description)": item.description,
+            "தொகை (Amount)": item.amount || 0,
+          });
+        });
+        finalExcelRows.push({ "வ.எண் (S.No)": "", "நேரம் (Time)": "", "பரிவர்த்தனை வகை (Type)": "", "விவரம் (Description)": "", "தொகை (Amount)": "" });
+      });
+
+      // Create the Excel Workbook
+      const worksheet = XLSX.utils.json_to_sheet(finalExcelRows);
+      const columnWidths = [ { wch: 16 }, { wch: 18 }, { wch: 35 }, { wch: 55 }, { wch: 15 } ];
+      worksheet["!cols"] = columnWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Ledger");
+
+      // Convert Excel to Base64 String
+      const base64Excel = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+
+      // Send the Base64 String to the Backend (No target email needed)
+      await axios.post(
+        "http://localhost:5000/api/reports/email-excel",
+        { base64Data: base64Excel },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert("மின்னஞ்சல் வெற்றிகரமாக அனுப்பப்பட்டது! (Backup Email Sent Successfully!)");
+
+    } catch (error) {
+      console.error("Backup generation/sending failed:", error);
+      alert("மின்னஞ்சல் அனுப்புவதில் பிழை! (Error sending backup email)");
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -295,77 +376,110 @@ export default function TransactionTab() {
   return (
     <>
       <>
-        
         <div className="flex items-center gap-3 ml-auto">
           <button
-  onClick={handleExportDailyExcel}
-  className="group relative flex items-center justify-center gap-3 bg-emerald-50 text-emerald-700 border border-emerald-200 px-6 py-2.5 rounded-xl shadow-sm hover:bg-emerald-600 hover:text-white hover:border-emerald-600 font-bold transition-all duration-300 active:scale-95 overflow-hidden"
-  title="Download Daily Report as Excel"
+            onClick={handleExportDailyExcel}
+            className="group relative flex items-center justify-center gap-3 bg-emerald-50 text-emerald-700 border border-emerald-200 px-6 py-2.5 rounded-xl shadow-sm hover:bg-emerald-600 hover:text-white hover:border-emerald-600 font-bold transition-all duration-300 active:scale-95 overflow-hidden"
+            title="Download Daily Report as Excel">
+            {/* Icon Wrapper */}
+            <div className="relative transition-all duration-500 group-hover:translate-x-11.25 group-hover:rotate-12 group-hover:scale-125">
+              {/* Lucide FileDown Icon */}
+              <div className="transform transition-transform duration-500 group-hover:animate-bounce hover:pl-5">
+                <FileDown size={20} strokeWidth={2.5} />
+              </div>
+            </div>
+
+            {/* Button Text */}
+            <span className="transition-all duration-500 group-hover:opacity-0 group-hover:translate-x-10">
+              Excel
+            </span>
+
+            {/* Hidden Text that appears on hover */}
+            <span className="absolute -translate-x-full opacity-0 transition-all duration-500 group-hover:-translate-x-3.75 group-hover:opacity-100">
+              Download
+            </span>
+          </button>
+          <button
+  onClick={handleAutoEmailBackup}
+  disabled={isSendingEmail}
+  className="group relative flex items-center justify-center gap-3 bg-blue-50 text-blue-700 border border-blue-200 px-6 py-2.5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 font-bold transition-all duration-300 active:scale-95 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+  title="1-Click Auto Backup (Excel + JSON)"
 >
-  {/* Icon Wrapper */}
-  <div className="relative transition-all duration-500 group-hover:translate-x-11.25 group-hover:rotate-12 group-hover:scale-125">
-    {/* Lucide FileDown Icon */}
-    <div className="transform transition-transform duration-500 group-hover:animate-bounce hover:pl-5">
-        <FileDown size={20} strokeWidth={2.5} />
+  <div className="relative transition-all duration-500 group-hover:translate-x-11.25 group-hover:-rotate-12 group-hover:scale-125">
+    <div className="transform transition-transform duration-500 group-hover:animate-pulse hover:pl-5">
+        {isSendingEmail ? <span className="animate-spin text-xl">⏳</span> : <Mail size={20} strokeWidth={2.5} />}
     </div>
   </div>
-
-  {/* Button Text */}
   <span className="transition-all duration-500 group-hover:opacity-0 group-hover:translate-x-10">
-    Excel
+    {isSendingEmail ? "Sending..." : "Backup Data"}
   </span>
-
-  {/* Hidden Text that appears on hover */}
   <span className="absolute -translate-x-full opacity-0 transition-all duration-500 group-hover:-translate-x-3.75 group-hover:opacity-100">
-    Download
+    Send
   </span>
 </button>
           <button
-  type="button"
-  onClick={() => setIsBackupMenuModalOpen(true)}
-  title="தரவு பாதுகாப்பு (Backup & Restore)"
-  className="group relative inline-flex items-center justify-center w-[50px] h-[50px] bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-full shadow-lg transform scale-100 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-300 active:scale-95"
->
-  <Import 
-    size={26} 
-    strokeWidth={2.5}
-    className="transition-all duration-300 ease-out group-hover:-rotate-45 group-hover:scale-75" 
-  />
-</button>
+            type="button"
+            onClick={() => setIsBackupMenuModalOpen(true)}
+            title="தரவு பாதுகாப்பு (Backup & Restore)"
+            className="group relative inline-flex items-center justify-center w-[50px] h-[50px] bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-full shadow-lg transform scale-100 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-300 active:scale-95">
+            <Import
+              size={26}
+              strokeWidth={2.5}
+              className="transition-all duration-300 ease-out group-hover:-rotate-45 group-hover:scale-75"
+            />
+          </button>
 
           <button
-  onClick={() => setProfileModal(true)}
-  className="group relative flex items-center gap-3 px-6 py-2.5 bg-white text-green-500 border-none rounded-lg cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 ml-auto overflow-hidden"
->
-  {/* Text Layer */}
-  <span className="relative z-20 font-bold text-sm tracking-wide pointer-events-none">
-    + Add Shop Profile
-  </span>
+            onClick={() => setProfileModal(true)}
+            className="group relative flex items-center gap-3 px-6 py-2.5 bg-white text-green-500 border-none rounded-lg cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 ml-auto overflow-hidden">
+            {/* Text Layer */}
+            <span className="relative z-20 font-bold text-sm tracking-wide pointer-events-none">
+              + Add Shop Profile
+            </span>
 
-  {/* Icon Container */}
-  <div className="relative w-6 h-6 z-10">
-    {/* 1. Card Icon */}
-    <svg viewBox="0 0 24 24" className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0s]">
-      <path d="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18C2,19.11 2.89,20 4,20H20C21.11,20 22,19.11 22,18V6C22,4.89 21.11,4 20,4Z" fill="currentColor" />
-    </svg>
+            {/* Icon Container */}
+            <div className="relative w-6 h-6 z-10">
+              {/* 1. Card Icon */}
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0s]">
+                <path
+                  d="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18C2,19.11 2.89,20 4,20H20C21.11,20 22,19.11 22,18V6C22,4.89 21.11,4 20,4Z"
+                  fill="currentColor"
+                />
+              </svg>
 
-    {/* 2. Payment Icon */}
-    <svg viewBox="0 0 24 24" className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0.5s]">
-      <path d="M2,17H22V21H2V17M6.25,7H9V6H6V3H18V6H15V7H17.75L19,17H5L6.25,7M9,10H15V8H9V10M9,13H15V11H9V13Z" fill="currentColor" />
-    </svg>
+              {/* 2. Payment Icon */}
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0.5s]">
+                <path
+                  d="M2,17H22V21H2V17M6.25,7H9V6H6V3H18V6H15V7H17.75L19,17H5L6.25,7M9,10H15V8H9V10M9,13H15V11H9V13Z"
+                  fill="currentColor"
+                />
+              </svg>
 
-    {/* 3. Dollar Icon */}
-    <svg viewBox="0 0 24 24" className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_1s]">
-      <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" fill="currentColor" />
-    </svg>
+              {/* 3. Dollar Icon */}
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_1s]">
+                <path
+                  d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"
+                  fill="currentColor"
+                />
+              </svg>
 
-    {/* 4. Wallet Icon (Default) */}
-    <svg viewBox="0 0 24 24" className="absolute inset-0 w-6 h-6 text-green-500 transition-all duration-300 group-hover:opacity-0">
-      <path d="M21,18V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5A2,2 0 0,1 5,3H19A2,2 0 0,1 21,5V6H12C10.89,6 10,6.9 10,8V16A2,2 0 0,0 12,18M12,16H22V8H12M16,13.5A1.5,1.5 0 0,1 14.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,12A1.5,1.5 0 0,1 16,13.5Z" fill="currentColor" />
-    </svg>
-
-  </div>
-</button>
+              {/* 4. Wallet Icon (Default) */}
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute inset-0 w-6 h-6 text-green-500 transition-all duration-300 group-hover:opacity-0">
+                <path
+                  d="M21,18V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5A2,2 0 0,1 5,3H19A2,2 0 0,1 21,5V6H12C10.89,6 10,6.9 10,8V16A2,2 0 0,0 12,18M12,16H22V8H12M16,13.5A1.5,1.5 0 0,1 14.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,12A1.5,1.5 0 0,1 16,13.5Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+          </button>
         </div>
       </>
 
@@ -395,19 +509,22 @@ export default function TransactionTab() {
                 className="flex-1 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors font-bold text-emerald-900"
               />
               <button
-  type="submit"
-  className="group relative flex z-0 items-center w-[160px] h-[45px] bg-emerald-500 border border-emerald-600 rounded-xl overflow-hidden cursor-pointer transition-all active:scale-95 shadow-sm active:bg-emerald-800"
->
-  {/* The Button Text */}
-  <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0">
-    சேர் (Add)
-  </span>
+                type="submit"
+                className="group relative flex z-0 items-center w-[160px] h-[45px] bg-emerald-500 border border-emerald-600 rounded-xl overflow-hidden cursor-pointer transition-all active:scale-95 shadow-sm active:bg-emerald-800">
+                {/* The Button Text */}
+                <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0">
+                  சேர் (Add)
+                </span>
 
-  {/* The Animated Icon Container */}
-  <span className="absolute right-0 flex items-center justify-center w-[45px] h-full bg-emerald-600 transition-all duration-300 group-hover:w-full group-hover:translate-x-0">
-    <Plus className="text-white transition-all duration-300" size={24} strokeWidth={3} />
-  </span>
-</button>
+                {/* The Animated Icon Container */}
+                <span className="absolute right-0 flex items-center justify-center w-[45px] h-full bg-emerald-600 transition-all duration-300 group-hover:w-full group-hover:translate-x-0">
+                  <Plus
+                    className="text-white transition-all duration-300"
+                    size={24}
+                    strokeWidth={3}
+                  />
+                </span>
+              </button>
             </form>
 
             <div className="mt-4 pt-3 border-t border-emerald-200/60 flex justify-between items-center">
@@ -451,23 +568,22 @@ export default function TransactionTab() {
                 className="w-full sm:w-32 rounded-xl border border-rose-200 px-4 py-3 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-white transition-colors font-bold text-rose-900"
               />
               <button
-  type="submit"
-  className="group relative flex items-center w-40 h-12 bg-rose-600 border border-rose-700 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-rose-800"
->
-  {/* The Button Text - Moves left slightly on hover */}
-  <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
-    சேர் (Add)
-  </span>
+                type="submit"
+                className="group relative flex items-center w-40 h-12 bg-rose-600 border border-rose-700 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-rose-800">
+                {/* The Button Text - Moves left slightly on hover */}
+                <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
+                  சேர் (Add)
+                </span>
 
-  {/* The Animated Icon Container - Slides to cover the button */}
-  <span className="absolute right-0 flex items-center justify-center w-11.25 h-full bg-rose-700 transition-all duration-300 group-hover:w-full">
-    <Plus 
-      className="text-white transition-all duration-300 group-hover:scale-110" 
-      size={22} 
-      strokeWidth={3} 
-    />
-  </span>
-</button>
+                {/* The Animated Icon Container - Slides to cover the button */}
+                <span className="absolute right-0 flex items-center justify-center w-11.25 h-full bg-rose-700 transition-all duration-300 group-hover:w-full">
+                  <Plus
+                    className="text-white transition-all duration-300 group-hover:scale-110"
+                    size={22}
+                    strokeWidth={3}
+                  />
+                </span>
+              </button>
             </form>
 
             <div className="mt-4 pt-3 border-t border-red-200/60 flex justify-between items-center">
@@ -1051,6 +1167,8 @@ export default function TransactionTab() {
           </div>
         </div>
       )}
+      {/* Email Modal */}
+      
     </>
   );
 }

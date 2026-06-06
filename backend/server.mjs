@@ -6,8 +6,14 @@ import mongoose from "mongoose";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
 import Counter from "./models/Counter.mjs";
+
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import mongoSanitize from "express-mongo-sanitize";
+import bcrypt from "bcrypt";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,8 +22,34 @@ const envPath = fs.existsSync(path.join(__dirname, ".env"))
   : path.join(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 const app = express();
-app.use(cors());
+app.use(helmet({ crossOriginResourcePolicy: false }));
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'file://'
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // Allow non-browser requests (Electron)
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('Blocked by CORS policy'), false);
+    }
+    return callback(null, true);
+  }
+}));
 app.use(express.json());
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per 15 minutes
+  message: "Too many requests, please try again later."
+});
+app.use("/api", globalLimiter);
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Only 5 login attempts allowed per 15 minutes
+  message: { message: "Too many login attempts. Please try again after 15 minutes." }
+});
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.SECRET_KEY || "jwellery@123";
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/jwelleryshop";
@@ -839,6 +871,71 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
   }
 });
 
+app.post("/api/reports/email-excel", verifyToken, async (req, res) => {
+  try {
+    const { base64Data } = req.body; // No longer receiving emailTo from frontend
+
+    if (!base64Data) {
+      return res.status(400).json({ message: "Missing Excel data" });
+    }
+
+    // 1. DYNAMICALLY GENERATE FULL DATABASE JSON BACKUP
+    const models = mongoose.modelNames(); // Gets ['User', 'Customer', 'Product', 'Loan', etc.]
+    const backupData = {};
+    
+    // Loop through every model and fetch all its data
+    for (const modelName of models) {
+      backupData[modelName] = await mongoose.model(modelName).find({});
+    }
+    
+    // Convert the database object to a JSON string, then to Base64
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const base64Json = Buffer.from(jsonString).toString("base64");
+
+    // 2. Configure the email transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const fileDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-");
+
+    // 3. Auto-send to BACKUP_EMAIL (Fallback to EMAIL_USER if missing)
+    const targetEmail = process.env.BACKUP_EMAIL || process.env.EMAIL_USER;
+
+    // 4. Set up email details and attach BOTH files
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: targetEmail,
+      subject: `🛡️ PawnShop Complete Backup - ${fileDate}`,
+      text: "வணக்கம் (Hello)!\n\nThis is an automated 1-Click Backup from your Jewellery Shop Manager.\n\nAttached files:\n1. Daily Ledger (Excel)\n2. Full Database Backup (JSON)\n\nKeep these files safe.",
+      attachments: [
+        {
+          filename: `PawnShop_Ledger_${fileDate}.xlsx`,
+          content: base64Data,
+          encoding: "base64",
+        },
+        {
+          filename: `PawnShop_Database_${fileDate}.json`,
+          content: base64Json,
+          encoding: "base64",
+        },
+      ],
+    };
+
+    // 5. Send the email
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "Backup sent successfully!" });
+    
+  } catch (error) {
+    console.error("Email Error:", error);
+    res.status(500).json({ message: "Failed to send backup", error: error.message });
+  }
+});
+
 app.post("/api/backup/import", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "superadmin" && req.user.role !== "worker") {
@@ -1161,7 +1258,7 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login",loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
