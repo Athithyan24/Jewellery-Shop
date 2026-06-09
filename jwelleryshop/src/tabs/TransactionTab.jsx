@@ -54,7 +54,7 @@ export default function TransactionTab() {
 
       const backendData = res.data;
       if (!backendData || backendData.length === 0) {
-        return alert("ஏற்றுமதி செய்ய எந்த தரவும் இல்லை! (No data to export!)");
+        return alert("No data to export!");
       }
 
       const groupedData = backendData.reduce((acc, item) => {
@@ -70,12 +70,12 @@ export default function TransactionTab() {
         const dayTransactions = groupedData[date];
 
         finalExcelRows.push({
-          "வ.எண் (S.No)": `📅 தேதி: ${date}`,
-          "நேரம் (Time)": "=================",
-          "பரிவர்த்தனை வகை (Type)": "===========================",
-          "விவரம் (Description)":
+          "S.No": `📅 தேதி: ${date}`,
+          "Time": "=================",
+          "Type": "===========================",
+          "Description":
             "===============================================",
-          "தொகை (Amount)": "=======",
+          "Amount": "=======",
         });
 
         dayTransactions.forEach((item, index) => {
@@ -85,20 +85,20 @@ export default function TransactionTab() {
           });
 
           finalExcelRows.push({
-            "வ.எண் (S.No)": index + 1,
-            "நேரம் (Time)": time,
-            "பரிவர்த்தனை வகை (Type)": item.type,
-            "விவரம் (Description)": item.description,
-            "தொகை (Amount)": item.amount || 0,
+            "S.No": index + 1,
+            "Time": time,
+            "Type": item.type,
+            "Description": item.description,
+            "Amount": item.amount || 0,
           });
         });
 
         finalExcelRows.push({
-          "வ.எண் (S.No)": "",
-          "நேரம் (Time)": "",
-          "பரிவர்த்தனை வகை (Type)": "",
-          "விவரம் (Description)": "",
-          "தொகை (Amount)": "",
+          "S.No": "",
+          "Time": "",
+          "Type": "",
+          "Description": "",
+          "Amount": "",
         });
       });
 
@@ -122,7 +122,7 @@ export default function TransactionTab() {
       XLSX.writeFile(workbook, `PawnShop_Ledger_${fileDate}.xlsx`);
     } catch (error) {
       console.error("Excel generation failed:", error);
-      alert("எக்செல் பதிவிறக்குவதில் பிழை! (Error downloading Excel)");
+      alert("Error downloading Excel");
     }
   };
 
@@ -142,7 +142,7 @@ export default function TransactionTab() {
       const backendData = res.data;
       if (!backendData || backendData.length === 0) {
         setIsSendingEmail(false);
-        return alert("அனுப்ப எந்த தரவும் இல்லை! (No data to send!)");
+        return alert("No data to send!");
       }
 
       // Format Data into Rows for Excel
@@ -157,24 +157,24 @@ export default function TransactionTab() {
       Object.keys(groupedData).forEach((date) => {
         const dayTransactions = groupedData[date];
         finalExcelRows.push({
-          "வ.எண் (S.No)": `📅 தேதி: ${date}`,
-          "நேரம் (Time)": "=================",
-          "பரிவர்த்தனை வகை (Type)": "===========================",
-          "விவரம் (Description)": "===============================================",
-          "தொகை (Amount)": "=======",
+          "S.No": `📅 தேதி: ${date}`,
+          "Time": "=================",
+          "Type": "===========================",
+          "Description": "===============================================",
+          "Amount": "=======",
         });
 
         dayTransactions.forEach((item, index) => {
           const time = new Date(item.createdAt).toLocaleTimeString("ta-IN", { hour: "2-digit", minute: "2-digit" });
           finalExcelRows.push({
-            "வ.எண் (S.No)": index + 1,
-            "நேரம் (Time)": time,
-            "பரிவர்த்தனை வகை (Type)": item.type,
-            "விவரம் (Description)": item.description,
-            "தொகை (Amount)": item.amount || 0,
+            "S.No": index + 1,
+            "Time": time,
+            "Type": item.type,
+            "Description": item.description,
+            "Amount": item.amount || 0,
           });
         });
-        finalExcelRows.push({ "வ.எண் (S.No)": "", "நேரம் (Time)": "", "பரிவர்த்தனை வகை (Type)": "", "விவரம் (Description)": "", "தொகை (Amount)": "" });
+        finalExcelRows.push({ "S.No": "", "Time": "", "Type": "", "Description": "", "Amount": "" });
       });
 
       // Create the Excel Workbook
@@ -195,11 +195,11 @@ export default function TransactionTab() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      alert("மின்னஞ்சல் வெற்றிகரமாக அனுப்பப்பட்டது! (Backup Email Sent Successfully!)");
+      alert("Backup Email Sent Successfully!");
 
     } catch (error) {
       console.error("Backup generation/sending failed:", error);
-      alert("மின்னஞ்சல் அனுப்புவதில் பிழை! (Error sending backup email)");
+      alert("Error sending backup email");
     } finally {
       setIsSendingEmail(false);
     }
@@ -207,9 +207,9 @@ export default function TransactionTab() {
 
   const handleImportData = async () => {
     if (!importPassword)
-      return alert("கடவுச்சொல்லை உள்ளிடவும்! (Enter password)");
+      return alert("Enter password");
     if (!selectedBackupFile)
-      return alert("கோப்பை தேர்ந்தெடுக்கவும்! (Select a file)");
+      return alert("Select a file");
 
     try {
       const fileReader = new FileReader();
@@ -226,7 +226,7 @@ export default function TransactionTab() {
         );
 
         alert(
-          "தரவு வெற்றிகரமாக மீட்டெடுக்கப்பட்டது! (Data Restored Successfully!)",
+          "Data Restored Successfully!",
         );
         setImportModalOpen(false);
         setImportPassword("");
@@ -244,7 +244,7 @@ export default function TransactionTab() {
 
   const handleExportData = async () => {
     if (!exportPassword)
-      return alert("கடவுச்சொல்லை உள்ளிடவும்! (Enter password)");
+      return alert("Enter password");
 
     try {
       const token = localStorage.getItem("token");
@@ -267,7 +267,7 @@ export default function TransactionTab() {
       downloadAnchorNode.click();
       downloadAnchorNode.remove();
 
-      alert("காப்பு தரவு பதிவிறக்கம் செய்யப்பட்டது! (Backup Downloaded!)");
+      alert("Backup Downloaded!");
       setExportModalOpen(false);
       setExportPassword("");
     } catch (error) {
@@ -277,7 +277,7 @@ export default function TransactionTab() {
 
   const handleAddDailyCash = async (e) => {
     e.preventDefault();
-    if (!dailyCashInput) return alert("தொகையை உள்ளிடவும்! (Enter amount)");
+    if (!dailyCashInput) return alert("Enter amount");
 
     try {
       const token = localStorage.getItem("token");
@@ -324,7 +324,7 @@ export default function TransactionTab() {
           "Content-Type": "multipart/form-data",
         },
       });
-      alert("கடை விவரங்கள் சேமிக்கப்பட்டன! (Shop Details Saved!)");
+      alert("Shop Details Saved!");
       setProfileModal(false);
       fetchShopProfile();
     } catch (error) {
@@ -491,10 +491,10 @@ export default function TransactionTab() {
                 <span className="bg-emerald-100 p-2 rounded-lg shadow-sm">
                   <HandCoins />
                 </span>{" "}
-                கல்லா இருப்பு (Daily Cash In)
+                Daily Cash In
               </h3>
               <p className="text-xs text-emerald-600 mt-1 font-medium">
-                காலையில் கடையில் வைத்த தொடக்க இருப்பு (Opening Balance)
+                Opening Balance
               </p>
             </div>
 
@@ -513,7 +513,7 @@ export default function TransactionTab() {
                 className="group relative flex z-0 items-center w-[160px] h-[45px] bg-emerald-500 border border-emerald-600 rounded-xl overflow-hidden cursor-pointer transition-all active:scale-95 shadow-sm active:bg-emerald-800">
                 {/* The Button Text */}
                 <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0">
-                  சேர் (Add)
+                  Add
                 </span>
 
                 {/* The Animated Icon Container */}
@@ -529,7 +529,7 @@ export default function TransactionTab() {
 
             <div className="mt-4 pt-3 border-t border-emerald-200/60 flex justify-between items-center">
               <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">
-                இன்றைய இருப்பு:
+                Today's Balance:
               </span>
               <span className="text-lg font-black text-emerald-700">
                 ₹{todayStartingCash || 0}
@@ -543,10 +543,10 @@ export default function TransactionTab() {
                 <span className="bg-rose-100 p-2 rounded-lg shadow-sm">
                   <TrendingDown />
                 </span>{" "}
-                கடை செலவு (Add Expense)
+                Add Expense
               </h3>
               <p className="text-xs text-rose-600 mt-1 font-medium">
-                டீ, பேப்பர், மற்றும் இதர செலவுகள் (Shop Maintenance)
+                Tea, Paper, and other expenses (Shop Maintenance)
               </p>
             </div>
 
@@ -555,14 +555,14 @@ export default function TransactionTab() {
               className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
-                placeholder="காரணம் (Reason)"
+                placeholder="Reason"
                 value={expenseName}
                 onChange={(e) => setExpenseName(e.target.value)}
                 className="flex-1 rounded-xl border border-rose-200 px-4 py-3 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-white transition-colors text-rose-900"
               />
               <input
                 type="number"
-                placeholder="தொகை (₹)"
+                placeholder="Amount (₹)"
                 value={expenseAmount}
                 onChange={(e) => setExpenseAmount(e.target.value)}
                 className="w-full sm:w-32 rounded-xl border border-rose-200 px-4 py-3 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-white transition-colors font-bold text-rose-900"
@@ -572,7 +572,7 @@ export default function TransactionTab() {
                 className="group relative flex items-center w-40 h-12 bg-rose-600 border border-rose-700 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-rose-800">
                 {/* The Button Text - Moves left slightly on hover */}
                 <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
-                  சேர் (Add)
+                  Add
                 </span>
 
                 {/* The Animated Icon Container - Slides to cover the button */}
@@ -588,7 +588,7 @@ export default function TransactionTab() {
 
             <div className="mt-4 pt-3 border-t border-red-200/60 flex justify-between items-center">
               <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">
-                இன்றைய மொத்த செலவு:
+                Today's Total Expense:
               </span>
               <span className="text-lg font-black text-rose-700">
                 ₹{totalExpenses || 0}
@@ -603,7 +603,7 @@ export default function TransactionTab() {
               <span className="text-yellow-500">
                 <Coffee />
               </span>{" "}
-              தினசரி பரிவர்த்தனைகள் (Daily Ledger)
+              Daily Ledger
             </h2>
             <div className="mb-6 flex flex-col sm:flex-row items-center justify-between bg-white/50 p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 transition-all hover:shadow-md">
               <div className="flex items-center gap-3">
@@ -612,7 +612,7 @@ export default function TransactionTab() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800 tracking-wide">
-                    தேதி வாரியாக தேடு
+                    Search by Date
                   </h3>
                   <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
                     Search by Date
@@ -648,41 +648,38 @@ export default function TransactionTab() {
               <thead className="bg-slate-50/80">
                 <tr>
                   <th className="py-4 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                    தேதி (Date)
+                  Date
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-emerald-600 uppercase tracking-wider">
-                    தொடக்க இருப்பு
+                    Initial Amount
                     <br />
                     <span className="text-[10px] text-slate-400">
                       START CASH
                     </span>
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-indigo-600 uppercase tracking-wider">
-                    வரவு / வட்டி
+                    Income
                     <br />
                     <span className="text-[10px] text-slate-400">INCOME</span>
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-rose-600 uppercase tracking-wider">
-                    வழங்கிய கடன்
+                    Loan Given
                     <br />
                     <span className="text-[10px] text-slate-400">LOAN OUT</span>
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-orange-600 uppercase tracking-wider">
-                    கடை செலவுகள்
+                    Expenses
                     <br />
                     <span className="text-[10px] text-slate-400">EXP. OUT</span>
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                    செலவு விவரம்
+                    Reason
                     <br />
                     <span className="text-[10px] text-slate-400">REASON</span>
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-slate-800 uppercase tracking-wider text-right">
-                    நிகர இருப்பு
-                    <br />
-                    <span className="text-[10px] text-slate-400">
-                      NET BALANCE
-                    </span>
+                    Net Balance
+                    
                   </th>
                 </tr>
               </thead>
@@ -784,9 +781,6 @@ export default function TransactionTab() {
                             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
                         <span className="font-bold text-slate-500">
-                          எந்த பரிவர்த்தனைகளும் இல்லை
-                        </span>
-                        <span className="text-xs mt-1">
                           No transactions found.
                         </span>
                       </div>
@@ -807,7 +801,7 @@ export default function TransactionTab() {
                 <span className="text-indigo-600">
                   <Store />
                 </span>{" "}
-                கடை விவரங்கள் (Edit Shop Profile)
+                Edit Shop Profile
               </h3>
               <button
                 onClick={() => setProfileModal(false)}
@@ -824,7 +818,7 @@ export default function TransactionTab() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">
-                      கடையின் பெயர் (Shop Name)
+                      Shop Name
                     </label>
                     <input
                       name="shopName"
@@ -837,7 +831,7 @@ export default function TransactionTab() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">
-                      உரிமையாளர் (Owner Name)
+                      Owner Name
                     </label>
                     <input
                       name="ownerName"
@@ -850,7 +844,7 @@ export default function TransactionTab() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">
-                      மொபைல் எண் (Phone)
+                      Phone
                     </label>
                     <input
                       name="phone"
@@ -864,7 +858,7 @@ export default function TransactionTab() {
                   {/* Address */}
                   <div className="md:col-span-2">
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">
-                      முகவரி (Address)
+                      Address
                     </label>
                     <textarea
                       name="address"
@@ -879,7 +873,7 @@ export default function TransactionTab() {
                   {/* Shop Logo Upload */}
                   <div className="md:col-span-2 bg-slate-50 border border-dashed border-slate-300 rounded-xl p-5 text-center hover:bg-slate-100 transition-colors">
                     <label className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">
-                      கடையின் லோகோ (Shop Logo)
+                      Shop Logo
                     </label>
                     <input
                       type="file"
@@ -888,7 +882,7 @@ export default function TransactionTab() {
                       className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 transition-all cursor-pointer"
                     />
                     <p className="text-[10px] text-slate-400 mt-2 font-medium">
-                      பரிந்துரைக்கப்படும் அளவு: 1:1 (Square), Max 2MB.
+                      Square, Max 2MB.
                     </p>
                   </div>
                   {shopProfile && shopProfile.deletePassword ? (
@@ -896,7 +890,7 @@ export default function TransactionTab() {
                       {/* Box 1: Mandatory Auth Check */}
                       <div>
                         <label className="block text-[11px] font-extrabold text-rose-600 mb-1 uppercase tracking-widest">
-                          தற்போதைய கடவுச்சொல் (Current Password) *
+                          Current Password *
                         </label>
                         <input
                           name="currentPassword"
@@ -906,14 +900,14 @@ export default function TransactionTab() {
                           className="block w-full rounded-lg border-rose-300 bg-white px-4 py-2 text-sm text-slate-900 font-bold focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none"
                         />
                         <p className="text-[10px] text-rose-500 mt-1 font-semibold">
-                          மாற்றங்களைச் சேமிக்க இது கட்டாயம் தேவை.
+                          This is mandatory to save changes.
                         </p>
                       </div>
 
                       {/* Box 2: Optional Password Change */}
                       <div>
                         <label className="block text-[11px] font-extrabold text-slate-500 mb-1 uppercase tracking-widest">
-                          புதிய கடவுச்சொல் (New Password)
+                          New Password
                         </label>
                         <input
                           name="deletePassword"
@@ -922,7 +916,7 @@ export default function TransactionTab() {
                           className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
                         />
                         <p className="text-[10px] text-slate-400 mt-1">
-                          பழைய கடவுச்சொல்லையே தொடர இதை காலியாக விடவும்.
+                          Leave blank to keep current password.
                         </p>
                       </div>
                     </div>
@@ -930,8 +924,7 @@ export default function TransactionTab() {
                     /* This shows ONLY on the very first time they setup the shop */
                     <div className="md:col-span-2 p-4 bg-indigo-50 border border-indigo-100 rounded-xl mt-2">
                       <label className="block text-xs font-bold text-indigo-700 mb-1 uppercase tracking-wide">
-                        பாதுகாப்பு கடவுச்சொல்லை உருவாக்கவும் (Create Secret
-                        Password)
+                        Create Secret Password
                       </label>
                       <input
                         name="deletePassword"
@@ -951,12 +944,12 @@ export default function TransactionTab() {
                   type="button"
                   onClick={() => setProfileModal(false)}
                   className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-50 shadow-sm transition-colors">
-                  ரத்து (Cancel)
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-all active:scale-95">
-                  சேமி (Save)
+                  Save
                 </button>
               </div>
             </form>
@@ -972,7 +965,7 @@ export default function TransactionTab() {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                   <Import className="text-orange-500" />
-                  தரவு மேலாண்மை (Data Options)
+                  Data Options
                 </h3>
                 <button
                   onClick={() => setIsBackupMenuModalOpen(false)}
@@ -1003,10 +996,10 @@ export default function TransactionTab() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-base font-bold text-slate-900 group-hover:text-emerald-800">
-                        தரவை காப்பு எடுக்க (Export)
+                        Export Data
                       </h4>
                       <p className="text-xs text-slate-500 mt-1 font-medium">
-                        கணினியில் பாதுகாப்பாக பதிவிறக்கம் செய்யவும்.
+                        Download data securely to your device.
                       </p>
                     </div>
                     <div className="bg-slate-100 p-2.5 rounded-lg group-hover:bg-emerald-100 text-slate-500 group-hover:text-emerald-600 transition-colors">
@@ -1035,10 +1028,10 @@ export default function TransactionTab() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-base font-bold text-slate-900 group-hover:text-rose-800">
-                        தரவை மீட்டெடு (Import)
+                        Import Data
                       </h4>
                       <p className="text-xs text-slate-500 mt-1 font-medium">
-                        பழைய காப்பு கோப்பை அமைப்பில் பதிவேற்றவும்.
+                        Upload your backup file to restore data.
                       </p>
                     </div>
                     <div className="bg-slate-100 p-2.5 rounded-lg group-hover:bg-rose-100 text-slate-500 group-hover:text-rose-600 transition-colors">
@@ -1070,20 +1063,20 @@ export default function TransactionTab() {
               </div>
 
               <h3 className="text-xl font-black text-slate-800 mb-2">
-                தரவு பதிவிறக்கம் (Export)
+                Export
               </h3>
               <p className="text-sm text-slate-500 mb-6 font-medium leading-relaxed">
-                தரவை காப்பு எடுக்க உரிமையாளரின்{" "}
+                Enter the owner's{" "}
                 <span className="font-bold text-emerald-600">
-                  ரகசிய கடவுச்சொல்லை
+                  secret password
                 </span>{" "}
-                உள்ளிடவும்.
+                to back up the data..
               </p>
 
               {/* Password Input */}
               <input
                 type="password"
-                placeholder="உரிமையாளர் கடவுச்சொல்"
+                placeholder="Owner's Secret Password"
                 value={exportPassword}
                 onChange={(e) => setExportPassword(e.target.value)}
                 className="w-full tracking-widest text-lg text-center rounded-xl border-slate-300 bg-slate-50 px-4 py-3 font-bold text-slate-800 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none shadow-inner mb-6"
@@ -1097,12 +1090,12 @@ export default function TransactionTab() {
                     setExportPassword("");
                   }}
                   className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
-                  ரத்து (Cancel)
+                  Cancel
                 </button>
                 <button
                   onClick={handleExportData}
                   className="flex-1 px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md active:scale-95">
-                  பதிவிறக்கு (Download)
+                  Download
                 </button>
               </div>
             </div>
@@ -1118,18 +1111,15 @@ export default function TransactionTab() {
               </div>
 
               <h3 className="text-xl font-black text-slate-800 mb-2">
-                தரவை மீட்டெடு (Restore Data)
+                Restore Data
               </h3>
               <p className="text-sm text-rose-600 mb-6 font-bold leading-relaxed bg-rose-50 p-3 rounded-lg border border-rose-100">
-                எச்சரிக்கை: நீங்கள் புதிய கோப்பை பதிவேற்றினால், தற்போதைய தரவுகள்
-                அனைத்தும் அழிக்கப்பட்டு பழைய தரவுகள் மீட்கப்படும்!
-                <br />
-                (Warning: Importing will overwrite all current data!)
+                Warning: Importing will overwrite all current data!
               </p>
 
               <div className="text-left mb-4">
                 <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                  காப்பு கோப்பை தேர்வு செய்க (Select .json file)
+                  Select Backup File (Select .json file)
                 </label>
                 <input
                   type="file"
@@ -1141,7 +1131,7 @@ export default function TransactionTab() {
 
               <input
                 type="password"
-                placeholder="உரிமையாளர் கடவுச்சொல் (Owner Password)"
+                placeholder="Owner's Secret Password"
                 value={importPassword}
                 onChange={(e) => setImportPassword(e.target.value)}
                 className="w-full tracking-widest text-lg rounded-xl border-slate-300 bg-slate-50 px-4 py-3 font-bold text-slate-800 focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/20 transition-all outline-none shadow-inner mb-6"
@@ -1155,12 +1145,12 @@ export default function TransactionTab() {
                     setSelectedBackupFile(null);
                   }}
                   className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
-                  ரத்து (Cancel)
+                  Cancel
                 </button>
                 <button
                   onClick={handleImportData}
                   className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-all shadow-md active:scale-95">
-                  மீட்டெடு (Restore)
+                  Restore
                 </button>
               </div>
             </div>

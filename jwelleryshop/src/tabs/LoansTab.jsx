@@ -75,13 +75,13 @@ export default function LoansTab() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      alert("✅ வங்கி விவரங்கள் சேமிக்கப்பட்டன!");
+      alert("The bank details have been saved!");
       setIsBankModalOpen(false);
       fetchLoans();
     } catch (error) {
       console.error("Server says:", error.response?.data);
       alert(
-        "❌ பிழை: " + (error.response?.data?.message || "சேமிக்க முடியவில்லை"),
+        "❌ Error: " + (error.response?.data?.message || "Failed to save bank details"),
       );
     }
   };
@@ -122,7 +122,7 @@ export default function LoansTab() {
 
   const confirmDeleteLoan = async () => {
     if (!deletePasswordInput)
-      return alert("கடவுச்சொல்லை உள்ளிடவும்! (Enter password)");
+      return alert("Enter password");
 
     try {
       const token = localStorage.getItem("token");
@@ -134,7 +134,7 @@ export default function LoansTab() {
         },
       );
 
-      alert("கடன் வெற்றிகரமாக நீக்கப்பட்டது! (Loan deleted successfully!)");
+      alert("Loan deleted successfully!");
       setLoans((prevLoans) =>
         prevLoans.filter((loan) => loan._id !== loanToDelete._id),
       );
@@ -232,7 +232,7 @@ export default function LoansTab() {
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
               <HeartHandshakeIcon className="mr-2 text-pink-600" />
               <h2 className="lg:text-lg md:text-sm font-bold text-blue-800 tracking-wide">
-                கடன்கள் பட்டியல் (Loans Ledger)
+                Loans Ledger
               </h2>
             </div>
 
@@ -261,40 +261,40 @@ export default function LoansTab() {
               <thead className="bg-slate-800 sticky top-0 z-10 shadow-md">
                 <tr>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    தேதி
+                    Date
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
                     Loan ID
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    வாடிக்கையாளர்
+                    Customer
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    அடகு பொருள்
+                    Product
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    தங்கம் விலை
+                    Gold Price
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
-                    அடகு%
+                    Collateral%
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    கடன் தொகை
+                    Loan Amount
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    நடவடிக்கை
+                    Action
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
-                    பெட்டக நிலை
+                    Status
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
-                    வட்டி / வட்டி நிலை
+                    Interest / Interest Status
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
-                    மீதமுள்ள தொகை
+                    Remaining Amount
                   </th>
                   <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
-                    அழி
+                    Delete
                   </th>
                 </tr>
               </thead>
@@ -372,7 +372,7 @@ export default function LoansTab() {
                                   setReceiptModal(true);
                                 }}
                                 className="bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 py-2 px-5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 duration-200">
-                                ரசீது (Receipt)
+                                Receipt
                               </button>
                               <span className="absolute -top-2.5 -right-2 z-10 border border-emerald-400 bg-emerald-100/95 backdrop-blur-sm text-emerald-700 font-black text-[9px] uppercase tracking-widest py-0.5 px-2 rounded-md shadow-sm pointer-events-none">
                                 PAID
@@ -386,7 +386,7 @@ export default function LoansTab() {
                                   setPayLoanModal(true);
                                 }}
                                 className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-rose-600/20 hover:-translate-y-0.5 active:scale-95">
-                                கடனை செலுத்து (Pay)
+                                Pay Loan
                               </button>
                               <button
                                 onClick={() => {
@@ -394,7 +394,7 @@ export default function LoansTab() {
                                   setReceiptModal(true);
                                 }}
                                 className="bg-slate-100 hover:bg-indigo-600 text-slate-600 hover:text-white border border-slate-200 hover:border-indigo-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-indigo-600/20 hover:-translate-y-0.5 active:scale-95">
-                                ரசீது (Receipt)
+                                Receipt
                               </button>
                             </div>
                           )}
@@ -497,7 +497,7 @@ export default function LoansTab() {
                     <td
                       colSpan="12"
                       className="text-center py-12 text-slate-500">
-                      எந்த கடன்களும் காணப்படவில்லை (No loans found)
+                      No loans found
                     </td>
                   </tr>
                 )}
@@ -543,7 +543,7 @@ export default function LoansTab() {
                       }`}
                   </h2>
                   <p className="text-slate-500 font-bold mt-1 text-xs tracking-widest uppercase print:text-black">
-                    பில் ரசீது (Official Receipt)
+                    Receipt (Official Receipt)
                   </p>
                   <p className="text-slate-600 font-bold mt-3 print:mt-1 text-sm print:text-xs print:text-black max-w-md mx-auto leading-relaxed">
                     {shopProfile?.address || "Address not updated"} <br />
@@ -556,7 +556,7 @@ export default function LoansTab() {
                 <div className="flex justify-between items-center mb-6 print:mb-3 px-6 py-4 bg-slate-50 rounded-xl border border-slate-100 print:bg-transparent print:border-b print:border-t print:border-slate-300 print:rounded-none print:px-0 print:py-1">
                   <div>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest print:text-slate-600">
-                      கடன் எண் (Loan No)
+                      Loan No
                     </p>
                     <p className="text-xl print:text-lg font-black text-indigo-700 print:text-black font-mono tracking-wider">
                       {selectedLoan.loanId}
@@ -564,7 +564,7 @@ export default function LoansTab() {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest print:text-slate-600">
-                      தேதி (Date)
+                      Date
                     </p>
                     <p className="text-lg print:text-base font-black text-slate-800 print:text-black">
                       {new Date(selectedLoan.createdAt).toLocaleDateString(
@@ -582,13 +582,13 @@ export default function LoansTab() {
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-6 print:gap-2 mb-8 print:mb-3 print:break-inside-avoid">
                   <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm print:shadow-none print:border-none print:bg-transparent print:p-0 w-full">
                     <h4 className="font-bold text-slate-800 mb-3 print:mb-1 border-b border-slate-100 pb-2 print:pb-1 print:border-black print:text-black uppercase text-xs tracking-widest">
-                      வாடிக்கையாளர் விவரங்கள்
+                      Customer Details
                     </h4>
 
                     <div className="space-y-2 print:space-y-1 text-sm print:text-xs text-slate-700 print:text-black">
                       <p className="flex items-center">
                         <span className="font-semibold w-24 text-slate-500 print:text-slate-600">
-                          எண் (ID):
+                          ID:
                         </span>
                         <span className="font-black uppercase text-indigo-700 print:text-black bg-indigo-50 px-2 py-0.5 rounded print:p-0 print:bg-transparent">
                           {selectedLoan.customer?.customerIdy ||
@@ -597,7 +597,7 @@ export default function LoansTab() {
                       </p>
                       <p className="flex items-center">
                         <span className="font-semibold w-24 text-slate-500 print:text-slate-600">
-                          பெயர்:
+                          Name:
                         </span>
                         <span className="font-bold uppercase">
                           {selectedLoan.customer?.name}
@@ -605,7 +605,7 @@ export default function LoansTab() {
                       </p>
                       <p className="flex items-center">
                         <span className="font-semibold w-24 text-slate-500 print:text-slate-600">
-                          மொபைல்:
+                          Phone:
                         </span>
                         <span className="font-bold font-mono">
                           {selectedLoan.customer?.phone}
@@ -613,7 +613,7 @@ export default function LoansTab() {
                       </p>
                       <p className="flex items-start">
                         <span className="font-semibold w-24 text-slate-500 print:text-slate-600">
-                          முகவரி:
+                          Address:
                         </span>
                         <span className="flex-1 leading-snug">
                           {selectedLoan.customer?.address}
@@ -641,16 +641,16 @@ export default function LoansTab() {
                   <thead>
                     <tr className="border-b-2 border-slate-300 print:border-black bg-slate-50 print:bg-transparent">
                       <th className="py-3 print:py-1 px-2 text-left font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
-                        பொருள் விளக்கம்
+                        Product Details
                       </th>
                       <th className="py-3 print:py-1 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
-                        மொத்த Wt
+                        Total Wt
                       </th>
                       <th className="py-3 print:py-1 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
-                        கல் எடை
+                        Stone Weight
                       </th>
                       <th className="py-3 print:py-1 px-2 text-right font-bold text-slate-700 uppercase tracking-wider text-xs print:text-[10px] print:text-black">
-                        நிகர எடை
+                        Net Weight
                       </th>
                     </tr>
                   </thead>
@@ -679,7 +679,7 @@ export default function LoansTab() {
                   <div className="space-y-3 print:space-y-1 print:pt-1 print:break-inside-avoid">
                     <p className="flex justify-between text-sm print:text-xs border-b border-slate-100 pb-2 print:pb-1 print:border-slate-300">
                       <span className="text-slate-500 font-semibold print:text-slate-600">
-                        தங்கம் விலை (Gold Rate):
+                        Gold Rate:
                       </span>
                       <span className="font-bold text-slate-800 print:text-black font-mono">
                         ₹{selectedLoan.goldrate}/g
@@ -687,7 +687,7 @@ export default function LoansTab() {
                     </p>
                     <p className="flex justify-between text-sm print:text-xs border-b border-slate-100 pb-2 print:pb-1 print:border-slate-300">
                       <span className="text-slate-500 font-semibold print:text-slate-600">
-                        அடகு சதவீதம் (Pawn %):
+                        Collateral %:
                       </span>
                       <span className="font-bold text-slate-800 print:text-black font-mono">
                         {selectedLoan.pawnpercentage}%
@@ -698,7 +698,7 @@ export default function LoansTab() {
                   <div className="space-y-4 print:space-y-2">
                     <div className="flex justify-between items-center bg-emerald-50 p-4 print:p-2 rounded-xl border border-emerald-100 print:bg-transparent print:border-black print:rounded-none print:break-inside-avoid">
                       <p className="text-emerald-700 font-bold text-xs print:text-[10px] uppercase tracking-widest print:text-black">
-                        மொத்த கடன்
+                        Total Loan
                       </p>
                       <p className="text-2xl print:text-xl font-black text-emerald-800 print:text-black">
                         ₹{selectedLoan.loanamount?.toFixed(2)}
@@ -707,7 +707,7 @@ export default function LoansTab() {
 
                     <div className="bg-indigo-50 p-4 print:p-2 rounded-xl border border-indigo-100 print:bg-transparent print:border-black print:rounded-none flex flex-col">
                       <p className="text-indigo-700 font-bold text-xs print:text-[10px] uppercase tracking-widest print:text-black mb-3 print:mb-1 border-b border-indigo-200 pb-2 print:pb-1 print:border-black">
-                        செலுத்திய விவரங்கள் (Payment History)
+                        Payment History
                       </p>
 
                       {(() => {
@@ -721,7 +721,7 @@ export default function LoansTab() {
                         if (relatedPayments.length === 0) {
                           return (
                             <div className="text-sm print:text-xs font-semibold text-indigo-400 print:text-slate-500 py-2 print:py-1">
-                              பணம் எதுவும் செலுத்தப்படவில்லை (No payments yet)
+                              No payments yet
                             </div>
                           );
                         }
@@ -757,7 +757,7 @@ export default function LoansTab() {
                             <div className="flex flex-col gap-2 print:gap-1 mt-4 print:mt-2 pt-4 print:pt-2 border-t-2 border-dashed border-indigo-200 print:border-black print:break-inside-avoid">
                               <div className="flex justify-between items-center">
                                 <span className="text-xs print:text-[10px] font-bold text-indigo-900 print:text-black uppercase tracking-widest">
-                                  மொத்தம் (Total Paid)
+                                  Total Paid
                                 </span>
                                 <span className="text-xl print:text-lg font-black text-indigo-800 print:text-black">
                                   ₹{totalPaid.toFixed(2)}
@@ -766,7 +766,7 @@ export default function LoansTab() {
 
                               <div className="flex justify-between items-center">
                                 <span className="text-xs print:text-[10px] font-bold text-rose-600 print:text-black uppercase tracking-widest">
-                                  மீதமுள்ள தொகை (Remaining)
+                                  Remaining Amount
                                 </span>
                                 <span className="text-xl print:text-lg font-black text-rose-600 print:text-black">
                                   ₹
@@ -786,19 +786,19 @@ export default function LoansTab() {
 
                 <div className="mt-8 print:mt-4 pt-4 print:pt-2 border-t border-slate-200 print:border-black text-[9px] print:text-[8px] text-slate-400 print:text-slate-600 leading-relaxed uppercase tracking-wider text-justify print:break-inside-avoid">
                   <span className="font-bold text-slate-500 print:text-black">
-                    கவனத்திற்கு:
+                    Disclaimer:
                   </span>{" "}
-                  1. அடகு வைத்த பொருளை மீட்க வரும்போது இந்த ரசீதை கட்டாயம்
-                  கொண்டு வர வேண்டும். 2. குறிப்பிட்ட காலக்கெடுவிற்குள் வட்டி
-                  அல்லது அசலை செலுத்தாவிட்டால் பொருள் ஏலம் விடப்படும்.
+                  1. You must bring this receipt when coming to redeem the pledged item. 
+                  2. If the interest or principal is not paid within the specified time limit, 
+                  the item will be auctioned.
                 </div>
 
                 <div className="mt-16 print:mt-6 flex justify-between text-center text-sm font-bold text-slate-400 print:text-black pb-4 print:pb-0 print:break-inside-avoid">
                   <div className="border-t-2 border-slate-300 w-40 pt-2 print:border-black uppercase tracking-wider text-[10px]">
-                    வாடிக்கையாளர் கையொப்பம்
+                    Customer Signature
                   </div>
                   <div className="border-t-2 border-slate-300 w-40 pt-2 print:border-black uppercase tracking-wider text-[10px]">
-                    உரிமையாளர் கையொப்பம்
+                    Owner Signature
                   </div>
                 </div>
               </div>
@@ -811,13 +811,13 @@ export default function LoansTab() {
                   setSelectedLoan(null);
                 }}
                 className="flex-1 bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-sm">
-                மூடு (Close)
+                Close
               </button>
               <button
                 onClick={() => window.print()}
                 className="flex-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm flex justify-center items-center gap-2 active:scale-95">
                 <Printer size={18} />
-                ரசீதை அச்சிடு (Print Receipt)
+                Print Receipt
               </button>
             </div>
           </div>
@@ -829,7 +829,7 @@ export default function LoansTab() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 print:shadow-none print:border-none print:rounded-none print:w-full print:max-w-none">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center print:bg-transparent print:border-black">
               <h3 className="text-xl font-bold text-slate-800 print:text-black">
-                கடன் செலுத்துதல் (Pay Loan)
+                Pay Loan
               </h3>
               <button
                 onClick={() => setPayLoanModal(false)}
@@ -854,7 +854,7 @@ export default function LoansTab() {
                   />
                   <div>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 print:text-black">
-                      வாடிக்கையாளர் (Customer)
+                      Customer
                     </p>
                     <p className="font-black text-slate-800 text-base print:text-black">
                       {selectedLoan.customer?.name}
@@ -863,7 +863,7 @@ export default function LoansTab() {
                 </div>
                 <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-slate-200 pt-3 sm:pt-0 print:border-transparent">
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5 print:text-black">
-                    ரசீது எண் (Receipt No)
+                    Receipt No
                   </p>
                   <p className="font-bold text-slate-700 print:text-black">
                     #{selectedLoan._id?.slice(-6).toUpperCase()}
@@ -873,7 +873,7 @@ export default function LoansTab() {
 
               <div className="flex flex-col items-center justify-center mb-8">
                 <p className="text-slate-500 uppercase text-xs font-bold tracking-widest mb-1 print:text-black">
-                  மொத்த கடன் தொகை (Original Loan Amount)
+                  Total Loan Amount (Original Loan Amount)
                 </p>
                 <p className="text-4xl font-black text-slate-900 tracking-tight print:text-black border-b-4 border-double border-transparent print:border-black pb-1">
                   <span className="text-slate-400 font-medium mr-1 print:text-black">
@@ -886,13 +886,13 @@ export default function LoansTab() {
               <div className="flex justify-between items-end mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-slate-500">
-                    அசல் (Principal Remaining):{" "}
+                    Principal Remaining:{" "}
                     <span className="text-slate-800">
                       ₹{principalToCalculate.toFixed(2)}
                     </span>
                   </p>
                   <p className="text-xs font-bold text-slate-500">
-                    வட்டி (Interest Remaining):{" "}
+                    Interest Remaining:{" "}
                     <span className="text-rose-600">
                       + ₹{pendingInterest.toFixed(2)}
                     </span>
@@ -900,7 +900,7 @@ export default function LoansTab() {
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-                    மொத்த இருப்பு (Total Balance)
+                    Total Balance
                   </p>
                   <p className="text-2xl font-black text-indigo-700">
                     ₹{totalBalance.toFixed(2)}
@@ -912,7 +912,7 @@ export default function LoansTab() {
                 <div className="space-y-5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide print:text-black">
-                      செலுத்தும் முறை (Pay Type)
+                      Pay Type
                     </label>
                     <select
                       name="payType"
@@ -921,13 +921,13 @@ export default function LoansTab() {
                       onChange={(e) => setPayType(e.target.value)}
                       required>
                       <option value="" disabled>
-                        செலுத்தும் முறையை தேர்ந்தெடுக்கவும் (Select Pay Type)
+                        Select Pay Type
                       </option>
                       <option value="Full Pay">
-                        முழுத் தொகை (Full Pay - Auto Calc)
+                        Full Pay (Auto Calc)
                       </option>
                       <option value="Initial Pay">
-                        பகுதித் தொகை (Partial Pay)
+                        Partial Pay
                       </option>
                     </select>
                   </div>
@@ -936,7 +936,7 @@ export default function LoansTab() {
                     <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide print:text-black">
-                          செலுத்தும் தொகை (Pay Amount)
+                          Pay Amount
                         </label>
                         <div className="relative">
                           <span className="absolute left-4 top-3 text-slate-500 text-sm font-bold print:text-black">
@@ -967,8 +967,8 @@ export default function LoansTab() {
                       <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center shadow-inner print:bg-transparent print:border-black print:shadow-none">
                         <p className="text-xs text-emerald-700 font-extrabold uppercase tracking-widest mb-1 print:text-black">
                           {payType === "Full Pay"
-                            ? "மொத்த நிலுவைத் தொகை (Total Balance)"
-                            : "கணக்கிடப்பட்ட தொகை (Estimated Pay)"}
+                            ? "Total Balance"
+                            : "Estimated Pay"}
                         </p>
                         <p className="text-3xl font-black text-emerald-700 tracking-tight print:text-black">
                           ₹
@@ -992,14 +992,14 @@ export default function LoansTab() {
                       setPayAmount("");
                     }}
                     className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
-                    ரத்து (Cancel)
+                    Cancel
                   </button>
 
                   <button
                     type="button"
                     onClick={() => window.print()}
                     className="flex-1 bg-blue-50 border border-blue-200 text-blue-700 font-bold py-3 rounded-lg hover:bg-blue-100 transition-colors shadow-sm">
-                    🖨️ பிரிண்ட்
+                    🖨️ Print
                   </button>
 
                   <button
@@ -1010,7 +1010,7 @@ export default function LoansTab() {
                       (payType === "Full Pay" && totalBalance <= 0)
                     }
                     className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:active:scale-100">
-                    பணம் செலுத்து
+                    Pay Loan
                   </button>
                 </div>
               </form>
@@ -1024,7 +1024,7 @@ export default function LoansTab() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
               <h3 className="text-xl font-bold text-slate-800">
-                உரிமையாளர் வங்கி விவரங்கள்
+                Update Bank Details for Loan
               </h3>
               <button
                 onClick={() => setIsBankModalOpen(false)}
@@ -1037,14 +1037,14 @@ export default function LoansTab() {
               <div className="space-y-5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    வங்கி பெயரைத் தேர்ந்தெடுக்கவும் (Select Bank)
+                    Select Bank
                   </label>
                   <select
                     name="bankId"
                     className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
                     required>
                     <option value="" disabled selected>
-                      -- வங்கியைக் குறிக்கவும் --
+                      -- Select Bank --
                     </option>
                     {bankList.map((bank) => (
                       <option key={bank._id} value={bank._id}>
@@ -1057,7 +1057,7 @@ export default function LoansTab() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      கிளை பெயர் (Branch)
+                      Branch Name
                     </label>
                     <input
                       name="branchname"
@@ -1068,7 +1068,7 @@ export default function LoansTab() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      தேதி (Date)
+                      Date
                     </label>
                     <input
                       name="ledgercreationdate"
@@ -1081,7 +1081,7 @@ export default function LoansTab() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    ஊழியர் பெயர் (Staff Name)
+                    Staff Name
                   </label>
                   <input
                     name="obstaffname"
@@ -1094,7 +1094,7 @@ export default function LoansTab() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      கணக்கு எண் (Account No)
+                      Account No
                     </label>
                     <input
                       name="obaccountno"
@@ -1105,7 +1105,7 @@ export default function LoansTab() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                      கடனுக்கான கணக்கு எண் (Loan A/C No)
+                      Loan Account No
                     </label>
                     <input
                       name="accountno"
@@ -1118,7 +1118,7 @@ export default function LoansTab() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    பெட்டக எண் (Locker No)
+                    Locker No
                   </label>
                   <input
                     name="lockerno"
@@ -1134,12 +1134,12 @@ export default function LoansTab() {
                   type="button"
                   onClick={() => setIsBankModalOpen(false)}
                   className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
-                  ரத்து செய் (Cancel)
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm">
-                  சேமி (Save)
+                  Save
                 </button>
               </div>
             </form>
@@ -1155,15 +1155,15 @@ export default function LoansTab() {
                 <Trash2 className="text-rose-600" size={28} />
               </div>
               <h2 className="text-2xl font-black text-slate-800 mb-2">
-                கடன் நீக்கம்!
+                Delete Loan!
               </h2>
               <p className="text-sm font-medium text-slate-500 mb-6 leading-relaxed">
-                இந்த கடனை நிரந்தரமாக நீக்க கடை உரிமையாளரின்
+                Enter the owner's 
                 <br />
                 <span className="font-bold text-rose-600">
-                  ரகசிய கடவுச்சொல்லை
+                  secret password
                 </span>{" "}
-                உள்ளிடவும்.
+                to back up the data.
               </p>
 
               <input
@@ -1181,12 +1181,12 @@ export default function LoansTab() {
                     setDeletePasswordInput("");
                   }}
                   className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
-                  ரத்து (Cancel)
+                  Cancel
                 </button>
                 <button
                   onClick={confirmDeleteLoan}
                   className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-sm">
-                  நீக்கு (Delete)
+                  Delete
                 </button>
               </div>
             </div>

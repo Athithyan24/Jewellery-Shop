@@ -23,44 +23,44 @@ import ProfileTab from "./tabs/ProfileTab";
 
 const TABS = [
   {
-    id: "பணியாளர்கள்",
-    label: "பணியாளர்கள் (Workers)",
+    id: "workers",
+    label: "Workers",
     icon: <Users size={18} />,
     allowedRole: "superadmin",
   },
   {
-    id: "பரிவர்த்தனைகளின்",
-    label: "பரிவர்த்தனைகள்",
+    id: "transactions",
+    label: "Transactions",
     icon: <ArrowRightLeft size={18} />,
     allowedRole: "worker",
   },
   {
-    id: "வாடிக்கையாளர்களின்",
-    label: "வாடிக்கையாளர்கள்",
+    id: "customers",
+    label: "Customers",
     icon: <UserCircle size={18} />,
     allowedRole: "worker",
   },
   {
-    id: "கடன்களின்",
-    label: "கடன்கள்",
+    id: "loans",
+    label: "Loans",
     icon: <Wallet size={18} />,
     allowedRole: "worker",
   },
   {
-    id: "லாக்கர்",
-    label: "பெட்டகங்கள்",
+    id: "locker",
+    label: "Locker",
     icon: <Landmark size={18} />,
     allowedRole: "worker",
   },
   {
-    id: "விகித",
-    label: "விகிதங்கள்",
+    id: "rates",
+    label: "Rates",
     icon: <TrendingUp size={18} />,
     allowedRole: "worker",
   },
   {
-    id: "சுய",
-    label: "சுயவிவரம்",
+    id: "profile",
+    label: "Profile",
     icon: <Lock size={18} />,
     allowedRole: "worker",
   },
@@ -70,7 +70,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const userRole = localStorage.getItem("role") || "worker";
   const [activeTab, setActiveTab] = useState(
-    userRole === "superadmin" ? "பணியாளர்கள்" : "பரிவர்த்தனைகளின்",
+    userRole === "superadmin" ? "workers" : "transactions",
   );
   const [shopProfile, setShopProfile] = useState({});
 
@@ -90,19 +90,19 @@ export default function AdminPage() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case "பணியாளர்கள்":
+      case "workers":
         return <WorkersTab />;
-      case "பரிவர்த்தனைகளின்":
+      case "transactions":
         return <TransactionTab />;
-      case "வாடிக்கையாளர்களின்":
+      case "customers":
         return <CustomersTab />;
-      case "கடன்களின்":
+      case "loans":
         return <LoansTab />;
-      case "லாக்கர்":
+      case "locker":
         return <LockerTab />;
-      case "விகித":
+      case "rates":
         return <RatesTab />;
-      case "சுய":
+      case "profile":
         return <ProfileTab />;
       default:
         return userRole === "superadmin" ? <WorkersTab /> : <TransactionTab />;

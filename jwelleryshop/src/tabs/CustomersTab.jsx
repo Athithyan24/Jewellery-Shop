@@ -68,7 +68,7 @@ export default function CustomersTab() {
 
     await db.customers.insert({
       id: Date.now().toString(),
-      name: formValues.get("name") || "பெயர் இல்லை",
+      name: formValues.get("name") || "No Name",
       customerIdy: "PENDING",
       dob: formValues.get("dob") || "",
       address: formValues.get("address") || "",
@@ -84,7 +84,7 @@ export default function CustomersTab() {
     });
 
     alert(
-      "✅ வாடிக்கையாளர் விவரங்கள் ஆஃப்லைனில் சேமிக்கப்பட்டன! (Saved Offline)",
+      "✅ Customer's details Saved Offline",
     );
 
     e.target.reset();
@@ -235,7 +235,7 @@ export default function CustomersTab() {
     try {
       const unsynced = offlineCustomers.filter((c) => !c.isSynced);
       if (unsynced.length === 0) {
-        alert("ஒத்திசைக்க எந்த தரவும் இல்லை! (No offline data to sync)");
+        alert("No offline data to sync");
         return;
       }
 
@@ -284,7 +284,7 @@ export default function CustomersTab() {
       }
 
       alert(
-        "🎉 அனைத்து தரவுகளும் வெற்றிகரமாக ஒத்திசைக்கப்பட்டன! (Sync Complete!)",
+        "🎉 All data synced successfully! (Sync Complete!)",
       );
 
       fetchOfflineCustomers();
@@ -292,7 +292,7 @@ export default function CustomersTab() {
       setCustomerModal(false);
     } catch (error) {
       console.error("Sync Error:", error);
-      alert("Sync failed! Console-ஐ பார்க்கவும்.");
+      alert("Sync failed! Check the console.");
     }
   };
   const fetchOfflineCustomers = async () => {
@@ -377,7 +377,7 @@ export default function CustomersTab() {
                   strokeWidth="2"
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
-              தரவை ஒத்திசை ({offlineCustomers.filter((c) => !c.isSynced).length}{" "}
+              Sync Data ({offlineCustomers.filter((c) => !c.isSynced).length}{" "}
               Unsynced)
             </button>
           </div>
@@ -390,7 +390,7 @@ export default function CustomersTab() {
                 <div className="flex">
                   <Users className="mr-2 text-red-500" />
                   <h2 className="lg:text-lg md:text-sm font-bold text-blue-800 tracking-wide">
-                    வாடிக்கையாளர்கள் (Customers)
+                    Customers
                   </h2>
                 </div>
                 <button
@@ -404,7 +404,7 @@ export default function CustomersTab() {
                   </svg>
 
                   <span className="relative z-10 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] -translate-x-2 group-hover:translate-x-3">
-                    + புதிய வாடிக்கையாளர்
+                    + New Customer
                   </span>
 
                   <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-indigo-600 rounded-full opacity-0 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:w-[300px] group-hover:h-[300px] group-hover:opacity-100"></span>
@@ -444,28 +444,28 @@ export default function CustomersTab() {
                 <thead className="bg-slate-800 sticky top-0 z-10 shadow-md">
                   <tr>
                     <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      புகைப்படம்
+                      Photo
                     </th>
                     <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      அடையாள எண்
+                      ID
                     </th>
                     <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      ஆதார் புகைப்படம்
+                      Aadhaar Photo
                     </th>
                     <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      பெயர் (Name)
+                      Name
                     </th>
                     <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      மொபைல் (Phone)
+                      Phone
                     </th>
                     <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      ஆதார் எண்
+                      Aadhaar Number
                     </th>
                     <th className="px-4 py-4 text-left text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      முகவரி (Address)
+                      Address
                     </th>
                     <th className="px-4 py-4 text-center text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
-                      செயல்
+                      Action
                     </th>
                   </tr>
                 </thead>
@@ -624,7 +624,7 @@ export default function CustomersTab() {
                 </div>
                 <div className="flex flex-col self-stretch my-auto">
                   <div className="text-xl font-bold text-gray-800">
-                    புதிய வாடிக்கையாளர்
+                    New Customer
                   </div>
                   <div className="text-sm text-gray-500 uppercase tracking-wider">
                     Add New Customer
@@ -651,7 +651,7 @@ export default function CustomersTab() {
                     placeholder=" "
                   />
                   <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
-                    பெயர் (Name)
+                    Name
                   </label>
                 </div>
 
@@ -665,7 +665,7 @@ export default function CustomersTab() {
                     placeholder=" "
                   />
                   <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
-                    தொலைபேசி எண் (Phone)
+                    Phone
                   </label>
                 </div>
 
@@ -679,7 +679,7 @@ export default function CustomersTab() {
                     placeholder=" "
                   />
                   <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
-                    ஆதார் எண் (Aadhar No)
+                    Aadhaar Number
                   </label>
                 </div>
 
@@ -693,7 +693,7 @@ export default function CustomersTab() {
                     placeholder=" "
                   />
                   <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
-                    பிறந்த தேதி (DOB)
+                    Date of Birth
                   </label>
                 </div>
 
@@ -706,7 +706,7 @@ export default function CustomersTab() {
                     className="block w-full text-sm pt-4 px-4 text-slate-900 bg-white rounded-[8px] border border-violet-200 appearance-none focus:border-transparent focus:outline focus:outline-2 focus:outline-violet-500 focus:ring-0 peer resize-none"
                     placeholder=" "></textarea>
                   <label className="absolute text-[14px] text-slate-500 duration-300 transform -translate-y-[1.2rem] scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-[1.2rem] start-2 peer-focus:text-violet-600">
-                    முகவரி (Address)
+                    Address
                   </label>
                 </div>
               </div>
@@ -743,8 +743,7 @@ export default function CustomersTab() {
               <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-8">
                 <p className="text-[11px] md:text-xs text-amber-700 font-medium flex items-center gap-2">
                   <span className="text-lg">⚡</span>
-                  இணையம் இல்லாவிட்டாலும் சேமிக்கலாம். இணையம் வந்ததும் Sync
-                  செய்யவும்.
+                  You can save data even without an internet connection. Sync it once you are online.
                 </p>
               </div>
 
@@ -771,7 +770,7 @@ export default function CustomersTab() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden max-h-[95vh]">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
               <h3 className="text-xl font-bold text-slate-800">
-                புதிய கடன் (New Loan Application)
+                New Loan Application
               </h3>
               <button
                 onClick={() => {
@@ -809,7 +808,7 @@ export default function CustomersTab() {
                     </div>
                     <div>
                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                        வாடிக்கையாளர் (Customer)
+                        Customer
                       </p>
                       <p className="text-sm font-black text-slate-800">
                         {selectedCustomer?.name}
@@ -819,14 +818,14 @@ export default function CustomersTab() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                      அடகு பொருள் (Product)
+                      Product
                     </label>
                     <select
                       name="productId"
                       className="block w-full rounded-lg border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 font-semibold focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none shadow-sm"
                       required>
                       <option value="">
-                        பொருளை தேர்ந்தெடுக்கவும் (Select Product)
+                        Select Product
                       </option>
                       {products.map((p) => (
                         <option key={p._id} value={p._id}>
@@ -839,7 +838,7 @@ export default function CustomersTab() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                        மொத்த எடை (Gross Wt)
+                        Gross Weight (Gross Wt)
                       </label>
                       <div className="relative">
                         <input
@@ -858,7 +857,7 @@ export default function CustomersTab() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                        கல் எடை (Stone Wt)
+                        Stone Weight (Stone Wt)
                       </label>
                       <div className="relative">
                         <input
@@ -880,7 +879,7 @@ export default function CustomersTab() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                        தங்கம் விலை (Rate/g)
+                        Gold Rate (Rate/g)
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-2 text-slate-500 text-sm font-bold">
@@ -898,7 +897,7 @@ export default function CustomersTab() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wide">
-                        அடகு சதவீதம் (Pawn %)
+                        Pawn Percentage (%)
                       </label>
                       <div className="relative">
                         <input
@@ -918,7 +917,7 @@ export default function CustomersTab() {
 
                   <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center shadow-sm">
                     <p className="text-xs text-emerald-600 font-extrabold uppercase tracking-widest mb-1">
-                      மதிப்பிடப்பட்ட கடன் (Estimated Loan)
+                      Estimated Loan
                     </p>
                     <p className="text-3xl font-black text-emerald-700 tracking-tight">
                       ₹
@@ -932,7 +931,7 @@ export default function CustomersTab() {
                 <div className="lg:col-span-7 space-y-4">
                   <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
                     <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
-                      வட்டி அமைப்புகள் (Interest Settings)
+                      Interest Settings
                       <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
                         Est. Loan: ₹
                         {estimatedAmount > 0
@@ -946,7 +945,7 @@ export default function CustomersTab() {
                       <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 hover:border-indigo-200 transition-colors">
                         <div className="flex justify-between items-center mb-3">
                           <h5 className="text-xs font-black text-indigo-700 uppercase tracking-wider">
-                            முதல் வட்டி (Tier 1)
+                            First Interest (Tier 1)
                           </h5>
 
                           <span className="bg-indigo-100 text-indigo-800 text-xs font-black px-3 py-1 rounded-lg border border-indigo-200 shadow-sm font-mono flex flex-col items-end">
@@ -985,7 +984,7 @@ export default function CustomersTab() {
                         <div className="grid grid-cols-3 gap-4">
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              வட்டி வீதம் (%)
+                              Interest Rate (%)
                             </label>
                             <div className="relative">
                               <input
@@ -1002,7 +1001,7 @@ export default function CustomersTab() {
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              முதல் (From Day)
+                              First Interest (From Day)
                             </label>
                             <input
                               name="firstInterestFrom"
@@ -1016,7 +1015,7 @@ export default function CustomersTab() {
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              வரை (To Day)
+                              First Interest (To Day)
                             </label>
                             <input
                               name="firstInterestTo"
@@ -1035,7 +1034,7 @@ export default function CustomersTab() {
                       <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 hover:border-amber-200 transition-colors">
                         <div className="flex justify-between items-center mb-3">
                           <h5 className="text-xs font-black text-amber-700 uppercase tracking-wider">
-                            2வது வட்டி (Tier 2)
+                            Second Interest (Tier 2)
                           </h5>
                           <span className="bg-amber-100 text-amber-700 text-xs font-black px-3 py-1 rounded-lg border border-orange-200 shadow-sm font-mono flex flex-col items-end">
                             <span className="text-[12px] opacity-70">
@@ -1073,7 +1072,7 @@ export default function CustomersTab() {
                         <div className="grid grid-cols-3 gap-4">
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              வட்டி வீதம் (%)
+                              Interest Rate (%)
                             </label>
                             <div className="relative">
                               <input
@@ -1090,7 +1089,7 @@ export default function CustomersTab() {
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              முதல் (From Day)
+                              Second Interest (From Day)
                             </label>
                             <input
                               name="secondInterestFrom"
@@ -1104,7 +1103,7 @@ export default function CustomersTab() {
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              வரை (To Day)
+                              Second Interest (To Day)
                             </label>
                             <input
                               name="secondInterestTo"
@@ -1123,7 +1122,7 @@ export default function CustomersTab() {
                       <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 hover:border-rose-200 transition-colors">
                         <div className="flex justify-between items-center mb-3">
                           <h5 className="text-xs font-black text-rose-700 uppercase tracking-wider">
-                            3வது வட்டி (Tier 3)
+                            Third Interest (Tier 3)
                           </h5>
                           <span className="bg-rose-100 text-rose-700 text-xs font-black px-3 py-1 rounded-lg border border-rose-200 shadow-sm font-mono flex flex-col items-end">
                             <span className="text-[12px] opacity-70">
@@ -1161,7 +1160,7 @@ export default function CustomersTab() {
                         <div className="grid grid-cols-3 gap-4">
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              வட்டி வீதம் (%)
+                              Interest Rate (%)
                             </label>
                             <div className="relative">
                               <input
@@ -1178,7 +1177,7 @@ export default function CustomersTab() {
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              முதல் (From Day)
+                              Third Interest (From Day)
                             </label>
                             <input
                               name="thirdInterestFrom"
@@ -1192,7 +1191,7 @@ export default function CustomersTab() {
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                              வரை (To Day)
+                              Third Interest (To Day)
                             </label>
                             <input
                               name="thirdInterestTo"
@@ -1220,13 +1219,13 @@ export default function CustomersTab() {
                   setLoanCalc({});
                 }}
                 className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-100 transition-colors shadow-sm w-32">
-                ரத்து (Cancel)
+                Cancel
               </button>
               <button
                 type="submit"
                 form="loan-form"
                 className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-sm transition-all active:scale-95 w-48">
-                உறுதி செய் (Submit)
+                Submit
               </button>
             </div>
           </div>

@@ -56,7 +56,7 @@ export default function RatesTab() {
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
               <ChartNoAxesCombined className="mr-2 text-violet-600" />
               <h2 className="text-lg font-bold text-white tracking-wide">
-                வட்டி விகித விவரங்கள் (Interest Rate Breakdown)
+                Interest Rate Breakdown
               </h2>
             </div>
 
@@ -84,31 +84,31 @@ export default function RatesTab() {
               <thead className="bg-slate-800 sticky top-0 z-10 shadow-md">
                 <tr>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider">
-                    புகைப்படம்
+                    Photo
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider">
-                    பெயர் (Name)
+                    Name
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider">
                     Loan ID
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider">
-                    தேதி (Date)
+                    Date
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider">
-                    அடகு பொருள் (Product)
+                    Product
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider text-center">
-                    முதல் தவணை
+                    First Installment
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider text-center">
-                    இரண்டாம் தவணை
+                    Second Installment
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider text-center">
-                    மூன்றாம் தவணை
+                    Third Installment
                   </th>
                   <th className="py-3 px-6 text-xs font-bold text-white uppercase tracking-wider text-right">
-                    தற்போதைய மாத நிலை
+                    Current Monthly Status
                   </th>
                 </tr>
               </thead>
@@ -290,8 +290,7 @@ export default function RatesTab() {
                           <ChartNoAxesCombined />
                         </span>
                         <p>
-                          எந்த வட்டி விவரங்களும் இல்லை (No interest records
-                          found matching your search).
+                          No interest records found matching your search.
                         </p>
                       </div>
                     </td>

@@ -40,7 +40,7 @@ export default function ProfileTab() {
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
               <ScrollText className="mr-2 text-lime-500" />
               <h2 className="text-lg font-bold text-white tracking-wide">
-                செலுத்தப்பட்ட கடன்கள் (Paid Loans History)
+                Paid Loans History
               </h2>
             </div>
             <div className="mb-6 flex flex-col sm:flex-row items-center justify-between bg-white/50 p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 transition-all hover:shadow-md">
@@ -50,11 +50,8 @@ export default function ProfileTab() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800 tracking-wide">
-                    தேதி வாரியாக தேடு
+                    Search by Payment Date
                   </h3>
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
-                    Search by Date
-                  </p>
                 </div>
               </div>
 
@@ -86,26 +83,26 @@ export default function ProfileTab() {
               <thead className="bg-slate-800 text-white">
                 <tr>
                   <th className="py-3 px-6 text-xs font-bold  uppercase tracking-wider">
-                    செலுத்திய தேதி (Paid Date)
+                    Payment Date
                   </th>
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
-                    கடன் தேதி (Loan Date)
+                    Loan Date
                   </th>
 
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
-                    கடன் எண் (Loan ID)
+                    Loan ID
                   </th>
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
-                    பெயர் (Name)
+                    Name
                   </th>
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
-                    அடகு பொருள் (Product)
+                    Product
                   </th>
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider">
-                    கடன் தொகை (Loan Amt)
+                    Loan Amt
                   </th>
                   <th className="py-3 px-6 text-xs font-bold uppercase tracking-wider text-right">
-                    செலுத்தியது (Paid)
+                    Paid
                   </th>
                 </tr>
               </thead>
@@ -188,7 +185,7 @@ export default function ProfileTab() {
                         </div>
 
                         <span className="font-bold text-slate-500 text-lg tracking-wide">
-                          பணம் செலுத்திய கடன் விவரங்கள் இல்லை
+                          No paid loan history found
                         </span>
 
                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">
@@ -202,7 +199,7 @@ export default function ProfileTab() {
                           <button
                             onClick={() => setFilterDate("")}
                             className="mt-6 text-xs font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-4">
-                            அனைத்து விவரங்களையும் பார்க்க (Show All Records)
+                            Show All Records
                           </button>
                         )}
                       </div>

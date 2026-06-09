@@ -357,6 +357,13 @@ const bankDetailsSchema = new mongoose.Schema({
   obaccountno: { type: String },
   accountno: { type: String, required: true },
   lockerno: { type: String, required: true },
+  bankLoanAmount: { type: Number, default: null },
+  isRetrieved: { type: Boolean, default: false },
+  retrievalDetails: {
+    description: { type: String },
+    quantity: { type: String },
+    date: { type: Date }
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -765,6 +772,46 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to fetch Customer's Assigned Locker" });
+  }
+});
+
+// --- UPDATE BANK LOCKER DETAILS (Bank Loans & Retrievals) ---
+app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bankLoanAmount, isRetrieved, retrievalDetails } = req.body;
+
+    // 1. Find the specific locker record
+    const bankDetail = await BankDetails.findById(id);
+
+    if (!bankDetail) {
+      return res.status(404).json({ message: "Locker record not found" });
+    }
+
+    // 2. If the request includes a Bank Loan Amount, update it
+    if (bankLoanAmount !== undefined) {
+      bankDetail.bankLoanAmount = bankLoanAmount;
+    }
+
+    // 3. If the request includes Retrieval Info, update it
+    if (isRetrieved !== undefined) {
+      bankDetail.isRetrieved = isRetrieved;
+      if (retrievalDetails) {
+        bankDetail.retrievalDetails = retrievalDetails;
+      }
+    }
+
+    // 4. Save the changes to the database
+    await bankDetail.save();
+
+    res.status(200).json({ 
+      message: "Locker details updated successfully", 
+      bankDetail 
+    });
+    
+  } catch (error) {
+    console.error("Error updating bank locker details:", error);
+    res.status(500).json({ message: "Failed to update locker details", error });
   }
 });
 
