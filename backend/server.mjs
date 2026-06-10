@@ -358,12 +358,20 @@ const bankDetailsSchema = new mongoose.Schema({
   accountno: { type: String, required: true },
   lockerno: { type: String, required: true },
   bankLoanAmount: { type: Number, default: null },
-  isRetrieved: { type: Boolean, default: false },
-  retrievalDetails: {
-    description: { type: String },
-    quantity: { type: String },
-    date: { type: Date }
-  },
+  bankSettlements: [
+    {
+      amount: { type: Number, required: true },
+      date: { type: Date, default: Date.now }
+    }
+  ],
+  retrievalStatus: { type: String, default: "None" }, // "None", "Partial", "Full"
+  retrievals: [
+    {
+      description: { type: String },
+      quantity: { type: String },
+      date: { type: Date, default: Date.now }
+    }
+  ],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -776,38 +784,60 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
 });
 
 // --- UPDATE BANK LOCKER DETAILS (Bank Loans & Retrievals) ---
+// --- UPDATE BANK LOCKER DETAILS (Bank Loans & Retrievals) ---
+// --- UPDATE BANK LOCKER DETAILS ---
+// --- UPDATE BANK LOCKER DETAILS ---
 app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { bankLoanAmount, isRetrieved, retrievalDetails } = req.body;
+    const { bankLoanAmount, bankSettlementAmount, isRetrieved, retrievalStatus, retrievalDetails } = req.body;
 
-    // 1. Find the specific locker record
-    const bankDetail = await BankDetails.findById(id);
+    const bankDetail = await mongoose.model("BankDetails").findById(id);
 
     if (!bankDetail) {
       return res.status(404).json({ message: "Locker record not found" });
     }
 
-    // 2. If the request includes a Bank Loan Amount, update it
     if (bankLoanAmount !== undefined) {
       bankDetail.bankLoanAmount = bankLoanAmount;
     }
 
-    // 3. If the request includes Retrieval Info, update it
+    // 👇 PUSH NEW SETTLEMENT INTO HISTORY ARRAY 👇
+    if (bankSettlementAmount !== undefined) {
+      if (!bankDetail.bankSettlements) {
+        bankDetail.bankSettlements = [];
+      }
+      bankDetail.bankSettlements.push({
+        amount: bankSettlementAmount,
+        date: new Date()
+      });
+    }
+
+    if (retrievalStatus !== undefined) {
+      bankDetail.retrievalStatus = retrievalStatus;
+    }
+
     if (isRetrieved !== undefined) {
       bankDetail.isRetrieved = isRetrieved;
-      if (retrievalDetails) {
-        bankDetail.retrievalDetails = retrievalDetails;
+    }
+
+    if (retrievalDetails) {
+      if (bankDetail.retrievalDetails && bankDetail.retrievalDetails.description) {
+        bankDetail.retrievalDetails.description = bankDetail.retrievalDetails.description + " || " + retrievalDetails.description;
+        bankDetail.retrievalDetails.quantity = bankDetail.retrievalDetails.quantity + " || " + retrievalDetails.quantity;
+        bankDetail.retrievalDetails.date = new Date();
+      } else {
+        bankDetail.retrievalDetails = {
+          description: retrievalDetails.description,
+          quantity: retrievalDetails.quantity,
+          date: new Date()
+        };
       }
     }
 
-    // 4. Save the changes to the database
     await bankDetail.save();
 
-    res.status(200).json({ 
-      message: "Locker details updated successfully", 
-      bankDetail 
-    });
+    res.status(200).json({ message: "Locker details updated successfully", bankDetail });
     
   } catch (error) {
     console.error("Error updating bank locker details:", error);

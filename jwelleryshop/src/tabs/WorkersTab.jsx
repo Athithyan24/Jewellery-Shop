@@ -13,7 +13,7 @@ export default function WorkersTab() {
 
   const handleImportData = async () => {
     if (!selectedBackupFile) {
-      return alert("கோப்பை தேர்ந்தெடுக்கவும்! (Select a file)");
+      return alert("Select a file to import");
     }
 
     try {
@@ -31,14 +31,14 @@ export default function WorkersTab() {
             { headers: { Authorization: `Bearer ${token}` } }
           );
 
-          alert(response.data.message || "தரவு வெற்றிகரமாக மீட்டமைக்கப்பட்டது!");
+          alert(response.data.message || "Data imported successfully!");
           setImportModalOpen(false);
           setSelectedBackupFile(null);
           
           // Refresh workers list after import
           fetchWorkers();
         } catch (parseError) {
-          alert("தவறான கோப்பு வடிவம் (Invalid backup file format)");
+          alert("Invalid backup file format");
         }
       };
     } catch (err) {
@@ -101,17 +101,17 @@ export default function WorkersTab() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          தரவை மீட்டெடு (Import Admin Data)
+          Import Admin Data
         </button>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden h-fit">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50">
             <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 uppercase tracking-wide">
-              <span className="text-2xl">👨‍💼</span> புதிய பணியாளர்
+              <span className="text-2xl">👨‍💼</span> New Worker
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              கடைக்கான புதிய பணியாளரை உருவாக்கவும்
+              Create a new worker for the shop
             </p>
           </div>
 
@@ -119,35 +119,35 @@ export default function WorkersTab() {
             <form onSubmit={handleCreateWorker} className="space-y-5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                  கடை பெயர் (Shop Name)
+                  Shop Name
                 </label>
                 <input
                   required
                   type="text"
                   value={workerShopname}
                   onChange={(e) => setWorkerShopname(e.target.value)}
-                  placeholder="எ.கா: Kovai Branch"
+                  placeholder="e.g., Kovai Branch"
                   className="block w-full rounded-xl border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                  பயனர் பெயர் (Username)
+                  Username
                 </label>
                 <input
                   required
                   type="text"
                   value={workerUsername}
                   onChange={(e) => setWorkerUsername(e.target.value)}
-                  placeholder="எ.கா: worker_01"
+                  placeholder="e.g.: worker_01"
                   className="block w-full rounded-xl border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                  கடவுச்சொல் (Password)
+                  Password
                 </label>
                 <input
                   required
@@ -175,7 +175,7 @@ export default function WorkersTab() {
                     d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                   />
                 </svg>
-                உருவாக்கு (Create)
+                Create Worker
               </button>
             </form>
           </div>
@@ -185,10 +185,10 @@ export default function WorkersTab() {
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 uppercase tracking-wide">
-                <span className="text-2xl">📋</span> பணியாளர்கள் பட்டியல்
+                <span className="text-2xl">📋</span> Workers List
               </h2>
               <p className="text-xs text-slate-500 font-medium mt-1">
-                கடையின் அனைத்து பணியாளர்கள்
+                All workers in the shop
               </p>
             </div>
             <span className="bg-white border border-slate-200 text-slate-700 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm">
@@ -201,16 +201,16 @@ export default function WorkersTab() {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
-                    வ.எண்
+                    Sr. No.
                   </th>
                   <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
-                    பயனர் பெயர்
+                    Username
                   </th>
                   <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
-                    கடை பெயர்
+                    Shop Name
                   </th>
                   <th className="px-6 py-4 text-left font-extrabold text-slate-600 uppercase tracking-wider text-xs">
-                    பங்கு
+                    Role
                   </th>
                   
                 </tr>
@@ -244,11 +244,10 @@ export default function WorkersTab() {
                       <div className="flex flex-col items-center justify-center gap-3">
                         <span className="text-5xl opacity-50">📭</span>
                         <p className="text-slate-500 font-bold text-lg">
-                          பணியாளர்கள் யாரும் இல்லை
+                          Workers not found
                         </p>
                         <p className="text-slate-400 text-sm">
-                          இடதுபுறம் உள்ள படிவத்தை பயன்படுத்தி புதிய பணியாளரை
-                          உருவாக்கவும்.
+                          Use the form on the left to create a new worker.
                         </p>
                       </div>
                     </td>
@@ -277,7 +276,7 @@ export default function WorkersTab() {
                       strokeWidth="2"
                       d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
                   </svg>
-                  தரவு மேலாண்மை (Data Options)
+                  Data Options
                 </h3>
                 <button
                   onClick={() => setIsBackupMenuModalOpen(false)}
@@ -310,10 +309,10 @@ export default function WorkersTab() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-base font-bold text-slate-900 group-hover:text-rose-800">
-                        தரவை மீட்டெடு (Import)
+                        Import Data
                       </h4>
                       <p className="text-xs text-slate-500 mt-1 font-medium">
-                        பழைய காப்பு கோப்பை அமைப்பில் பதிவேற்றவும்.
+                        Upload an existing backup file to the system.
                       </p>
                     </div>
                     <div className="bg-slate-100 p-2.5 rounded-lg group-hover:bg-rose-100 text-slate-500 group-hover:text-rose-600 transition-colors">
@@ -346,9 +345,9 @@ export default function WorkersTab() {
                 </svg>
               </div>
 
-              <h2 className="text-2xl font-black text-slate-800 mb-2">தரவை மீட்டெடு (Import)</h2>
+              <h2 className="text-2xl font-black text-slate-800 mb-2">Import Data</h2>
               <p className="text-sm text-slate-500 font-medium mb-6">
-                பழைய காப்பு கோப்பை (Backup File) பதிவேற்றவும்.
+                Upload an existing backup file to the system.
               </p>
 
               <div className="w-full mb-6">
@@ -368,13 +367,13 @@ export default function WorkersTab() {
                   }}
                   className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  ரத்து (Cancel)
+                  Cancel
                 </button>
                 <button
                   onClick={handleImportData}
                   className="flex-1 px-4 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-all shadow-md active:scale-95"
                 >
-                  மீட்டெடு (Restore)
+                  Import Data
                 </button>
               </div>
             </div>
