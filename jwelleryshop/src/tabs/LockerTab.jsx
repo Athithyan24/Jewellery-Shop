@@ -80,7 +80,7 @@ export default function LockerTab() {
     try {
       await axios.put(`http://localhost:5000/api/bankDetails/${selectedItem._id}`, 
         { 
-          retrievalStatus: type,
+          retrievalStatus: type, // This sends exactly "Full" or "Partial"
           isRetrieved: finalRetrievedState,
           retrievalDetails: {
             description: retrieveDescription,
@@ -211,13 +211,13 @@ export default function LockerTab() {
                         <div className="flex flex-col items-end gap-1.5 w-full">
                           
                           {/* 1. BANK LOAN RECORD */}
-                          {item.isRetrieved ? (
-                            item.bankLoanAmount && (
+                          {item.retrievalStatus === "Full" ? (
+                            item.bankLoanAmount ? (
                               <div className="flex items-center justify-between px-2 bg-slate-100 text-slate-600 py-1 rounded border border-slate-200 w-full text-xs font-bold">
                                 <span>Bank Loan:</span>
                                 <span>₹{item.bankLoanAmount.toFixed(2)}</span>
                               </div>
-                            )
+                            ) : null
                           ) : (
                             <div className="w-full flex flex-col gap-1">
                               {item.bankLoanAmount && (
@@ -235,8 +235,8 @@ export default function LockerTab() {
                             </div>
                           )}
 
-                          {/* 2. SETTLEMENT BUTTON */}
-                          {!item.isRetrieved && (
+                          {/* 2. SETTLEMENT BUTTON (Hides when Fully Retrieved) */}
+                          {item.retrievalStatus !== "Full" && (
                             <button
                               onClick={() => { setSelectedItem(item); setSettlementAmount(""); setIsSettleModalOpen(true); }}
                               className="flex items-center justify-center gap-1 bg-blue-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-all shadow-sm w-full mb-1"
@@ -261,7 +261,7 @@ export default function LockerTab() {
                           )}
 
                           {/* 4. RETRIEVAL CONTROL ACTION BUTTON */}
-                          {item.isRetrieved ? (
+                          {item.retrievalStatus === "Full" ? (
                             <div className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-2 rounded-lg border border-emerald-300 w-full text-center mt-0.5 shadow-sm flex items-center justify-center gap-1.5">
                               <Package size={14} /> Fully Retrieved
                             </div>

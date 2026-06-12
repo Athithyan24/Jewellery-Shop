@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
+import os from "os";
 import Counter from "./models/Counter.mjs";
 
 import helmet from "helmet";
@@ -53,7 +54,9 @@ const loginLimiter = rateLimit({
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.SECRET_KEY || "jwellery@123";
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/jwelleryshop";
-const uploadPath = process.env.UPLOAD_DIR || path.join(__dirname, "uploads");
+// This creates a permanent, safe folder in your computer's main User directory
+// Example: C:\Users\YourPCName\PawnShopData\uploads
+const uploadPath = process.env.UPLOAD_DIR || path.join(os.homedir(), "PawnShopData", "uploads");
 
 if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath, { recursive: true });
@@ -254,10 +257,17 @@ const loanSchema = new mongoose.Schema({
     ref: "Customer",
     required: true,
   },
+  items: [{
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+    weight: Number,
+    stoneweight: Number,
+    goldrate: Number,
+    pawnpercentage: Number
+  }],
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",
-    required: true,
+    required: false,
   },
   weight: Number,
   stoneweight: Number,
@@ -1423,6 +1433,7 @@ app.post("/api/loans", verifyToken, async (req, res) => {
   try {
     const {
       customerId,
+      items,
       product,
       weight,
       stoneweight,
@@ -1459,11 +1470,12 @@ app.post("/api/loans", verifyToken, async (req, res) => {
     const loan = new Loan({
       loanId: generatedLoanId,
       customer: customerId,
-      product,
-      weight,
-      stoneweight,
-      goldrate,
-      pawnpercentage,
+      items: items || [], // <--- 2. SAVE THE MULTIPLE ITEMS TO THE DB
+      product: product || (items && items.length > 0 ? items[0].productId : null), // Fallback
+      weight: weight || 0,
+      stoneweight: stoneweight || 0,
+      goldrate: goldrate || 0,
+      pawnpercentage: pawnpercentage || 0,
       firstinterest,
       secondinterest,
       thirdinterest,
@@ -1473,7 +1485,7 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       secondInterestTo: secondInterestTo || 180,
       thirdInterestFrom: thirdInterestFrom || 181,
       thirdInterestTo: thirdInterestTo || 270,
-      loanamount,
+      loanamount: req.body.loanamount || 0, // Ensure loan amount is taken from frontend
       firstinterestAmount,
       secondinterestAmount,
       thirdinterestAmount,
