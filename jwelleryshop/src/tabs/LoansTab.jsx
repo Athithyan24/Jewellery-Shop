@@ -331,23 +331,46 @@ export default function LoansTab() {
                           {loan.customer?.name || "Unknown"}
                         </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-indigo-600 font-bold tracking-tight">
-                              {loan.product?.name || "Product"}
-                            </span>
-                            <div className="flex items-center gap-1 border-l-2 border-slate-200 pl-2">
-                              <span className="text-slate-600 font-mono font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-xs shadow-inner">
-                                {loan.weight}g
-                              </span>
-                              <span
-                                className="text-rose-600 font-mono font-semibold bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded text-xs shadow-sm"
-                                title="Stone Weight">
-                                {loan.stoneweight}g
-                              </span>
-                            </div>
-                          </div>
-                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+  {loan.items && loan.items.length > 0 ? (
+    <div className="flex flex-col gap-1.5">
+      {loan.items.map((item, idx) => {
+        // Read the product name from the populated object safely
+        const productName = item.productId?.name || `Item ${idx + 1}`;
+
+        return (
+          <span key={idx} className="block bg-slate-100 px-2 py-0.5 rounded text-xs text-slate-700 font-semibold w-fit">
+            {idx + 1}. {productName}
+          </span>
+        );
+      })}
+    </div>
+  ) : (
+    loan.product?.name || "Product"
+  )}
+</td>
+<td className="px-6 py-4 text-sm text-slate-500 font-bold">
+  {loan.items && loan.items.length > 0 ? (
+    <div className="flex flex-col gap-1">
+      {loan.items.map((item, idx) => (
+        <span key={idx} className="block">{item.weight}g</span>
+      ))}
+    </div>
+  ) : (
+    `${loan.weight}g`
+  )}
+</td>
+<td className="px-6 py-4 text-sm text-slate-500 font-bold">
+  {loan.items && loan.items.length > 0 ? (
+    <div className="flex flex-col gap-1">
+      {loan.items.map((item, idx) => (
+        <span key={idx} className="block text-slate-400">{item.stoneweight}g</span>
+      ))}
+    </div>
+  ) : (
+    `${loan.stoneweight}g`
+  )}
+</td>
 
                         <td className="py-4 px-4 whitespace-nowrap font-mono text-sm font-semibold text-slate-600">
                           ₹{loan.goldrate}
@@ -655,23 +678,71 @@ export default function LoansTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-dashed border-slate-200 print:border-black print:break-inside-avoid">
-                      <td className="py-4 print:py-2 px-2 font-bold text-slate-800 print:text-black">
-                        {selectedLoan.product?.name || "Gold Item"}
-                      </td>
-                      <td className="py-4 print:py-2 px-2 text-right font-semibold text-slate-600 print:text-black">
-                        {selectedLoan.weight}g
-                      </td>
-                      <td className="py-4 print:py-2 px-2 text-right font-semibold text-slate-600 print:text-black">
-                        {selectedLoan.stoneweight}g
-                      </td>
-                      <td className="py-4 print:py-2 px-2 text-right font-black text-slate-800 print:text-black bg-slate-50 print:bg-transparent">
-                        {(
-                          selectedLoan.weight - selectedLoan.stoneweight
-                        ).toFixed(2)}
-                        g
-                      </td>
-                    </tr>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-2">
+  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pledged Items Breakdown</p>
+  
+  <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+      <thead className="bg-slate-100 font-bold text-slate-600">
+        <tr>
+          <th className="px-3 py-2">Item Description</th>
+          <th className="px-3 py-2 text-right">Gross Wt</th>
+          <th className="px-3 py-2 text-right">Stone Wt</th>
+          <th className="px-3 py-2 text-right">Net Wt</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
+       {selectedLoan.items && selectedLoan.items.length > 0 ? (
+  selectedLoan.items.map((item, index) => {
+    const gw = parseFloat(item.weight) || 0;
+    const sw = parseFloat(item.stoneweight) || 0;
+    const pName = item.productId?.name || `Pledged Item ${index + 1}`;
+
+    return (
+      <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+        <td className="px-3 py-2 font-bold text-slate-900 flex items-center gap-3">
+          {/* 📷 IF PHOTO EXISTS, SHOW THUMBNAIL WITH LIGHTBOX VIEW FUNCTIONALITY */}
+          {item.image ? (
+            <div className="relative group cursor-zoom-in shrink-0">
+              <img 
+                src={item.image} 
+                alt={pName} 
+                className="h-9 w-9 object-cover rounded-md border border-slate-200 shadow-sm group-hover:scale-105 transition-transform" 
+                onClick={() => {
+                  // Open full screen in a new browser tab instantly for deep inspection
+                  const imageWindow = window.open();
+                  imageWindow.document.write(`<img src="${item.image}" style="max-width:100%; max-height:100vh; display:block; margin:auto; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15);" />`);
+                }}
+              />
+              <span className="absolute bottom-0 right-0 bg-slate-900/60 text-[8px] text-white px-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">View</span>
+            </div>
+          ) : (
+            <div className="h-9 w-9 bg-slate-100 rounded-md border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-normal shrink-0">
+              No Pic
+            </div>
+          )}
+          <span>{pName}</span>
+        </td>
+        <td className="px-3 py-2 text-right">{gw.toFixed(2)}g</td>
+        <td className="px-3 py-2 text-right text-slate-400">{sw.toFixed(2)}g</td>
+        <td className="px-3 py-2 text-right text-emerald-600 font-bold">{(gw - sw).toFixed(2)}g</td>
+      </tr>
+    );
+  })
+) : (
+          <tr>
+            <td className="px-3 py-2 font-bold text-slate-900">{selectedLoan.product?.name || "Gold Item"}</td>
+            <td className="px-3 py-2 text-right">{(parseFloat(selectedLoan.weight) || 0).toFixed(2)}g</td>
+            <td className="px-3 py-2 text-right text-slate-400">{(parseFloat(selectedLoan.stoneweight) || 0).toFixed(2)}g</td>
+            <td className="px-3 py-2 text-right text-emerald-600 font-bold">
+              {((parseFloat(selectedLoan.weight) || 0) - (parseFloat(selectedLoan.stoneweight) || 0)).toFixed(2)}g
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
                   </tbody>
                 </table>
 

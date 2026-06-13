@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Landmark, Search, Plus, ArrowRightLeft, CheckCircle, Package, HandCoins } from "lucide-react";
+import { Landmark, Search, Plus, ArrowRightLeft, CheckCircle, Package, HandCoins, X } from "lucide-react"; // 🟢 Fixed: Added 'X' icon here
 
 export default function LockerTab() {
   const [lockerItems, setLockerItems] = useState([]);
@@ -17,6 +17,9 @@ export default function LockerTab() {
   const [settlementAmount, setSettlementAmount] = useState("");
   const [retrieveDescription, setRetrieveDescription] = useState("");
   const [retrieveQuantity, setRetrieveQuantity] = useState("");
+
+  const [viewImageModalOpen, setViewImageModalOpen] = useState(false);
+  const [activeLockerItemImages, setActiveLockerItemImages] = useState([]); // Array of images
 
   const fetchCustomersLocker = async () => {
     try {
@@ -77,14 +80,24 @@ export default function LockerTab() {
     if (!retrieveDescription || !retrieveQuantity || !selectedItem) return alert("Fill all fields");
     const finalRetrievedState = type === "Full";
 
+    let updatedDescription = retrieveDescription;
+    let updatedQuantity = retrieveQuantity;
+
+    if (selectedItem.retrievalDetails?.description) {
+      updatedDescription = `${selectedItem.retrievalDetails.description} || ${retrieveDescription}`;
+    }
+    if (selectedItem.retrievalDetails?.quantity) {
+      updatedQuantity = `${selectedItem.retrievalDetails.quantity} || ${retrieveQuantity}`;
+    }
+
     try {
       await axios.put(`http://localhost:5000/api/bankDetails/${selectedItem._id}`, 
         { 
-          retrievalStatus: type, // This sends exactly "Full" or "Partial"
+          retrievalStatus: type,
           isRetrieved: finalRetrievedState,
           retrievalDetails: {
-            description: retrieveDescription,
-            quantity: retrieveQuantity
+            description: updatedDescription,
+            quantity: updatedQuantity
           }
         },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
@@ -138,6 +151,7 @@ export default function LockerTab() {
                   <th className="py-3 px-4 text-[10px] font-bold uppercase">Customer</th>
                   <th className="py-3 px-4 text-[10px] font-bold uppercase">Loan ID</th>
                   <th className="py-3 px-4 text-[10px] font-bold uppercase">Product in Locker</th>
+                  <th className="py-3 px-4 text-[10px] font-bold uppercase">Product image</th>
                   <th className="py-3 px-4 text-[10px] font-bold uppercase">Bank Info</th>
                   <th className="py-3 px-4 text-[10px] font-bold uppercase text-center">Locker No</th>
                   <th className="py-3 px-4 text-[10px] font-bold uppercase w-48">Settlement History</th>
@@ -146,8 +160,6 @@ export default function LockerTab() {
               </thead>
               <tbody className="bg-white/50 divide-y divide-slate-100">
                 {filteredLockerByLoan.map((item) => {
-                  
-                  // Calculate total settled amount
                   const totalSettled = item.bankSettlements?.reduce((sum, s) => sum + s.amount, 0) || 0;
 
                   return (
@@ -172,6 +184,26 @@ export default function LockerTab() {
                           <span className="text-[10px] text-slate-400 italic">Vault Date: {item.ledgercreationdate}</span>
                         </div>
                       </td>
+                      <td className="py-4 px-4 border-b text-center align-middle whitespace-nowrap">
+                        {item.loan?.items && item.loan.items.some(li => li.image) ? (
+                          <button
+                            onClick={() => {
+                              const extractedImages = item.loan.items
+                                .map(li => li.image)
+                                .filter(Boolean);
+                              setActiveLockerItemImages(extractedImages);
+                              setViewImageModalOpen(true);
+                            }}
+                            className="inline-flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-rose-200 shadow-xs transition-all active:scale-95"
+                          >
+                            View Images ({item.loan.items.filter(li => li.image).length})
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-medium italic bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+                            No Image
+                          </span>
+                        )}
+                      </td>
                       <td className="py-4 px-4">
                         <div className="text-xs">
                           <p className="font-bold text-slate-700">{item.bank?.name}</p>
@@ -185,7 +217,7 @@ export default function LockerTab() {
                         </span>
                       </td>
                       
-                      {/* NEW COLUMN: SETTLEMENT HISTORY */}
+                      {/* SETTLEMENT HISTORY */}
                       <td className="py-4 px-4 align-top">
                         <div className="flex flex-col gap-1 w-full text-xs">
                           {item.bankSettlements && item.bankSettlements.length > 0 ? (
@@ -209,7 +241,6 @@ export default function LockerTab() {
 
                       <td className="py-4 px-4 whitespace-nowrap text-right align-top">
                         <div className="flex flex-col items-end gap-1.5 w-full">
-                          
                           {/* 1. BANK LOAN RECORD */}
                           {item.retrievalStatus === "Full" ? (
                             item.bankLoanAmount ? (
@@ -235,7 +266,7 @@ export default function LockerTab() {
                             </div>
                           )}
 
-                          {/* 2. SETTLEMENT BUTTON (Hides when Fully Retrieved) */}
+                          {/* 2. SETTLEMENT BUTTON */}
                           {item.retrievalStatus !== "Full" && (
                             <button
                               onClick={() => { setSelectedItem(item); setSettlementAmount(""); setIsSettleModalOpen(true); }}
@@ -403,6 +434,66 @@ export default function LockerTab() {
               <p className="text-[10px] text-slate-400 text-center font-bold">
                 * Split retrieve adds to the list and keeps the button active. Full retrieve clears the locker.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Loan Item Images Viewer Modal */}
+      {viewImageModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-slate-800">Loan Item Images</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Showing all uploaded item images for this custom record</p>
+              </div>
+              <button
+                onClick={() => {
+                  setViewImageModalOpen(false);
+                  setActiveLockerItemImages([]);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Images Grid Container */}
+            <div className="p-6 overflow-y-auto grid grid-cols-2 gap-4 bg-slate-50/50">
+              {activeLockerItemImages.length > 0 ? (
+                activeLockerItemImages.map((imgStr, idx) => (
+                  <div key={idx} className="relative bg-white p-2 rounded-xl border border-slate-200 shadow-sm group">
+                    <img
+                      src={imgStr}
+                      alt={`Loan item attachment ${idx + 1}`}
+                      className="w-full h-48 object-cover rounded-lg shadow-inner border border-slate-100 transition-transform duration-200 group-hover:scale-[1.02]"
+                    />
+                    <span className="absolute bottom-4 left-4 bg-slate-900/70 text-white text-[10px] font-black px-2 py-0.5 rounded backdrop-blur-xs">
+                      Item #{idx + 1}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-2 py-12 text-center">
+                  <p className="text-sm font-bold text-slate-400 italic">No renderable asset attachment files found.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => {
+                  setViewImageModalOpen(false);
+                  setActiveLockerItemImages([]);
+                }}
+                className="px-5 py-2 bg-slate-800 text-white text-sm font-black rounded-xl hover:bg-slate-900 transition-all active:scale-95 shadow-md"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
         </div>

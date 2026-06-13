@@ -262,7 +262,8 @@ const loanSchema = new mongoose.Schema({
     weight: Number,
     stoneweight: Number,
     goldrate: Number,
-    pawnpercentage: Number
+    pawnpercentage: Number,
+    image: String
   }],
   product: {
     type: mongoose.Schema.Types.ObjectId,
@@ -694,7 +695,11 @@ app.get("/api/loans", verifyToken, async (req, res) => {
     const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const finalQuery = { ...query, isDeleted: { $ne: true } };
 
-    const loans = await Loan.find(finalQuery).populate("customer").populate("product").sort({ createdAt: -1 });
+    const loans = await Loan.find(finalQuery)
+  .populate("customer")
+  .populate("product")
+  .populate("items.productId")
+  .sort({ createdAt: -1 });
 
     const loansWithCalculations = loans.map((loan) => {
       const loanObj = loan.toObject();
@@ -774,22 +779,19 @@ app.get("/api/banks", verifyToken, async (req, res) => {
 
 app.get("/api/bankDetails", verifyToken, async (req, res) => {
   try {
-    const query =
-      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const locker = await BankDetails.find(query)
       .populate("customer", "name recentimage")
       .populate("bank", "name")
       .populate({
         path: "loan",
-        select: "product loanamount loanId",
+        select: "product loanamount loanId items",
         populate: { path: "product", select: "name" },
       });
     res.status(200).json(locker);
   } catch (error) {
     console.error("Error fetching Customers Locker: ", error);
-    res
-      .status(500)
-      .json({ message: "Failed to fetch Customer's Assigned Locker" });
+    res.status(500).json({ message: "Failed to fetch Customer's Assigned Locker" });
   }
 });
 

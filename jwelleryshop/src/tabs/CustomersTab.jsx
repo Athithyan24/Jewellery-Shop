@@ -29,7 +29,7 @@ export default function CustomersTab() {
   });
 
   const [loanItems, setLoanItems] = useState([
-    { productId: "", weight: "", stoneweight: "", goldrate: "", pawnpercentage: "" }
+    { productId: "", weight: "", stoneweight: "", goldrate: "", pawnpercentage: "", image: "" },
   ]);
 
   const handleItemChange = (index, field, value) => {
@@ -180,7 +180,7 @@ export default function CustomersTab() {
 
       setLoanModal(false);
 
-      setLoanItems([{ productId: "", weight: "", stoneweight: "", goldrate: "", pawnpercentage: "" }]);
+      setLoanItems([{ productId: "", weight: "", stoneweight: "", goldrate: "", pawnpercentage: "", image: "" }]);
 
       setLoanCalc({
         
@@ -867,9 +867,41 @@ export default function CustomersTab() {
             <input type="number" value={item.pawnpercentage} onChange={(e) => handleItemChange(index, "pawnpercentage", e.target.value)} className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500" required />
           </div>
         </div>
+        {/* Put this directly inside or immediately after your Weight / StoneWeight grid row columns */}
+<div className="col-span-2">
+  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+    Item Photo
+  </label>
+  <div className="flex items-center gap-2">
+    <input
+      type="file"
+      accept="image/*"
+      onChange={async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          try {
+            const base64Str = await fileToBase64(file);
+            handleItemChange(index, "image", base64Str);
+          } catch (err) {
+            console.error("Error converting file:", err);
+          }
+        }
+      }}
+      className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer"
+    />
+    {item.image && (
+      <img 
+        src={item.image} 
+        alt="Preview" 
+        className="h-10 w-10 object-cover rounded-lg border border-slate-200 shadow-sm"
+      />
+    )}
+  </div>
+</div>
       </div>
     ))}
   </div>
+  
 
   <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center shadow-sm">
     <p className="text-xs text-emerald-600 font-extrabold uppercase tracking-widest mb-1">Total Estimated Loan</p>
