@@ -10,6 +10,7 @@ import {
   Calendar,
   Plus,
   Mail,
+  Minus,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -17,6 +18,7 @@ export default function TransactionTab() {
   const [isBackupMenuModalOpen, setIsBackupMenuModalOpen] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
   const [dailyCashInput, setDailyCashInput] = useState("");
+  const [dailyCashReason, setDailyCashReason] = useState("");
   const [expenseName, setExpenseName] = useState("");
   const [todayStartingCash, setTodayStartingCash] = useState(0);
   const [dailyStats, setDailyStats] = useState([]);
@@ -283,7 +285,9 @@ export default function TransactionTab() {
       const token = localStorage.getItem("token");
       await axios.post(
         "http://localhost:5000/api/daily-cash",
-        { amount: dailyCashInput },
+        { amount: dailyCashInput,
+          name: dailyCashReason || "Opening Cash",
+         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setDailyCashInput("");
@@ -486,56 +490,63 @@ export default function TransactionTab() {
       <div className="p-6 overflow-x-auto animate-in fade-in duration-300">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="bg-emerald-50/70 border border-emerald-100 p-5 sm:p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-all hover:shadow-md">
-            <div className="mb-4">
-              <h3 className="text-emerald-800 font-bold flex items-center gap-2 text-lg">
-                <span className="bg-emerald-100 p-2 rounded-lg shadow-sm">
-                  <HandCoins />
-                </span>{" "}
-                Daily Cash In
-              </h3>
-              <p className="text-xs text-emerald-600 mt-1 font-medium">
-                Opening Balance
-              </p>
-            </div>
+  <div className="mb-4">
+    <h3 className="text-emerald-800 font-bold flex items-center gap-2 text-lg">
+      <span className="bg-emerald-100 p-2 rounded-lg shadow-sm">
+        <HandCoins />
+      </span>{" "}
+      Daily Cash In
+    </h3>
+    <p className="text-xs text-emerald-600 mt-1 font-medium">
+      Opening Balance Details
+    </p>
+  </div>
 
-            <form
-              onSubmit={handleAddDailyCash}
-              className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="number"
-                value={dailyCashInput}
-                onChange={(e) => setDailyCashInput(e.target.value)}
-                placeholder="தொகை (e.g., 50000)"
-                className="flex-1 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors font-bold text-emerald-900"
-              />
-              <button
-                type="submit"
-                className="group relative flex z-0 items-center w-[160px] h-[45px] bg-emerald-500 border border-emerald-600 rounded-xl overflow-hidden cursor-pointer transition-all active:scale-95 shadow-sm active:bg-emerald-800">
-                {/* The Button Text */}
-                <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0">
-                  Add
-                </span>
+  <form
+    onSubmit={handleAddDailyCash}
+    className="flex flex-col sm:flex-row gap-3">
+    <input
+      type="text"
+      placeholder="Reason (e.g., Opening Balance, Owner Cash)"
+      value={dailyCashReason}
+      onChange={(e) => setDailyCashReason(e.target.value)}
+      className="flex-1 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors text-emerald-900"
+    />
+    <input
+      type="number"
+      value={dailyCashInput}
+      onChange={(e) => setDailyCashInput(e.target.value)}
+      placeholder="Amount (₹)"
+      className="w-full sm:w-32 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors font-bold text-emerald-900"
+    />
+    <button
+      type="submit"
+      className="group relative flex z-0 items-center w-40 h-12 bg-emerald-500 border border-emerald-600 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-emerald-800">
+      {/* The Button Text */}
+      <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
+        Cash In
+      </span>
 
-                {/* The Animated Icon Container */}
-                <span className="absolute right-0 flex items-center justify-center w-[45px] h-full bg-emerald-600 transition-all duration-300 group-hover:w-full group-hover:translate-x-0">
-                  <Plus
-                    className="text-white transition-all duration-300"
-                    size={24}
-                    strokeWidth={3}
-                  />
-                </span>
-              </button>
-            </form>
+      {/* The Animated Icon Container */}
+      <span className="absolute right-0 flex items-center justify-center w-11.25 h-full bg-emerald-600 transition-all duration-300 group-hover:w-full">
+        <Plus
+          className="text-white transition-all duration-300 group-hover:scale-110"
+          size={22}
+          strokeWidth={3}
+        />
+      </span>
+    </button>
+  </form>
 
-            <div className="mt-4 pt-3 border-t border-emerald-200/60 flex justify-between items-center">
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">
-                Today's Balance:
-              </span>
-              <span className="text-lg font-black text-emerald-700">
-                ₹{todayStartingCash || 0}
-              </span>
-            </div>
-          </div>
+  <div className="mt-4 pt-3 border-t border-emerald-200/60 flex justify-between items-center">
+    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">
+      Today's Balance:
+    </span>
+    <span className="text-lg font-black text-emerald-700">
+      ₹{todayStartingCash || 0}
+    </span>
+  </div>
+</div>
 
           <div className="bg-rose-50/70 border border-rose-100 p-5 sm:p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-all hover:shadow-md">
             <div className="mb-4">
@@ -572,12 +583,12 @@ export default function TransactionTab() {
                 className="group relative flex items-center w-40 h-12 bg-rose-600 border border-rose-700 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-rose-800">
                 {/* The Button Text - Moves left slightly on hover */}
                 <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
-                  Add
+                  Cash Out
                 </span>
 
                 {/* The Animated Icon Container - Slides to cover the button */}
                 <span className="absolute right-0 flex items-center justify-center w-11.25 h-full bg-rose-700 transition-all duration-300 group-hover:w-full">
-                  <Plus
+                  <Minus
                     className="text-white transition-all duration-300 group-hover:scale-110"
                     size={22}
                     strokeWidth={3}
@@ -708,11 +719,33 @@ export default function TransactionTab() {
                         </td>
 
                         {/* Start Cash */}
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-emerald-600">
-                          {startingCash > 0
-                            ? `₹${startingCash.toFixed(2)}`
-                            : "-"}
-                        </td>
+                        <td className="py-3 px-6 text-sm font-medium text-slate-600">
+  {stat.cashDetails && stat.cashDetails.length > 0 ? (
+    <div className="flex flex-col gap-1.5">
+      {stat.cashDetails.map((cash, idx) => (
+        <div
+          key={idx}
+          className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-emerald-200 transition-colors"
+        >
+          <span className="text-slate-600 text-xs font-bold">
+            {cash.name || "Initial Cash"}
+          </span>
+          <span className="font-bold text-emerald-600 text-xs ml-3">
+            ₹{cash.amount}
+          </span>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <span className="font-bold text-emerald-600 text-sm">
+      {stat.totalAmount > 0 
+        ? `₹${stat.totalAmount.toFixed(2)}` 
+        : stat.amount > 0 
+          ? `₹${Number(stat.amount).toFixed(2)}` 
+          : "-"}
+    </span>
+  )}
+</td>
 
                         <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-indigo-600">
                           {income > 0 ? `+ ₹${income.toFixed(2)}` : "-"}

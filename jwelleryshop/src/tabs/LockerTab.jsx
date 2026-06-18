@@ -1,17 +1,26 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Landmark, Search, Plus, ArrowRightLeft, CheckCircle, Package, HandCoins, X } from "lucide-react"; // 🟢 Fixed: Added 'X' icon here
+import {
+  Landmark,
+  Search,
+  Plus,
+  ArrowRightLeft,
+  CheckCircle,
+  Package,
+  HandCoins,
+  X,
+} from "lucide-react";
 
 export default function LockerTab() {
   const [lockerItems, setLockerItems] = useState([]);
   const [loanSearchQuery, setLoanSearchQuery] = useState("");
-  
+
   // Modal Control States
   const [isBankLoanModalOpen, setIsBankLoanModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [isRetrieveModalOpen, setIsRetrieveModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  
+
   // Input Handling States
   const [bankLoanAmount, setBankLoanAmount] = useState("");
   const [settlementAmount, setSettlementAmount] = useState("");
@@ -19,7 +28,7 @@ export default function LockerTab() {
   const [retrieveQuantity, setRetrieveQuantity] = useState("");
 
   const [viewImageModalOpen, setViewImageModalOpen] = useState(false);
-  const [activeLockerItemImages, setActiveLockerItemImages] = useState([]); // Array of images
+  const [activeLockerItemImages, setActiveLockerItemImages] = useState([]);
 
   const fetchCustomersLocker = async () => {
     try {
@@ -36,19 +45,42 @@ export default function LockerTab() {
     fetchCustomersLocker();
   }, []);
 
+  // BUG FIX: Safely auto-select the first item for BOTH single products AND multiple items arrays
   useEffect(() => {
-    if (selectedItem && selectedItem.loan?.product?.name) {
-      const products = selectedItem.loan.product.name.split(',').map(p => p.trim());
-      setRetrieveDescription(products[0] || "");
+    if (selectedItem) {
+      let firstItemName = "";
+
+      if (selectedItem.loan?.items && selectedItem.loan.items.length > 0) {
+        // Handle new multiple items format
+        const rawName =
+          selectedItem.loan.items[0].productId?.name ||
+          selectedItem.loan.items[0].productId;
+        const isRawId =
+          typeof rawName === "string" && /^[0-9a-fA-F]{24}$/.test(rawName);
+        firstItemName = isRawId || !rawName ? "Item 1" : rawName;
+      } else {
+        // Handle old single product format
+        const rawProduct =
+          selectedItem.loan?.product?.name || selectedItem.loan?.product;
+        if (typeof rawProduct === "string") {
+          firstItemName = rawProduct.split(",")[0].trim();
+        }
+      }
+
+      setRetrieveDescription(firstItemName || "Gold Item");
     }
   }, [selectedItem]);
 
   const handleUpdateBankLoan = async () => {
-    if (!bankLoanAmount || !selectedItem) return alert("Please enter an amount");
+    if (!bankLoanAmount || !selectedItem)
+      return alert("Please enter an amount");
     try {
-      await axios.put(`http://localhost:5000/api/bankDetails/${selectedItem._id}`, 
+      await axios.put(
+        `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
         { bankLoanAmount: parseFloat(bankLoanAmount) },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        },
       );
       alert("Bank loan recorded successfully!");
       setIsBankLoanModalOpen(false);
@@ -59,13 +91,16 @@ export default function LockerTab() {
     }
   };
 
-  // ADD NEW SETTLEMENT ENTRY
   const handleSettleBankLoan = async () => {
-    if (!settlementAmount || !selectedItem) return alert("Please enter the settlement amount");
+    if (!settlementAmount || !selectedItem)
+      return alert("Please enter the settlement amount");
     try {
-      await axios.put(`http://localhost:5000/api/bankDetails/${selectedItem._id}`, 
+      await axios.put(
+        `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
         { bankSettlementAmount: parseFloat(settlementAmount) },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        },
       );
       alert("Settlement payment added successfully!");
       setIsSettleModalOpen(false);
@@ -77,36 +112,60 @@ export default function LockerTab() {
   };
 
   const handleRetrieveItem = async (type) => {
-    if (!retrieveDescription || !retrieveQuantity || !selectedItem) return alert("Fill all fields");
+    if (!retrieveDescription || !retrieveQuantity || !selectedItem) {
+      return alert("Fill all fields");
+    }
+
     const finalRetrievedState = type === "Full";
+
+    // 1. Generate today's formatted date string (e.g., "15 Jun 2026")
+    const currentDateStr = new Date().toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
 
     let updatedDescription = retrieveDescription;
     let updatedQuantity = retrieveQuantity;
+    let updatedDate = currentDateStr;
 
-    if (selectedItem.retrievalDetails?.description) {
-      updatedDescription = `${selectedItem.retrievalDetails.description} || ${retrieveDescription}`;
+    // 2. Concatenate with existing string history using " || " if previous data exists
+    if (selectedItem.retrievals?.description) {
+      updatedDescription = `${selectedItem.retrievals.description} || ${retrieveDescription}`;
     }
-    if (selectedItem.retrievalDetails?.quantity) {
-      updatedQuantity = `${selectedItem.retrievalDetails.quantity} || ${retrieveQuantity}`;
+    if (selectedItem.retrievals?.quantity) {
+      updatedQuantity = `${selectedItem.retrievals.quantity} || ${retrieveQuantity}`;
+    }
+    if (selectedItem.retrievals?.date) {
+      updatedDate = `${selectedItem.retrievals.date} || ${currentDateStr}`;
     }
 
     try {
-      await axios.put(`http://localhost:5000/api/bankDetails/${selectedItem._id}`, 
-        { 
-          retrievalStatus: type,
+      await axios.put(
+        `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
+        {
+          retrievalStatus:
+            type === "Partial" ? "Partially Retrieved" : "Fully Retrieved",
           isRetrieved: finalRetrievedState,
-          retrievalDetails: {
+          retrievals: {
             description: updatedDescription,
-            quantity: updatedQuantity
-          }
+            quantity: updatedQuantity,
+            date: updatedDate,
+          },
         },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        },
       );
+
       alert(`Items ${type === "Partial" ? "Partially" : "Fully"} Retrieved!`);
+
       setIsRetrieveModalOpen(false);
+      setRetrieveDescription("");
       setRetrieveQuantity("");
       fetchCustomersLocker();
     } catch (err) {
+      console.error("Retrieval error:", err);
       alert("Failed to record retrieval");
     }
   };
@@ -115,9 +174,12 @@ export default function LockerTab() {
     if (!loanSearchQuery) return true;
     const searchLower = loanSearchQuery.toLowerCase();
     return (
-      (item.loan?.loanId && item.loan.loanId.toLowerCase().includes(searchLower)) ||
-      (item.customer?.name && item.customer.name.toLowerCase().includes(searchLower)) ||
-      (item.customer?.phone && item.customer.phone.toLowerCase().includes(searchLower))
+      (item.loan?.loanId &&
+        item.loan.loanId.toLowerCase().includes(searchLower)) ||
+      (item.customer?.name &&
+        item.customer.name.toLowerCase().includes(searchLower)) ||
+      (item.customer?.phone &&
+        item.customer.phone.toLowerCase().includes(searchLower))
     );
   });
 
@@ -133,7 +195,10 @@ export default function LockerTab() {
               </h2>
             </div>
             <div className="relative w-full sm:w-96 group">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+              <Search
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"
+                size={18}
+              />
               <input
                 type="text"
                 placeholder="Search by Loan ID or Customer..."
@@ -144,164 +209,326 @@ export default function LockerTab() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
-              <thead className="bg-slate-800 text-white">
+          <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+            <table className="min-w-full divide-y divide-slate-200 text-sm text-left table-fixed">
+              <thead className="bg-slate-800 text-white selection:bg-indigo-500">
                 <tr>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase">Customer</th>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase">Loan ID</th>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase">Product in Locker</th>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase">Product image</th>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase">Bank Info</th>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase text-center">Locker No</th>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase w-48">Settlement History</th>
-                  <th className="py-3 px-4 text-[10px] font-bold uppercase text-right w-52">Bank Actions</th>
+                  <th className="w-[13%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="w-[7%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider">
+                    Loan ID
+                  </th>
+                  <th className="w-[14%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider">
+                    Product in Locker
+                  </th>
+                  <th className="w-[9%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-center">
+                    Product Image
+                  </th>
+                  <th className="w-[11%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider">
+                    Bank Info
+                  </th>
+                  <th className="w-[7%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-center">
+                    Locker No
+                  </th>
+                  <th className="w-[13%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider">
+                    Bank Loan History
+                  </th>
+                  <th className="w-[13%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider">
+                    Settlement History
+                  </th>
+                  <th className="w-[13%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider">
+                    Retrieval Details
+                  </th>
+                  <th className="w-[10%] py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-right">
+                    Bank Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="bg-white/50 divide-y divide-slate-100">
+
+              <tbody className="bg-white divide-y divide-slate-100">
                 {filteredLockerByLoan.map((item) => {
-                  const totalSettled = item.bankSettlements?.reduce((sum, s) => sum + s.amount, 0) || 0;
+                  
+                  const totalSettled =
+                    item.bankSettlements?.reduce((sum, s) => sum + s.amount, 0) || 0;
+                  
+                  const totalLoans = 
+                    item.bankLoans?.reduce((sum, l) => sum + l.amount, 0) || 0;
 
                   return (
-                    <tr key={item._id} className="hover:bg-indigo-50 transition-colors duration-200">
-                      <td className="py-4 px-4 font-black text-slate-800 uppercase flex items-center gap-3">
-                        <img
-                          src={`http://localhost:5000/uploads/${item.customer?.recentimage}`}
-                          alt="Customer"
-                          className="w-10 h-10 rounded-full object-cover border border-slate-200"
-                          onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${item.customer?.name || "User"}`; }}
-                        />
-                        {item.customer?.name}
+                    <tr
+                      key={item._id}
+                      className="hover:bg-slate-50/80 transition-colors duration-150 group"
+                    >
+                      {/* Customer info */}
+                      <td className="py-3.5 px-4 font-black text-slate-800 uppercase align-middle">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={`http://localhost:5000/uploads/${item.customer?.recentimage}`}
+                            alt="Customer"
+                            className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-xs shrink-0"
+                            onError={(e) => {
+                              e.target.src = `https://ui-avatars.com/api/?name=${item.customer?.name || "User"}&background=f1f5f9&color=475569`;
+                            }}
+                          />
+                          <span className="truncate max-w-[130px] block text-xs tracking-wide">
+                            {item.customer?.name}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-4 px-4">
-                        <span className="font-mono text-xs font-bold px-2 py-1 rounded bg-slate-100 border border-slate-200">
+
+                      {/* Loan ID */}
+                      <td className="py-3.5 px-4 align-middle">
+                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 border border-slate-200/60 text-slate-700">
                           {item.loan?.loanId || "N/A"}
                         </span>
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="flex flex-col">
-                          <span className="text-amber-700 font-bold">{item.loan?.product?.name || "Product N/A"}</span>
-                          <span className="text-[10px] text-slate-400 italic">Vault Date: {item.ledgercreationdate}</span>
+
+                      {/* Products */}
+                      <td className="py-3.5 px-4 align-middle">
+                        <div className="flex flex-col gap-1 max-w-full overflow-hidden">
+                          {item.loan?.items && item.loan.items.length > 0 ? (
+                            item.loan.items.map((loanItem, idx) => {
+                              const rawName = loanItem.productId?.name || loanItem.productId;
+                              const isRawId =
+                                typeof rawName === "string" && /^[0-9a-fA-F]{24}$/.test(rawName);
+                              const productName =
+                                isRawId || !rawName ? `Item ${idx + 1}` : rawName;
+
+                              return (
+                                <span
+                                  key={idx}
+                                  className="truncate block bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded text-[11px] text-amber-800 font-bold w-fit max-w-full"
+                                >
+                                  {idx + 1}. {productName}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-[11px] bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded text-amber-800 font-bold w-fit">
+                              {(() => {
+                                const rawSingleName = item.loan?.product?.name || item.loan?.product;
+                                const isSingleId =
+                                  typeof rawSingleName === "string" && /^[0-9a-fA-F]{24}$/.test(rawSingleName);
+                                return isSingleId || !rawSingleName ? "Product N/A" : rawSingleName;
+                              })()}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-400 font-medium italic mt-0.5 pt-0.5 border-t border-slate-100 block">
+                            Vault: {item.ledgercreationdate}
+                          </span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 border-b text-center align-middle whitespace-nowrap">
-                        {item.loan?.items && item.loan.items.some(li => li.image) ? (
+
+                      {/* Images */}
+                      <td className="py-3.5 px-4 text-center align-middle whitespace-nowrap">
+                        {item.loan?.items && item.loan.items.some((li) => li.image) ? (
                           <button
+                            type="button"
                             onClick={() => {
                               const extractedImages = item.loan.items
-                                .map(li => li.image)
+                                .map((li) => li.image)
                                 .filter(Boolean);
                               setActiveLockerItemImages(extractedImages);
                               setViewImageModalOpen(true);
                             }}
-                            className="inline-flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-rose-200 shadow-xs transition-all active:scale-95"
+                            className="inline-flex items-center justify-center bg-rose-50 hover:bg-rose-100/80 text-rose-700 font-bold text-[11px] px-2.5 py-1 rounded-lg border border-rose-200 shadow-2xs transition-all active:scale-95"
                           >
-                            View Images ({item.loan.items.filter(li => li.image).length})
+                            Images ({item.loan.items.filter((li) => li.image).length})
                           </button>
                         ) : (
-                          <span className="text-xs text-slate-400 font-medium italic bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+                          <span className="inline-block text-[10px] text-slate-400 font-semibold italic bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
                             No Image
                           </span>
                         )}
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="text-xs">
-                          <p className="font-bold text-slate-700">{item.bank?.name}</p>
-                          <p className="text-slate-500">{item.branchname}</p>
-                          <p className="text-[10px] text-indigo-600 font-bold mt-1">Staff: {item.obstaffname || "N/A"}</p>
+
+                      {/* Bank Info */}
+                      <td className="py-3.5 px-4 align-middle">
+                        <div className="text-xs leading-normal">
+                          <p className="font-bold text-slate-700 truncate">{item.bank?.name}</p>
+                          <p className="text-slate-500 truncate text-[11px]">{item.branchname}</p>
+                          <p className="text-[10px] text-indigo-600 font-bold mt-0.5 truncate">
+                            Staff: {item.obstaffname || "N/A"}
+                          </p>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-black">
+
+                      {/* Locker No */}
+                      <td className="py-3.5 px-4 text-center align-middle">
+                        <span className="inline-block bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg text-xs font-black min-w-[40px]">
                           {item.lockerno || "-"}
                         </span>
                       </td>
-                      
-                      {/* SETTLEMENT HISTORY */}
-                      <td className="py-4 px-4 align-top">
+
+                      {/* BANK LOAN HISTORY */}
+                      <td className="py-3.5 px-4 align-middle">
+  <div className="flex flex-col gap-1 w-full text-xs">
+    {/* CASE 1: If new multi-history array exists and has data */}
+    {item.bankLoans && item.bankLoans.length > 0 ? (
+      <>
+        <div className="max-h-[72px] overflow-y-auto flex flex-col gap-1 pr-0.5 custom-scrollbar">
+          {item.bankLoans.map((loanEntry, idx) => (
+            <div
+              key={idx}
+              className="flex justify-between items-center bg-emerald-50/70 text-emerald-900 px-2 py-0.5 rounded border border-emerald-100 shadow-2xs"
+            >
+              <span className="text-[9px] text-emerald-600 font-bold">
+                {loanEntry.date ? new Date(loanEntry.date).toLocaleDateString("en-GB") : "Recent"}
+              </span>
+              <span className="font-black text-[11px]">
+                ₹{Number(loanEntry.amount || 0).toFixed(0)}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
+          <span className="font-bold text-slate-400">Grand Total:</span>
+          <span className="font-black text-emerald-700 text-[11px]">
+            ₹{totalLoans.toFixed(0)}
+          </span>
+        </div>
+      </>
+    ) : /* CASE 2: Fallback for your old single-value entries */
+    item.bankLoanAmount ? (
+      <>
+        <div className="bg-emerald-50/70 text-emerald-900 px-2 py-1 rounded border border-emerald-100 shadow-2xs flex justify-between items-center">
+          <span className="text-[9px] text-emerald-600 font-bold">Initial Loan</span>
+          <span className="font-black text-[11px]">
+            ₹{Number(item.bankLoanAmount).toFixed(0)}
+          </span>
+        </div>
+        <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
+          <span className="font-bold text-slate-400">Grand Total:</span>
+          <span className="font-black text-emerald-700 text-[11px]">
+            ₹{Number(item.bankLoanAmount).toFixed(0)}
+          </span>
+        </div>
+      </>
+    ) : (
+      /* CASE 3: No values are saved anywhere */
+      <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
+        No loans issued
+      </span>
+    )}
+  </div>
+</td>
+
+                      {/* Settlement History */}
+                      <td className="py-3.5 px-4 align-middle">
                         <div className="flex flex-col gap-1 w-full text-xs">
                           {item.bankSettlements && item.bankSettlements.length > 0 ? (
                             <>
-                              {item.bankSettlements.map((settle, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-blue-50 text-blue-800 px-2 py-1 rounded border border-blue-100 shadow-sm">
-                                  <span className="text-[9px] text-blue-600 font-bold">{new Date(settle.date).toLocaleDateString('en-GB')}</span>
-                                  <span className="font-black">₹{settle.amount.toFixed(2)}</span>
-                                </div>
-                              ))}
-                              <div className="mt-1 pt-1 border-t border-slate-200 flex justify-between items-center text-[11px]">
-                                <span className="font-bold text-slate-500">Total Paid:</span>
-                                <span className="font-black text-emerald-600">₹{totalSettled.toFixed(2)}</span>
+                              <div className="max-h-[72px] overflow-y-auto flex flex-col gap-1 pr-0.5 custom-scrollbar">
+                                {item.bankSettlements.map((settle, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex justify-between items-center bg-blue-50/70 text-blue-900 px-2 py-0.5 rounded border border-blue-100 shadow-2xs"
+                                  >
+                                    <span className="text-[9px] text-blue-600 font-bold">
+                                      {new Date(settle.date).toLocaleDateString("en-GB")}
+                                    </span>
+                                    <span className="font-black text-[11px]">
+                                      ₹{settle.amount.toFixed(0)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
+                                <span className="font-bold text-slate-400">Paid:</span>
+                                <span className="font-black text-blue-600 text-[11px]">
+                                  ₹{totalSettled.toFixed(0)}
+                                </span>
                               </div>
                             </>
                           ) : (
-                            <span className="text-[10px] text-slate-400 italic text-center py-2 bg-slate-50 rounded border border-slate-100">No settlements yet</span>
+                            <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
+                              No settlements
+                            </span>
                           )}
                         </div>
                       </td>
 
-                      <td className="py-4 px-4 whitespace-nowrap text-right align-top">
-                        <div className="flex flex-col items-end gap-1.5 w-full">
-                          {/* 1. BANK LOAN RECORD */}
-                          {item.retrievalStatus === "Full" ? (
-                            item.bankLoanAmount ? (
-                              <div className="flex items-center justify-between px-2 bg-slate-100 text-slate-600 py-1 rounded border border-slate-200 w-full text-xs font-bold">
-                                <span>Bank Loan:</span>
-                                <span>₹{item.bankLoanAmount.toFixed(2)}</span>
-                              </div>
-                            ) : null
-                          ) : (
-                            <div className="w-full flex flex-col gap-1">
-                              {item.bankLoanAmount && (
-                                <div className="flex items-center justify-between px-2 bg-emerald-50 text-emerald-700 py-1 rounded border border-emerald-200 w-full text-xs font-black">
-                                  <span>Bank Loan:</span>
-                                  <span>₹{item.bankLoanAmount.toFixed(2)}</span>
+                      {/* Retrieval Details */}
+                      <td className="py-3.5 px-4 align-middle">
+                        <div className="flex flex-col gap-1 w-full max-h-[95px] overflow-y-auto pr-0.5 custom-scrollbar">
+                          {item.retrievals?.description ? (
+                            item.retrievals.description.split(" || ").map((desc, idx) => {
+                              const qty = item.retrievals.quantity?.split(" || ")[idx] || "";
+                              const date = item.retrievals.date?.split(" || ")[idx] || "";
+                              return (
+                                <div
+                                  key={idx}
+                                  className="text-[10px] text-orange-800 font-bold bg-orange-50/70 px-2 py-1 rounded border border-orange-200/70 flex justify-between items-center shadow-2xs gap-1"
+                                >
+                                  <span className="truncate max-w-[55px]">✔ {desc}</span>
+                                  <div className="flex gap-0.5 shrink-0">
+                                    <span className="text-[9px] bg-white px-1 py-0.5 rounded text-orange-600 border border-orange-100 font-medium">
+                                      {qty}
+                                    </span>
+                                    <span className="text-[9px] bg-white px-1 py-0.5 rounded text-orange-600 border border-orange-100 font-medium">
+                                      {date}
+                                    </span>
+                                  </div>
                                 </div>
-                              )}
-                              <button
-                                onClick={() => { setSelectedItem(item); setBankLoanAmount(item.bankLoanAmount || ""); setIsBankLoanModalOpen(true); }}
-                                className="flex items-center justify-center gap-1 bg-indigo-600 text-white px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition-all shadow-sm w-full"
-                              >
-                                <Plus size={12} strokeWidth={3} /> {item.bankLoanAmount ? "Update Bank Loan" : "Add Bank Loan"}
-                              </button>
-                            </div>
+                              );
+                            })
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
+                              No items retrieved
+                            </span>
                           )}
+                        </div>
+                      </td>
 
-                          {/* 2. SETTLEMENT BUTTON */}
+                      {/* Bank Actions */}
+                      <td className="py-3.5 px-4 align-middle">
+                        <div className="flex flex-col items-end gap-1 w-full">
                           {item.retrievalStatus !== "Full" && (
                             <button
-                              onClick={() => { setSelectedItem(item); setSettlementAmount(""); setIsSettleModalOpen(true); }}
-                              className="flex items-center justify-center gap-1 bg-blue-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-all shadow-sm w-full mb-1"
+                              type="button"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setBankLoanAmount("");
+                                setIsBankLoanModalOpen(true);
+                              }}
+                              className="flex items-center justify-center gap-1 bg-indigo-600 text-white px-2 py-1 rounded border border-indigo-700 text-[10px] font-bold hover:bg-indigo-700/90 transition-all shadow-xs w-full"
                             >
-                              <HandCoins size={12} strokeWidth={3} /> Add Settlement
+                              <Plus size={10} strokeWidth={3} /> Add Bank Loan
                             </button>
                           )}
 
-                          {/* 3. RETRIEVAL HISTORY LIST */}
-                          {item.retrievalDetails?.description && (
-                            <div className="flex flex-col gap-1 w-full mt-0.5">
-                              {item.retrievalDetails.description.split(" || ").map((desc, idx) => {
-                                const qty = item.retrievalDetails.quantity?.split(" || ")[idx] || "";
-                                return (
-                                  <div key={idx} className="text-[10px] text-orange-700 font-bold bg-orange-50 px-2 py-1 rounded border border-orange-200 flex justify-between items-center shadow-sm">
-                                    <span>✔ {desc}</span>
-                                    <span className="text-[9px] bg-white px-1.5 py-0.5 rounded text-orange-600">{qty}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                          {item.retrievalStatus !== "Fully Retrieved" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setSettlementAmount("");
+                                setIsSettleModalOpen(true);
+                              }}
+                              className="flex items-center justify-center gap-1 bg-blue-600 text-white px-2 py-1 rounded border border-blue-700 text-[10px] font-bold hover:bg-blue-700/90 transition-all shadow-xs w-full"
+                            >
+                              <HandCoins size={11} strokeWidth={3} /> Settlement
+                            </button>
                           )}
 
-                          {/* 4. RETRIEVAL CONTROL ACTION BUTTON */}
-                          {item.retrievalStatus === "Full" ? (
-                            <div className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-2 rounded-lg border border-emerald-300 w-full text-center mt-0.5 shadow-sm flex items-center justify-center gap-1.5">
-                              <Package size={14} /> Fully Retrieved
+                          {item.retrievalStatus === "Fully Retrieved" ? (
+                            <div className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-1.5 rounded border border-emerald-200 w-full text-center shadow-2xs flex items-center justify-center gap-1">
+                              <Package size={12} strokeWidth={2.5} /> Done
                             </div>
                           ) : (
                             <button
-                              onClick={() => { setSelectedItem(item); setIsRetrieveModalOpen(true); }}
-                              className="flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all w-full shadow-sm mt-0.5"
+                              type="button"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setIsRetrieveModalOpen(true);
+                              }}
+                              className="flex items-center justify-center gap-1 bg-slate-100 text-slate-700 border border-slate-300 px-2 py-1.5 rounded text-[10px] font-bold hover:bg-slate-200 transition-all w-full shadow-2xs"
                             >
-                              <ArrowRightLeft size={14} /> {item.retrievalStatus === "Partial" ? "Retrieve Remaining" : "Retrieve from Bank"}
+                              <ArrowRightLeft size={11} strokeWidth={2.5} />
+                              <span className="truncate">
+                                {item.retrievalStatus === "Partially Retrieved" ? "Remaining" : "Retrieve"}
+                              </span>
                             </button>
                           )}
                         </div>
@@ -320,11 +547,19 @@ export default function LockerTab() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
-              <h3 className="font-black flex items-center gap-2"><Landmark size={18}/> Bank Loan Amount</h3>
-              <button onClick={() => setIsBankLoanModalOpen(false)} className="text-2xl hover:rotate-90 transition-transform">×</button>
+              <h3 className="font-black flex items-center gap-2">
+                <Landmark size={18} /> Bank Loan Amount
+              </h3>
+              <button
+                onClick={() => setIsBankLoanModalOpen(false)}
+                className="text-2xl hover:rotate-90 transition-transform">
+                ×
+              </button>
             </div>
             <div className="p-6">
-              <p className="text-xs text-slate-500 font-bold mb-4">Enter the loan amount provided by the bank for this product.</p>
+              <p className="text-xs text-slate-500 font-bold mb-4">
+                Enter the loan amount provided by the bank for this product.
+              </p>
               <input
                 type="number"
                 placeholder="Amount (₹)"
@@ -335,8 +570,7 @@ export default function LockerTab() {
               />
               <button
                 onClick={handleUpdateBankLoan}
-                className="w-full mt-6 bg-indigo-600 text-white font-black py-3 rounded-xl hover:bg-indigo-700 shadow-lg active:scale-95 transition-all"
-              >
+                className="w-full mt-6 bg-indigo-600 text-white font-black py-3 rounded-xl hover:bg-indigo-700 shadow-lg active:scale-95 transition-all">
                 Save Bank Loan
               </button>
             </div>
@@ -349,15 +583,27 @@ export default function LockerTab() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-blue-600 p-4 text-white flex justify-between items-center">
-              <h3 className="font-black flex items-center gap-2"><HandCoins size={18}/> Add Settlement</h3>
-              <button onClick={() => setIsSettleModalOpen(false)} className="text-2xl hover:rotate-90 transition-transform">×</button>
+              <h3 className="font-black flex items-center gap-2">
+                <HandCoins size={18} /> Add Settlement
+              </h3>
+              <button
+                onClick={() => setIsSettleModalOpen(false)}
+                className="text-2xl hover:rotate-90 transition-transform">
+                ×
+              </button>
             </div>
             <div className="p-6">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4 flex justify-between items-center">
-                <span className="text-xs font-bold text-blue-800">Bank Loan:</span>
-                <span className="text-sm font-black text-blue-900">₹{selectedItem?.bankLoanAmount?.toFixed(2) || "0.00"}</span>
+                <span className="text-xs font-bold text-blue-800">
+                  Latest Loan Input:
+                </span>
+                <span className="text-sm font-black text-blue-900">
+                  ₹{selectedItem?.bankLoanAmount?.toFixed(2) || "0.00"}
+                </span>
               </div>
-              <p className="text-xs text-slate-500 font-bold mb-4">Enter the installment or settlement amount paid to the bank today.</p>
+              <p className="text-xs text-slate-500 font-bold mb-4">
+                Enter the installment or settlement amount paid to the bank today.
+              </p>
               <input
                 type="number"
                 placeholder="Payment Amount (₹)"
@@ -368,8 +614,7 @@ export default function LockerTab() {
               />
               <button
                 onClick={handleSettleBankLoan}
-                className="w-full mt-6 bg-blue-600 text-white font-black py-3 rounded-xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all"
-              >
+                className="w-full mt-6 bg-blue-600 text-white font-black py-3 rounded-xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all">
                 Add Payment
               </button>
             </div>
@@ -382,31 +627,89 @@ export default function LockerTab() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-slate-800 p-4 text-white flex justify-between items-center">
-              <h3 className="font-black flex items-center gap-2"><Package size={18}/> Record Retrieval</h3>
-              <button onClick={() => setIsRetrieveModalOpen(false)} className="text-2xl hover:rotate-90 transition-transform">×</button>
+              <h3 className="font-black flex items-center gap-2">
+                <Package size={18} /> Record Retrieval
+              </h3>
+              <button
+                onClick={() => setIsRetrieveModalOpen(false)}
+                className="text-2xl hover:rotate-90 transition-transform">
+                ×
+              </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-2">
-                <p className="text-xs font-bold text-blue-800">Products currently in this Loan:</p>
-                <p className="text-sm font-black text-blue-900">{selectedItem?.loan?.product?.name}</p>
+                <p className="text-xs font-bold text-blue-800">
+                  Products currently in this Loan:
+                </p>
+                <div className="flex flex-col gap-1 mt-1">
+                  {selectedItem?.loan?.items &&
+                  selectedItem.loan.items.length > 0 ? (
+                    selectedItem.loan.items.map((li, idx) => {
+                      const rawName = li.productId?.name || li.productId;
+                      const isRawId =
+                        typeof rawName === "string" &&
+                        /^[0-9a-fA-F]{24}$/.test(rawName);
+                      return (
+                        <span
+                          key={idx}
+                          className="text-sm font-black text-blue-900">
+                          {isRawId || !rawName ? `Item ${idx + 1}` : rawName}
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="text-sm font-black text-blue-900">
+                      {typeof selectedItem?.loan?.product === "string"
+                        ? selectedItem.loan.product
+                        : selectedItem?.loan?.product?.name || "Product"}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Select Item to Retrieve</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">
+                  Select Item to Retrieve
+                </label>
                 <select
                   value={retrieveDescription}
                   onChange={(e) => setRetrieveDescription(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 font-bold text-slate-800 focus:border-slate-800 transition-all outline-none appearance-none cursor-pointer"
-                >
-                  {selectedItem?.loan?.product?.name?.split(',').map((prod, idx) => (
-                    <option key={idx} value={prod.trim()}>{prod.trim()}</option>
-                  ))}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 font-bold text-slate-800 focus:border-slate-800 transition-all outline-none appearance-none cursor-pointer">
+                  {selectedItem?.loan?.items &&
+                  selectedItem.loan.items.length > 0
+                    ? selectedItem.loan.items.map((li, idx) => {
+                        const rawName = li.productId?.name || li.productId;
+                        const isRawId =
+                          typeof rawName === "string" &&
+                          /^[0-9a-fA-F]{24}$/.test(rawName);
+                        const pName =
+                          isRawId || !rawName ? `Item ${idx + 1}` : rawName;
+                        return (
+                          <option key={idx} value={pName}>
+                            {pName}
+                          </option>
+                        );
+                      })
+                    : (
+                        selectedItem?.loan?.product?.name ||
+                        selectedItem?.loan?.product ||
+                        ""
+                      )
+                        .toString()
+                        .split(",")
+                        .map((prod, idx) => (
+                          <option key={idx} value={prod.trim()}>
+                            {prod.trim()}
+                          </option>
+                        ))}
                 </select>
               </div>
-              
+
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Quantity Retrieved</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">
+                  Quantity Retrieved
+                </label>
                 <input
                   type="text"
                   placeholder="e.g., 2 Nos, 24 Grams"
@@ -419,15 +722,13 @@ export default function LockerTab() {
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => handleRetrieveItem("Partial")}
-                  className="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl hover:bg-orange-600 shadow-md active:scale-95 transition-all flex justify-center items-center gap-2 text-sm"
-                >
+                  className="flex-1 bg-orange-500 text-white font-black py-3 rounded-xl hover:bg-orange-600 shadow-md active:scale-95 transition-all flex justify-center items-center gap-2 text-sm">
                   <ArrowRightLeft size={16} /> Split Retrieve
                 </button>
 
                 <button
                   onClick={() => handleRetrieveItem("Full")}
-                  className="flex-1 bg-emerald-600 text-white font-black py-3 rounded-xl hover:bg-emerald-700 shadow-md active:scale-95 transition-all flex justify-center items-center gap-2 text-sm"
-                >
+                  className="flex-1 bg-emerald-600 text-white font-black py-3 rounded-xl hover:bg-emerald-700 shadow-md active:scale-95 transition-all flex justify-center items-center gap-2 text-sm">
                   <Package size={16} /> Full Retrieve
                 </button>
               </div>
@@ -443,29 +744,31 @@ export default function LockerTab() {
       {viewImageModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] overflow-hidden">
-            
-            {/* Modal Header */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-black text-slate-800">Loan Item Images</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">Showing all uploaded item images for this custom record</p>
+                <h3 className="text-lg font-black text-slate-800">
+                  Loan Item Images
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Showing all uploaded item images for this custom record
+                </p>
               </div>
               <button
                 onClick={() => {
                   setViewImageModalOpen(false);
                   setActiveLockerItemImages([]);
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"
-              >
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all">
                 <X size={20} />
               </button>
             </div>
 
-            {/* Modal Images Grid Container */}
             <div className="p-6 overflow-y-auto grid grid-cols-2 gap-4 bg-slate-50/50">
               {activeLockerItemImages.length > 0 ? (
                 activeLockerItemImages.map((imgStr, idx) => (
-                  <div key={idx} className="relative bg-white p-2 rounded-xl border border-slate-200 shadow-sm group">
+                  <div
+                    key={idx}
+                    className="relative bg-white p-2 rounded-xl border border-slate-200 shadow-sm group">
                     <img
                       src={imgStr}
                       alt={`Loan item attachment ${idx + 1}`}
@@ -478,20 +781,20 @@ export default function LockerTab() {
                 ))
               ) : (
                 <div className="col-span-2 py-12 text-center">
-                  <p className="text-sm font-bold text-slate-400 italic">No renderable asset attachment files found.</p>
+                  <p className="text-sm font-bold text-slate-400 italic">
+                    No renderable asset attachment files found.
+                  </p>
                 </div>
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
               <button
                 onClick={() => {
                   setViewImageModalOpen(false);
                   setActiveLockerItemImages([]);
                 }}
-                className="px-5 py-2 bg-slate-800 text-white text-sm font-black rounded-xl hover:bg-slate-900 transition-all active:scale-95 shadow-md"
-              >
+                className="px-5 py-2 bg-slate-800 text-white text-sm font-black rounded-xl hover:bg-slate-900 transition-all active:scale-95 shadow-md">
                 Close Preview
               </button>
             </div>

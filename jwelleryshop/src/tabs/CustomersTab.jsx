@@ -20,12 +20,12 @@ export default function CustomersTab() {
     firstinterest: "",
     secondinterest: "",
     thirdinterest: "",
-    firstInterestTo: "",
-    firstInterestFrom: "",
-    secondInterestFrom: "",
-    secondInterestTo: "",
-    thirdInterestFrom: "",
-    thirdInterestTo: "",
+    firstInterestTo: 90,
+    firstInterestFrom: 1,
+    secondInterestFrom: 91,
+    secondInterestTo: 180,
+    thirdInterestFrom: 181,
+    thirdInterestTo: 270,
   });
 
   const [loanItems, setLoanItems] = useState([

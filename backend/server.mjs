@@ -375,14 +375,20 @@ const bankDetailsSchema = new mongoose.Schema({
       date: { type: Date, default: Date.now }
     }
   ],
+  bankLoans: [
+  {
+    amount: { type: Number, required: true },
+    date: { type: Date, default: Date.now }
+  }
+],
   retrievalStatus: { type: String, default: "None" }, // "None", "Partial", "Full"
-  retrievals: [
-    {
-      description: { type: String },
-      quantity: { type: String },
-      date: { type: Date, default: Date.now }
-    }
-  ],
+  retrievals: {
+    type: mongoose.Schema.Types.Mixed, // Flexible field to store retrieval details as an object
+    description: { type: String, default: "" },
+    quantity: { type: String, default: "" },
+    date: { type: String, default: "" },
+    default: {},
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -414,10 +420,20 @@ const ShopProfile = mongoose.model("ShopProfile", shopProfileSchema);
 
 const dailyCashSchema = new mongoose.Schema({
   date: { type: String, required: true },
-  amount: { type: Number, required: true, default: 0 },
+  // 1. Array added to store every single daily cash item entry's reason & amount
+  cashDetails: [
+    {
+      name: { type: String, required: true },
+      amount: { type: Number, required: true }
+    }
+  ],
+  // 2. Holds the total compiled sum of cash for the day
+  totalAmount: { type: Number, required: true, default: 0 },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 });
+
 dailyCashSchema.index({ date: 1, userId: 1 }, { unique: true });
+
 const DailyCash = mongoose.model("DailyCash", dailyCashSchema);
 
 const addMonths = (dateString, months) => {
@@ -559,7 +575,10 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
           income: 0,
           expenses: 0,
           expenseDetails: [],
+          // 1. Initialize the new variables so frontend reads them cleanly
           startingCash: 0,
+          cashDetails: [],
+          totalAmount: 0
         };
       }
     };
@@ -580,9 +599,15 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       statsMap[item._id].expenseDetails = item.expenseDetails;
     });
 
+    // 2. Updated loop to handle the new schema array structure safely
     dailyCash.forEach((item) => {
       initMapEntry(item.date);
-      statsMap[item.date].startingCash = item.amount;
+      // Map the array elements and running total balance to the row mapping element
+      statsMap[item.date].cashDetails = item.cashDetails || [];
+      statsMap[item.date].totalAmount = item.totalAmount || 0;
+      
+      // Backward compatibility backup: if old document records have 'amount' instead
+      statsMap[item.date].startingCash = item.totalAmount || item.amount || 0;
     });
 
     const statsArray = Object.values(statsMap).sort(
@@ -786,7 +811,10 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
       .populate({
         path: "loan",
         select: "product loanamount loanId items",
-        populate: { path: "product", select: "name" },
+        populate: [
+          { path: "product", select: "name" },          
+          { path: "items.productId", select: "name" }   
+        ]
       });
     res.status(200).json(locker);
   } catch (error) {
@@ -802,58 +830,75 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
 app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { bankLoanAmount, bankSettlementAmount, isRetrieved, retrievalStatus, retrievalDetails } = req.body;
+    const { bankLoanAmount, bankSettlementAmount, isRetrieved, retrievalStatus, retrievals } = req.body;
 
-    const bankDetail = await mongoose.model("BankDetails").findById(id);
+    // 1. Build the dynamic update fields map ($set)
+    const updateFields = {};
+
+    if (retrievalStatus !== undefined) {
+      updateFields.retrievalStatus = retrievalStatus;
+    }
+
+    if (isRetrieved !== undefined) {
+      updateFields.isRetrieved = isRetrieved;
+    }
+
+    if (retrievals) {
+      updateFields.retrievals = {
+        description: retrievals.description || "",
+        quantity: retrievals.quantity || "",
+        date: retrievals.date || "",
+      };
+    }
+
+    // Assemble the baseline query with $set configuration
+    const updateQuery = { $set: updateFields };
+
+    // 2. Initialize $push container for array changes if either array field updates
+    const pushFields = {};
+
+    // Push new loan details to history array AND update the flat field simultaneously
+    if (bankLoanAmount !== undefined && bankLoanAmount !== "") {
+      const parsedLoan = Number(bankLoanAmount);
+      updateFields.bankLoanAmount = parsedLoan; // Keep single reference field updated
+      pushFields.bankLoans = {
+        amount: parsedLoan,
+        date: new Date()
+      };
+    }
+
+    // Push new settlement values to history array
+    if (bankSettlementAmount !== undefined && bankSettlementAmount !== "") {
+      pushFields.bankSettlements = {
+        amount: Number(bankSettlementAmount),
+        date: new Date()
+      };
+    }
+
+    // Bind $push modifications safely if keys are present
+    if (Object.keys(pushFields).length > 0) {
+      updateQuery.$push = pushFields;
+    }
+
+    // 3. Direct execution updates database
+    const bankDetail = await BankDetails.findByIdAndUpdate(
+      id,
+      updateQuery,
+      { new: true, runValidators: true }
+    );
 
     if (!bankDetail) {
       return res.status(404).json({ message: "Locker record not found" });
     }
 
-    if (bankLoanAmount !== undefined) {
-      bankDetail.bankLoanAmount = bankLoanAmount;
-    }
-
-    // 👇 PUSH NEW SETTLEMENT INTO HISTORY ARRAY 👇
-    if (bankSettlementAmount !== undefined) {
-      if (!bankDetail.bankSettlements) {
-        bankDetail.bankSettlements = [];
-      }
-      bankDetail.bankSettlements.push({
-        amount: bankSettlementAmount,
-        date: new Date()
-      });
-    }
-
-    if (retrievalStatus !== undefined) {
-      bankDetail.retrievalStatus = retrievalStatus;
-    }
-
-    if (isRetrieved !== undefined) {
-      bankDetail.isRetrieved = isRetrieved;
-    }
-
-    if (retrievalDetails) {
-      if (bankDetail.retrievalDetails && bankDetail.retrievalDetails.description) {
-        bankDetail.retrievalDetails.description = bankDetail.retrievalDetails.description + " || " + retrievalDetails.description;
-        bankDetail.retrievalDetails.quantity = bankDetail.retrievalDetails.quantity + " || " + retrievalDetails.quantity;
-        bankDetail.retrievalDetails.date = new Date();
-      } else {
-        bankDetail.retrievalDetails = {
-          description: retrievalDetails.description,
-          quantity: retrievalDetails.quantity,
-          date: new Date()
-        };
-      }
-    }
-
-    await bankDetail.save();
-
     res.status(200).json({ message: "Locker details updated successfully", bankDetail });
     
   } catch (error) {
     console.error("Error updating bank locker details:", error);
-    res.status(500).json({ message: "Failed to update locker details", error });
+    res.status(500).json({ 
+      message: "Failed to update locker details", 
+      error: error.message || error 
+    });
   }
 });
 
@@ -1238,13 +1283,22 @@ app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (re
 
 app.post("/api/daily-cash", verifyToken, async (req, res) => {
   try {
-    const { amount } = req.body;
-    const today = new Date().toLocaleDateString('en-CA'); 
-    
+    const { amount, name } = req.body;
+    const today = new Date().toLocaleDateString('en-CA'); // Matches your original formatting ("YYYY-MM-DD")
+
+    // Validation to ensure both input parameters are passed safely
+    if (!name || !amount) {
+      return res.status(400).json({ message: "Reason and Amount are required!" });
+    }
+
     const dailyCash = await DailyCash.findOneAndUpdate(
       { date: today, userId: req.user.id }, 
       { 
-        $inc: { amount: Number(amount) },
+        // 1. Push the descriptive item itemization object to the array 
+        $push: { cashDetails: { name: name, amount: Number(amount) } },
+        // 2. Increment the ongoing day's absolute cumulative balance summary
+        $inc: { totalAmount: Number(amount) },
+        // On creation of the row, explicitly map user assignment ownership
         $setOnInsert: { userId: req.user.id } 
       }, 
       { new: true, upsert: true }

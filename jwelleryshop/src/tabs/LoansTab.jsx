@@ -81,7 +81,8 @@ export default function LoansTab() {
     } catch (error) {
       console.error("Server says:", error.response?.data);
       alert(
-        "❌ Error: " + (error.response?.data?.message || "Failed to save bank details"),
+        "❌ Error: " +
+          (error.response?.data?.message || "Failed to save bank details"),
       );
     }
   };
@@ -121,8 +122,7 @@ export default function LoansTab() {
   };
 
   const confirmDeleteLoan = async () => {
-    if (!deletePasswordInput)
-      return alert("Enter password");
+    if (!deletePasswordInput) return alert("Enter password");
 
     try {
       const token = localStorage.getItem("token");
@@ -256,277 +256,299 @@ export default function LoansTab() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
-              <thead className="bg-slate-800 sticky top-0 z-10 shadow-md">
-                <tr>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    Loan ID
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    Product
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    Gold Price
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
-                    Collateral%
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    Loan Amount
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider">
-                    Action
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
-                    Status
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
-                    Interest / Interest Status
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
-                    Remaining Amount
-                  </th>
-                  <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
-                    Delete
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white/50 divide-y divide-slate-100">
-                {filteredLoans && filteredLoans.length > 0 ? (
-                  filteredLoans.map((loan) => {
-                    const activePendingInterest = loan.pendingInterest || 0;
-                    const currentBalance = loan.currentBalance || 0;
-                    const interestPaid = loan.interestPaid || 0;
+          <div className="overflow-x-auto w-full">
+  <table className="min-w-full divide-y divide-slate-200 text-sm text-left border-collapse">
+    <thead className="bg-slate-800 sticky top-0 z-10 shadow-md">
+      <tr>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-left">
+          Date
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-left">
+          Loan ID
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-left">
+          Customer
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-left">
+          Product
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-left">
+          Gold Price
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
+          Collateral%
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-left">
+          Loan Amount
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
+          Action
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
+          Status
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
+          Interest / Interest Status
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-right">
+          Remaining Amount
+        </th>
+        <th className="py-3 px-4 text-xs font-bold text-white uppercase tracking-wider text-center">
+          Delete
+        </th>
+      </tr>
+    </thead>
+    <tbody className="bg-white/50 divide-y divide-slate-100">
+      {filteredLoans && filteredLoans.length > 0 ? (
+        filteredLoans.map((loan) => {
+          const activePendingInterest = loan.pendingInterest || 0;
+          const currentBalance = loan.currentBalance || 0;
+          const interestPaid = loan.interestPaid || 0;
 
-                    return (
-                      <tr
-                        key={loan._id}
-                        className="hover:bg-indigo-50 transition-colors duration-200 group border-b border-slate-100/50">
-                        <td className="py-4 px-4 whitespace-nowrap text-xs font-semibold text-slate-500">
-                          {loan.paymentDate || loan.createdAt
-                            ? new Date(
-                                loan.paymentDate || loan.createdAt,
-                              ).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "No Date"}
-                        </td>
+          return (
+            <tr
+              key={loan._id}
+              className="hover:bg-indigo-50 transition-colors duration-200 group border-b border-slate-100/50"
+            >
+              {/* 1. Date -> aligned left */}
+              <td className="py-4 px-4 whitespace-nowrap text-xs font-semibold text-slate-500 text-left">
+                {loan.paymentDate || loan.createdAt
+                  ? new Date(
+                      loan.paymentDate || loan.createdAt
+                    ).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "No Date"}
+              </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          <span className="font-mono text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-700 group-hover:bg-white transition-all">
-                            {loan.loanId || "Unknown"}
-                          </span>
-                        </td>
+              {/* 2. Loan ID -> aligned left */}
+              <td className="py-4 px-4 whitespace-nowrap text-left">
+                <span className="font-mono text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 shadow-sm group-hover:border-indigo-200 group-hover:text-indigo-700 group-hover:bg-white transition-all">
+                  {loan.loanId || "Unknown"}
+                </span>
+              </td>
 
-                        <td className="py-4 px-4 whitespace-nowrap font-black text-slate-800 uppercase tracking-wide">
-                          {loan.customer?.name || "Unknown"}
-                        </td>
+              {/* 3. Customer -> aligned left */}
+              <td className="py-4 px-4 whitespace-nowrap font-black text-slate-800 uppercase tracking-wide text-left">
+                {loan.customer?.name || "Unknown"}
+              </td>
 
-                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
-  {loan.items && loan.items.length > 0 ? (
-    <div className="flex flex-col gap-1.5">
-      {loan.items.map((item, idx) => {
-        // Read the product name from the populated object safely
-        const productName = item.productId?.name || `Item ${idx + 1}`;
-
-        return (
-          <span key={idx} className="block bg-slate-100 px-2 py-0.5 rounded text-xs text-slate-700 font-semibold w-fit">
-            {idx + 1}. {productName}
-          </span>
-        );
-      })}
-    </div>
-  ) : (
-    loan.product?.name || "Product"
-  )}
-</td>
-<td className="px-6 py-4 text-sm text-slate-500 font-bold">
-  {loan.items && loan.items.length > 0 ? (
-    <div className="flex flex-col gap-1">
-      {loan.items.map((item, idx) => (
-        <span key={idx} className="block">{item.weight}g</span>
-      ))}
-    </div>
-  ) : (
-    `${loan.weight}g`
-  )}
-</td>
-<td className="px-6 py-4 text-sm text-slate-500 font-bold">
-  {loan.items && loan.items.length > 0 ? (
-    <div className="flex flex-col gap-1">
-      {loan.items.map((item, idx) => (
-        <span key={idx} className="block text-slate-400">{item.stoneweight}g</span>
-      ))}
-    </div>
-  ) : (
-    `${loan.stoneweight}g`
-  )}
-</td>
-
-                        <td className="py-4 px-4 whitespace-nowrap font-mono text-sm font-semibold text-slate-600">
-                          ₹{loan.goldrate}
-                        </td>
-
-                        <td className="py-4 px-4 whitespace-nowrap text-center">
-                          <span className="bg-slate-800 text-white px-2.5 py-1 rounded-md text-xs font-black shadow-sm">
-                            {loan.pawnpercentage}%
-                          </span>
-                        </td>
-
-                        <td className="py-4 px-4 whitespace-nowrap font-black text-emerald-600 text-base">
-                          ₹{loan.loanamount?.toFixed(2)}
-                        </td>
-
-                        <td className="py-4 px-4 whitespace-nowrap">
-                          {loan.isClosed ? (
-                            <div className="relative inline-flex">
-                              <button
-                                onClick={() => {
-                                  setSelectedLoan(loan);
-                                  setReceiptModal(true);
-                                }}
-                                className="bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 py-2 px-5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 duration-200">
-                                Receipt
-                              </button>
-                              <span className="absolute -top-2.5 -right-2 z-10 border border-emerald-400 bg-emerald-100/95 backdrop-blur-sm text-emerald-700 font-black text-[9px] uppercase tracking-widest py-0.5 px-2 rounded-md shadow-sm pointer-events-none">
-                                PAID
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col gap-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedLoan(loan);
-                                  setPayLoanModal(true);
-                                }}
-                                className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-rose-600/20 hover:-translate-y-0.5 active:scale-95">
-                                Pay Loan
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedLoan(loan);
-                                  setReceiptModal(true);
-                                }}
-                                className="bg-slate-100 hover:bg-indigo-600 text-slate-600 hover:text-white border border-slate-200 hover:border-indigo-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-indigo-600/20 hover:-translate-y-0.5 active:scale-95">
-                                Receipt
-                              </button>
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-4 whitespace-nowrap text-center">
-                          {!loan.isBanked ? (
-                            <div
-                              onClick={() => {
-                                setSelectedLoanForBank(loan);
-                                setIsBankModalOpen(true);
-                              }}
-                              className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-white hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 hover:border-indigo-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95"
-                              title="Add to Owner's Bank">
-                              <img src={upi} alt="UPI" className="w-7 h-7" />
-                            </div>
-                          ) : (
-                            <div className="inline-flex items-center justify-center rounded-xl ">
-                              <img
-                                src={ver}
-                                alt="Verified"
-                                className="w-15 h-15 drop-shadow-sm"
-                              />
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-4 whitespace-nowrap text-right">
-                          {loan.isClosed ||
-                          (interestPaid > 0 && activePendingInterest <= 0) ? (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm uppercase tracking-widest">
-                              ✓ Paid
-                            </span>
-                          ) : (
-                            <span className="text-rose-600 font-mono font-bold bg-rose-50 px-2.5 py-1 rounded-md border border-rose-100 text-xs shadow-sm">
-                              + ₹{activePendingInterest.toFixed(2)}
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-4 whitespace-nowrap font-black text-emerald-700 bg-emerald-50/40 text-right font-mono text-base border-l border-emerald-100/50">
-                          ₹
-                          {loan.isClosed || currentBalance <= 0
-                            ? "0.00"
-                            : currentBalance.toFixed(2)}
-                        </td>
-
-                        <td className="py-4 px-4 whitespace-nowrap text-center">
-                          <button
-  onClick={() => {
-    setLoanToDelete(loan);
-    setDeleteLoanModal(true);
-  }}
-  className="group relative flex h-12 w-12 flex-col items-center justify-center overflow-hidden rounded-full bg-[#141414] border-none cursor-pointer transition-all duration-300 shadow-lg hover:bg-rose-600 active:scale-90 shrink-0"
-  title="Delete"
->
-  {/* 1. The "Paper" SVG - Hidden at top, drops on hover */}
-  <svg
-    viewBox="0 0 1.625 1.625"
-    className="absolute -top-7 fill-white delay-100 transition-all duration-500 group-hover:top-3 group-hover:animate-[spin_1.4s_linear_infinite]"
-    height="12"
-    width="12"
-  >
-    <path d="M.471 1.024v-.52a.1.1 0 0 0-.098.098v.618c0 .054.044.098.098.098h.487a.1.1 0 0 0 .098-.099h-.39c-.107 0-.195 0-.195-.195" />
-    <path d="M1.219.601h-.163A.1.1 0 0 1 .959.504V.341A.033.033 0 0 0 .926.309h-.26a.1.1 0 0 0-.098.098v.618c0 .054.044.098.098.098h.487a.1.1 0 0 0 .098-.099v-.39a.033.033 0 0 0-.032-.033" />
-    <path d="m1.245.465-.15-.15a.02.02 0 0 0-.016-.006.023.023 0 0 0-.023.022v.108c0 .036.029.065.065.065h.107a.023.023 0 0 0 .023-.023.02.02 0 0 0-.007-.016" />
-  </svg>
-
-  {/* 2. The Trash Lid - Flips open */}
-  <svg
-    width="16"
-    fill="none"
-    viewBox="0 0 39 7"
-    className="origin-right duration-500 transition-transform group-hover:rotate-90 group-hover:translate-x-1 group-hover:translate-y-2 z-10"
-  >
-    <line strokeWidth="4" stroke="white" y2="5" x2="39" y1="5" />
-    <line strokeWidth="3" stroke="white" y2="1.5" x2="26.0357" y1="1.5" x1="12" />
-  </svg>
-
-  {/* 3. The Trash Body */}
-  <svg width="16" fill="none" viewBox="0 0 33 39" className="transition-all duration-300">
-    <mask fill="white" id="bin-mask-fixed">
-      <path d="M0 0H33V35C33 37.2091 31.2091 39 29 39H4C1.79086 39 0 37.2091 0 35V0Z" />
-    </mask>
-    <path
-      mask="url(#bin-mask-fixed)"
-      fill="white"
-      d="M0 0H33H0ZM37 35C37 39.4183 33.4183 43 29 43H4C-0.418278 43 -4 39.4183 -4 35H4H29H37ZM4 43C-0.418278 43 -4 39.4183 -4 35V0H4V35V43ZM37 0V35C37 39.4183 33.4183 43 29 43V35V0H37Z"
-    />
-    <path strokeWidth="4" stroke="white" d="M12 6L12 29" />
-    <path strokeWidth="4" stroke="white" d="M21 6V29" />
-  </svg>
-</button>
-                        </td>
-                      </tr>
-                    );
-                  })
+              {/* 4. Product Name List -> aligned left */}
+              <td className="py-4 px-4 text-sm font-medium text-slate-900 text-left">
+                {loan.items && loan.items.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    {loan.items.map((item, idx) => {
+                      const productName =
+                        item.productId?.name || `Item ${idx + 1}`;
+                      return (
+                        <span
+                          key={idx}
+                          className="block bg-slate-100 px-2 py-0.5 rounded text-xs text-slate-700 font-semibold w-fit"
+                        >
+                          {idx + 1}. {productName} ({item.weight}g
+                          {item.stoneweight ? ` / Stone: ${item.stoneweight}g` : ""})
+                        </span>
+                      );
+                    })}
+                  </div>
                 ) : (
-                  <tr>
-                    <td
-                      colSpan="12"
-                      className="text-center py-12 text-slate-500">
-                      No loans found
-                    </td>
-                  </tr>
+                  <span>
+                    {loan.product?.name || "Product"} ({loan.weight}g
+                    {loan.stoneweight ? ` / Stone: ${loan.stoneweight}g` : ""})
+                  </span>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </td>
+
+              {/* 5. Gold Price Rate -> aligned left */}
+              <td className="py-4 px-4 whitespace-nowrap font-mono text-sm font-semibold text-slate-600 text-left">
+                ₹{loan.goldrate}
+              </td>
+
+              {/* 6. Collateral% -> aligned center */}
+              <td className="py-4 px-4 whitespace-nowrap text-center">
+                <span className="bg-slate-800 text-white px-2.5 py-1 rounded-md text-xs font-black shadow-sm">
+                  {loan.pawnpercentage}%
+                </span>
+              </td>
+
+              {/* 7. Loan Amount -> aligned left */}
+              <td className="py-4 px-4 whitespace-nowrap font-black text-emerald-600 text-base text-left">
+                ₹{loan.loanamount?.toFixed(2)}
+              </td>
+
+              {/* 8. Action -> aligned center */}
+              <td className="py-4 px-4 whitespace-nowrap text-center">
+                {loan.isClosed ? (
+                  <div className="relative inline-flex mx-auto">
+                    <button
+                      onClick={() => {
+                        setSelectedLoan(loan);
+                        setReceiptModal(true);
+                      }}
+                      className="bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 py-2 px-5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 duration-200"
+                    >
+                      Receipt
+                    </button>
+                    <span className="absolute -top-2.5 -right-2 z-10 border border-emerald-400 bg-emerald-100/95 backdrop-blur-sm text-emerald-700 font-black text-[9px] uppercase tracking-widest py-0.5 px-2 rounded-md shadow-sm pointer-events-none">
+                      PAID
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 items-center justify-center">
+                    <button
+                      onClick={() => {
+                        setSelectedLoan(loan);
+                        setPayLoanModal(true);
+                      }}
+                      className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-rose-600/20 hover:-translate-y-0.5 active:scale-95 w-24"
+                    >
+                      Pay Loan
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedLoan(loan);
+                        setReceiptModal(true);
+                      }}
+                      className="bg-slate-100 hover:bg-indigo-600 text-slate-600 hover:text-white border border-slate-200 hover:border-indigo-600 py-1.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-indigo-600/20 hover:-translate-y-0.5 active:scale-95 w-24"
+                    >
+                      Receipt
+                    </button>
+                  </div>
+                )}
+              </td>
+
+              {/* 9. Status (Bank verification image) -> aligned center */}
+              <td className="py-4 px-4 whitespace-nowrap text-center">
+                {!loan.isBanked ? (
+                  <div
+                    onClick={() => {
+                      setSelectedLoanForBank(loan);
+                      setIsBankModalOpen(true);
+                    }}
+                    className="cursor-pointer inline-flex items-center justify-center p-1.5 bg-white hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 hover:border-indigo-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95"
+                    title="Add to Owner's Bank"
+                  >
+                    <img src={upi} alt="UPI" className="w-7 h-7" />
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center justify-center rounded-xl">
+                    <img
+                      src={ver}
+                      alt="Verified"
+                      className="w-15 h-15 drop-shadow-sm mx-auto"
+                    />
+                  </div>
+                )}
+              </td>
+
+              {/* 10. Interest / Interest Status -> aligned right */}
+              <td className="py-4 px-4 whitespace-nowrap text-right">
+                {loan.isClosed ||
+                (interestPaid > 0 && activePendingInterest <= 0) ? (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm uppercase tracking-widest">
+                    ✓ Paid
+                  </span>
+                ) : (
+                  <span className="text-rose-600 font-mono font-bold bg-rose-50 px-2.5 py-1 rounded-md border border-rose-100 text-xs shadow-sm">
+                    + ₹{activePendingInterest.toFixed(2)}
+                  </span>
+                )}
+              </td>
+
+              {/* 11. Remaining Amount -> aligned right */}
+              <td className="py-4 px-4 whitespace-nowrap font-black text-emerald-700 bg-emerald-50/40 text-right font-mono text-base border-l border-emerald-100/50">
+                ₹
+                {loan.isClosed || currentBalance <= 0
+                  ? "0.00"
+                  : currentBalance.toFixed(2)}
+              </td>
+
+              {/* 12. Delete -> aligned center */}
+              <td className="py-4 px-4 whitespace-nowrap text-center">
+                <div className="flex justify-center items-center">
+                  <button
+                    onClick={() => {
+                      setLoanToDelete(loan);
+                      setDeleteLoanModal(true);
+                    }}
+                    className="group relative flex h-12 w-12 flex-col items-center justify-center overflow-hidden rounded-full bg-[#141414] border-none cursor-pointer transition-all duration-300 shadow-lg hover:bg-rose-600 active:scale-90 shrink-0 mx-auto"
+                    title="Delete"
+                  >
+                    {/* SVG Paper */}
+                    <svg
+                      viewBox="0 0 1.625 1.625"
+                      className="absolute -top-7 fill-white delay-100 transition-all duration-500 group-hover:top-3 group-hover:animate-[spin_1.4s_linear_infinite]"
+                      height="12"
+                      width="12"
+                    >
+                      <path d="M.471 1.024v-.52a.1.1 0 0 0-.098.098v.618c0 .054.044.098.098.098h.487a.1.1 0 0 0 .098-.099h-.39c-.107 0-.195 0-.195-.195" />
+                      <path d="M1.219.601h-.163A.1.1 0 0 1 .959.504V.341A.033.033 0 0 0 .926.309h-.26a.1.1 0 0 0-.098.098v.618c0 .054.044.098.098.098h.487a.1.1 0 0 0 .098-.099v-.39a.033.033 0 0 0-.032-.033" />
+                      <path d="m1.245.465-.15-.15a.02.02 0 0 0-.016-.006.023.023 0 0 0-.023.022v.108c0 .036.029.065.065.065h.107a.023.023 0 0 0 .023-.023.02.02 0 0 0-.007-.016" />
+                    </svg>
+
+                    {/* Trash Lid */}
+                    <svg
+                      width="16"
+                      fill="none"
+                      viewBox="0 0 39 7"
+                      className="origin-right duration-500 transition-transform group-hover:rotate-90 group-hover:translate-x-1 group-hover:translate-y-2 z-10"
+                    >
+                      <line
+                        strokeWidth="4"
+                        stroke="white"
+                        y2="5"
+                        x2="39"
+                        y1="5"
+                      />
+                      <line
+                        strokeWidth="3"
+                        stroke="white"
+                        y2="1.5"
+                        x2="26.0357"
+                        y1="1.5"
+                        x1="12"
+                      />
+                    </svg>
+
+                    {/* Trash Body */}
+                    <svg
+                      width="16"
+                      fill="none"
+                      viewBox="0 0 33 39"
+                      className="transition-all duration-300"
+                    >
+                      <mask fill="white" id="bin-mask-fixed">
+                        <path d="M0 0H33V35C33 37.2091 31.2091 39 29 39H4C1.79086 39 0 37.2091 0 35V0Z" />
+                      </mask>
+                      <path
+                        mask="url(#bin-mask-fixed)"
+                        fill="white"
+                        d="M0 0H33H0ZM37 35C37 39.4183 33.4183 43 29 43H4C-0.418278 43 -4 39.4183 -4 35H4H29H37ZM4 43C-0.418278 43 -4 39.4183 -4 35V0H4V35V43ZM37 0V35C37 39.4183 33.4183 43 29 43V35V0H37Z"
+                      />
+                      <path strokeWidth="4" stroke="white" d="M12 6L12 29" />
+                      <path strokeWidth="4" stroke="white" d="M21 6V29" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          );
+        })
+      ) : (
+        <tr>
+          <td
+            colSpan="12"
+            className="text-center py-12 text-slate-500 font-medium"
+          >
+            No loans found
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
         </div>
       </div>
 
@@ -679,70 +701,103 @@ export default function LoansTab() {
                   </thead>
                   <tbody>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-2">
-  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pledged Items Breakdown</p>
-  
-  <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-    <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
-      <thead className="bg-slate-100 font-bold text-slate-600">
-        <tr>
-          <th className="px-3 py-2">Item Description</th>
-          <th className="px-3 py-2 text-right">Gross Wt</th>
-          <th className="px-3 py-2 text-right">Stone Wt</th>
-          <th className="px-3 py-2 text-right">Net Wt</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
-       {selectedLoan.items && selectedLoan.items.length > 0 ? (
-  selectedLoan.items.map((item, index) => {
-    const gw = parseFloat(item.weight) || 0;
-    const sw = parseFloat(item.stoneweight) || 0;
-    const pName = item.productId?.name || `Pledged Item ${index + 1}`;
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        Pledged Items Breakdown
+                      </p>
 
-    return (
-      <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-        <td className="px-3 py-2 font-bold text-slate-900 flex items-center gap-3">
-          {/* 📷 IF PHOTO EXISTS, SHOW THUMBNAIL WITH LIGHTBOX VIEW FUNCTIONALITY */}
-          {item.image ? (
-            <div className="relative group cursor-zoom-in shrink-0">
-              <img 
-                src={item.image} 
-                alt={pName} 
-                className="h-9 w-9 object-cover rounded-md border border-slate-200 shadow-sm group-hover:scale-105 transition-transform" 
-                onClick={() => {
-                  // Open full screen in a new browser tab instantly for deep inspection
-                  const imageWindow = window.open();
-                  imageWindow.document.write(`<img src="${item.image}" style="max-width:100%; max-height:100vh; display:block; margin:auto; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15);" />`);
-                }}
-              />
-              <span className="absolute bottom-0 right-0 bg-slate-900/60 text-[8px] text-white px-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">View</span>
-            </div>
-          ) : (
-            <div className="h-9 w-9 bg-slate-100 rounded-md border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-normal shrink-0">
-              No Pic
-            </div>
-          )}
-          <span>{pName}</span>
-        </td>
-        <td className="px-3 py-2 text-right">{gw.toFixed(2)}g</td>
-        <td className="px-3 py-2 text-right text-slate-400">{sw.toFixed(2)}g</td>
-        <td className="px-3 py-2 text-right text-emerald-600 font-bold">{(gw - sw).toFixed(2)}g</td>
-      </tr>
-    );
-  })
-) : (
-          <tr>
-            <td className="px-3 py-2 font-bold text-slate-900">{selectedLoan.product?.name || "Gold Item"}</td>
-            <td className="px-3 py-2 text-right">{(parseFloat(selectedLoan.weight) || 0).toFixed(2)}g</td>
-            <td className="px-3 py-2 text-right text-slate-400">{(parseFloat(selectedLoan.stoneweight) || 0).toFixed(2)}g</td>
-            <td className="px-3 py-2 text-right text-emerald-600 font-bold">
-              {((parseFloat(selectedLoan.weight) || 0) - (parseFloat(selectedLoan.stoneweight) || 0)).toFixed(2)}g
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
+                      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                        <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                          <thead className="bg-slate-100 font-bold text-slate-600">
+                            <tr>
+                              <th className="px-3 py-2">Item Description</th>
+                              <th className="px-3 py-2 text-right">Gross Wt</th>
+                              <th className="px-3 py-2 text-right">Stone Wt</th>
+                              <th className="px-3 py-2 text-right">Net Wt</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
+                            {selectedLoan.items &&
+                            selectedLoan.items.length > 0 ? (
+                              selectedLoan.items.map((item, index) => {
+                                const gw = parseFloat(item.weight) || 0;
+                                const sw = parseFloat(item.stoneweight) || 0;
+                                const pName =
+                                  item.productId?.name ||
+                                  `Pledged Item ${index + 1}`;
+
+                                return (
+                                  <tr
+                                    key={index}
+                                    className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-3 py-2 font-bold text-slate-900 flex items-center gap-3">
+                                      {/* 📷 IF PHOTO EXISTS, SHOW THUMBNAIL WITH LIGHTBOX VIEW FUNCTIONALITY */}
+                                      {item.image ? (
+                                        <div className="relative group cursor-zoom-in shrink-0">
+                                          <img
+                                            src={item.image}
+                                            alt={pName}
+                                            className="h-9 w-9 object-cover rounded-md border border-slate-200 shadow-sm group-hover:scale-105 transition-transform"
+                                            onClick={() => {
+                                              // Open full screen in a new browser tab instantly for deep inspection
+                                              const imageWindow = window.open();
+                                              imageWindow.document.write(
+                                                `<img src="${item.image}" style="max-width:100%; max-height:100vh; display:block; margin:auto; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15);" />`,
+                                              );
+                                            }}
+                                          />
+                                          <span className="absolute bottom-0 right-0 bg-slate-900/60 text-[8px] text-white px-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                            View
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="h-9 w-9 bg-slate-100 rounded-md border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-normal shrink-0">
+                                          No Pic
+                                        </div>
+                                      )}
+                                      <span>{pName}</span>
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                      {gw.toFixed(2)}g
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-slate-400">
+                                      {sw.toFixed(2)}g
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-emerald-600 font-bold">
+                                      {(gw - sw).toFixed(2)}g
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            ) : (
+                              <tr>
+                                <td className="px-3 py-2 font-bold text-slate-900">
+                                  {selectedLoan.product?.name || "Gold Item"}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                  {(
+                                    parseFloat(selectedLoan.weight) || 0
+                                  ).toFixed(2)}
+                                  g
+                                </td>
+                                <td className="px-3 py-2 text-right text-slate-400">
+                                  {(
+                                    parseFloat(selectedLoan.stoneweight) || 0
+                                  ).toFixed(2)}
+                                  g
+                                </td>
+                                <td className="px-3 py-2 text-right text-emerald-600 font-bold">
+                                  {(
+                                    (parseFloat(selectedLoan.weight) || 0) -
+                                    (parseFloat(selectedLoan.stoneweight) || 0)
+                                  ).toFixed(2)}
+                                  g
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </tbody>
                 </table>
 
@@ -859,9 +914,9 @@ export default function LoansTab() {
                   <span className="font-bold text-slate-500 print:text-black">
                     Disclaimer:
                   </span>{" "}
-                  1. You must bring this receipt when coming to redeem the pledged item. 
-                  2. If the interest or principal is not paid within the specified time limit, 
-                  the item will be auctioned.
+                  1. You must bring this receipt when coming to redeem the
+                  pledged item. 2. If the interest or principal is not paid
+                  within the specified time limit, the item will be auctioned.
                 </div>
 
                 <div className="mt-16 print:mt-6 flex justify-between text-center text-sm font-bold text-slate-400 print:text-black pb-4 print:pb-0 print:break-inside-avoid">
@@ -994,12 +1049,8 @@ export default function LoansTab() {
                       <option value="" disabled>
                         Select Pay Type
                       </option>
-                      <option value="Full Pay">
-                        Full Pay (Auto Calc)
-                      </option>
-                      <option value="Initial Pay">
-                        Partial Pay
-                      </option>
+                      <option value="Full Pay">Full Pay (Auto Calc)</option>
+                      <option value="Initial Pay">Partial Pay</option>
                     </select>
                   </div>
 
@@ -1229,7 +1280,7 @@ export default function LoansTab() {
                 Delete Loan!
               </h2>
               <p className="text-sm font-medium text-slate-500 mb-6 leading-relaxed">
-                Enter the owner's 
+                Enter the owner's
                 <br />
                 <span className="font-bold text-rose-600">
                   secret password
