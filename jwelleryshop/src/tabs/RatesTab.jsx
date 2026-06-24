@@ -115,7 +115,7 @@ export default function RatesTab() {
               <tbody className="bg-white/50 divide-y divide-slate-100">
                 {filteredLoans && filteredLoans.length > 0 ? (
                   filteredLoans.map((loan) => {
-                    const createdDate = new Date(loan.createdAt);
+                    const createdDate = new Date(loan.loanDAte);
                     const today = new Date();
                     const diffDays = Math.ceil(
                       Math.abs(today - createdDate) / (1000 * 60 * 60 * 24),
@@ -158,7 +158,7 @@ export default function RatesTab() {
 
                         {/* 4. Date */}
                         <td className="py-4 px-4 whitespace-nowrap text-xs font-semibold text-slate-500">
-                          {new Date(loan.createdAt).toLocaleDateString(
+                          {new Date(loan.loanDate).toLocaleDateString(
                             "en-IN",
                             {
                               day: "2-digit",
@@ -183,8 +183,8 @@ export default function RatesTab() {
                                 ₹{loan.interestBreakdown?.tier1Gross || 0}
                               </span>
                               <div className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">
-                                {formatTierDate(loan.createdAt, 0)} -{" "}
-                                {formatTierDate(loan.createdAt, t1End)}
+                                {formatTierDate(loan.loanDate, 0)} -{" "}
+                                {formatTierDate(loan.loanDate, t1End)}
                               </div>
                             </div>
                           ) : (
@@ -206,8 +206,8 @@ export default function RatesTab() {
                                 </span>
                               )}
                               <div className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">
-                                {formatTierDate(loan.createdAt, t1End + 1)} -{" "}
-                                {formatTierDate(loan.createdAt, t2End)}
+                                {formatTierDate(loan.loanDate, t1End + 1)} -{" "}
+                                {formatTierDate(loan.loanDate, t2End)}
                               </div>
                             </div>
                           ) : (
@@ -229,8 +229,8 @@ export default function RatesTab() {
                                 </span>
                               )}
                               <div className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">
-                                {formatTierDate(loan.createdAt, t2End + 1)} -{" "}
-                                {formatTierDate(loan.createdAt, t3End)}
+                                {formatTierDate(loan.loanDate, t2End + 1)} -{" "}
+                                {formatTierDate(loan.loanDate, t3End)}
                               </div>
                             </div>
                           ) : (

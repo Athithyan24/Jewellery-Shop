@@ -312,9 +312,9 @@ export default function LoansTab() {
             >
               {/* 1. Date -> aligned left */}
               <td className="py-4 px-4 whitespace-nowrap text-xs font-semibold text-slate-500 text-left">
-                {loan.paymentDate || loan.createdAt
+                {loan.paymentDate || loan.loanDate
                   ? new Date(
-                      loan.paymentDate || loan.createdAt
+                      loan.paymentDate || loan.loanDate
                     ).toLocaleDateString("en-IN", {
                       day: "2-digit",
                       month: "short",
@@ -612,7 +612,7 @@ export default function LoansTab() {
                       Date
                     </p>
                     <p className="text-lg print:text-base font-black text-slate-800 print:text-black">
-                      {new Date(selectedLoan.createdAt).toLocaleDateString(
+                      {new Date(selectedLoan.loanDate).toLocaleDateString(
                         "en-IN",
                         {
                           day: "2-digit",

@@ -11,10 +11,14 @@ export default function CustomersTab() {
   const [LoanModal, setLoanModal] = useState(false);
   const [products, setProducts] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [selectedLoanDate, setSelectedLoanDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [loanCalc, setLoanCalc] = useState({
     weight: "",
     stoneweight: "",
     goldrate: "",
+    loanamount: "",
     pawnpercentage: "",
     interestRate: "",
     firstinterest: "",
@@ -29,8 +33,19 @@ export default function CustomersTab() {
   });
 
   const [loanItems, setLoanItems] = useState([
-    { productId: "", weight: "", stoneweight: "", goldrate: "", pawnpercentage: "", image: "" },
+    {
+      productId: "",
+      weight: "",
+      stoneweight: "",
+      goldrate: "",
+      pawnpercentage: "",
+      image: "",
+    },
   ]);
+
+  const [loanDate, setLoanDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   const handleItemChange = (index, field, value) => {
     const updated = [...loanItems];
@@ -98,9 +113,7 @@ export default function CustomersTab() {
       isSynced: false,
     });
 
-    alert(
-      "✅ Customer's details Saved Offline",
-    );
+    alert("✅ Customer's details Saved Offline");
 
     e.target.reset();
 
@@ -124,38 +137,58 @@ export default function CustomersTab() {
   let totalGrossWeight = 0;
   let totalStoneWeight = 0;
   let totalNetWeight = 0;
-  let estimatedAmount = 0;
+  let totalGoldValue = 0;
+  let totalManualLoanAmount = 0;
 
-  loanItems.forEach(item => {
+  loanItems.forEach((item) => {
     const w = parseFloat(item.weight) || 0;
     const sw = parseFloat(item.stoneweight) || 0;
     const nw = Math.max(0, w - sw);
-    const ea = (nw * (parseFloat(item.goldrate) || 0) * (parseFloat(item.pawnpercentage) || 0)) / 100;
-    
+    const itemGoldRate =
+      parseFloat(item.goldrate) || parseFloat(loanCalc.goldrate) || 0;
+    const itemGoldValue = nw * itemGoldRate;
+
+    const itemLoan = parseFloat(item.manualLoanAmount);
+
     totalGrossWeight += w;
     totalStoneWeight += sw;
     totalNetWeight += nw;
-    estimatedAmount += ea;
+    totalGoldValue += itemGoldValue;
+    totalManualLoanAmount += itemLoan;
   });
 
+  const autoCalculatedPercentage =
+    totalGoldValue > 0
+      ? ((totalManualLoanAmount / totalGoldValue) * 100).toFixed(2)
+      : "0.00";
 
+  let estimatedAmount = totalManualLoanAmount;
 
   const handleLoanSubmit = async (e) => {
     e.preventDefault();
     try {
       const finalFirstInterest = parseFloat(e.target.firstinterest.value) || 0;
-      const finalSecondInterest = parseFloat(e.target.secondinterest.value) || 0;
+      const finalSecondInterest =
+        parseFloat(e.target.secondinterest.value) || 0;
       const finalThirdInterest = parseFloat(e.target.thirdinterest.value) || 0;
 
       const payload = {
         customerId: selectedCustomer._id,
-        items:loanItems,
-        product: loanItems[0].productId, // For backward compatibility, set main product as the first item's product
+        items: loanItems.map((item) => ({
+          ...item,
+          productId: item.productId === "" ? null : item.productId,
+          weight: Number(item.weight) || 0,
+          stoneweight: Number(item.stoneweight) || 0,
+          goldrate: Number(item.goldrate) || 0,
+          pawnpercentage: Number(item.pawnpercentage) || 0,
+        })),
+        product: loanItems[0].productId === "" ? null : loanItems[0].productId,
         weight: totalGrossWeight,
         stoneweight: totalStoneWeight,
         goldrate: loanItems[0].goldrate,
         pawnpercentage: loanItems[0].pawnpercentage,
-        loanamount:estimatedAmount,
+        loanamount: estimatedAmount,
+        loanDate: selectedLoanDate,
         firstinterest: e.target.firstinterest.value,
         secondinterest: e.target.secondinterest.value,
         thirdinterest: e.target.thirdinterest.value,
@@ -180,10 +213,20 @@ export default function CustomersTab() {
 
       setLoanModal(false);
 
-      setLoanItems([{ productId: "", weight: "", stoneweight: "", goldrate: "", pawnpercentage: "", image: "" }]);
+      setLoanItems([
+        {
+          productId: "",
+          weight: "",
+          stoneweight: "",
+          goldrate: "",
+          pawnpercentage: "",
+          image: "",
+        },
+      ]);
+
+      setLoanDate(new Date().toISOString().split("T")[0]);
 
       setLoanCalc({
-        
         interestRate: "",
         firstinterest: "",
         secondinterest: "",
@@ -264,6 +307,7 @@ export default function CustomersTab() {
         formData.append("address", customer.address);
         formData.append("aadhar", customer.aadhar);
         formData.append("phone", customer.phone);
+        formData.append("date", loanDate);
 
         if (customer.recentimage) {
           const recentFile = dataURLtoFile(
@@ -299,9 +343,7 @@ export default function CustomersTab() {
         }
       }
 
-      alert(
-        "🎉 All data synced successfully! (Sync Complete!)",
-      );
+      alert("🎉 All data synced successfully! (Sync Complete!)");
 
       fetchOfflineCustomers();
       fetchCustomers();
@@ -635,8 +677,8 @@ export default function CustomersTab() {
               <div className="flex flex-wrap flex-1 shrink gap-5 items-center self-stretch my-auto basis-0 min-w-[240px]">
                 <div className="flex relative flex-col justify-center self-stretch bg-gray-100 h-[70px] min-h-[70px] rounded-[16px] overflow-hidden w-[70px]">
                   <div className="flex items-center justify-center bg-violet-100 h-[70px] min-h-[70px] rounded-[16px] w-[70px] text-violet-600">
-            <Users size={32} strokeWidth={2.5} />
-          </div>
+                    <Users size={32} strokeWidth={2.5} />
+                  </div>
                 </div>
                 <div className="flex flex-col self-stretch my-auto">
                   <div className="text-xl font-bold text-gray-800">
@@ -647,12 +689,11 @@ export default function CustomersTab() {
                   </div>
                 </div>
               </div>
-              <button 
-          onClick={() => setCustomerModal(false)}
-          className="text-slate-400 hover:text-rose-500 transition-colors p-2 rounded-xl hover:bg-rose-50"
-        >
-          <X size={24} />
-        </button>
+              <button
+                onClick={() => setCustomerModal(false)}
+                className="text-slate-400 hover:text-rose-500 transition-colors p-2 rounded-xl hover:bg-rose-50">
+                <X size={24} />
+              </button>
             </div>
 
             <form onSubmit={saveCustomerOffline}>
@@ -759,7 +800,8 @@ export default function CustomersTab() {
               <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-8">
                 <p className="text-[11px] md:text-xs text-amber-700 font-medium flex items-center gap-2">
                   <span className="text-lg">⚡</span>
-                  You can save data even without an internet connection. Sync it once you are online.
+                  You can save data even without an internet connection. Sync it
+                  once you are online.
                 </p>
               </div>
 
@@ -817,102 +859,280 @@ export default function CustomersTab() {
                 id="loan-form"
                 onSubmit={handleLoanSubmit}
                 className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* 🟢 ALIGNED SECTION HEADER: Loan Issuance Date (Spans full width cleanly) */}
+                <div className="lg:col-span-12 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                      Loan Registration Info
+                    </h4>
+                    <p className="text-[11px] text-slate-400 font-medium mt-1">
+                      * Leave as today unless entering a historical loan record
+                      from the past days.
+                    </p>
+                  </div>
+                  <div className="w-full sm:w-64">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                      Loan Issuance Date{" "}
+                      <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedLoanDate}
+                      max={new Date().toISOString().split("T")[0]} // Blocks selecting future dates
+                      onChange={(e) => setSelectedLoanDate(e.target.value)}
+                      className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-inner"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* LEFT SIDE COLUMN: Pawn Items (5 Columns) */}
                 <div className="lg:col-span-5 space-y-4">
-  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-    <h4 className="text-sm font-black text-slate-800 uppercase">Pawn Items</h4>
-    <button
-      type="button"
-      onClick={() => setLoanItems([...loanItems, { productId: "", weight: "", stoneweight: "", goldrate: loanItems[0]?.goldrate || "", pawnpercentage: loanItems[0]?.pawnpercentage || "" }])}
-      className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-emerald-700 shadow-sm flex items-center gap-1"
-    >
-      <Plus size={14} strokeWidth={3} /> Add Item
-    </button>
-  </div>
+                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <h4 className="text-sm font-black text-slate-800 uppercase">
+                      Pawn Items
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLoanItems([
+                          ...loanItems,
+                          {
+                            productId: "",
+                            weight: "",
+                            stoneweight: "",
+                            goldrate: loanItems[0]?.goldrate || "",
+                            pawnpercentage: loanItems[0]?.pawnpercentage || "",
+                            manualLoanAmount: "",
+                          },
+                        ])
+                      }
+                      className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-emerald-700 shadow-sm flex items-center gap-1">
+                      <Plus size={14} strokeWidth={3} /> Add Item
+                    </button>
+                  </div>
 
-  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-    {loanItems.map((item, index) => (
-      <div key={index} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm relative">
-        {loanItems.length > 1 && (
-          <button type="button" onClick={() => removeLoanItem(index)} className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 bg-rose-50 p-1.5 rounded-md">
-            <X size={16} strokeWidth={3} />
-          </button>
-        )}
-        
-        <div className="mb-3">
-          <label className="block text-xs font-black text-slate-500 uppercase mb-1">Product</label>
-          <select value={item.productId} onChange={(e) => handleItemChange(index, "productId", e.target.value)} className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20" required>
-            <option value="">-- Select Product --</option>
-            {products.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
-          </select>
-        </div>
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                    {loanItems.map((item, index) => {
+                      // Dynamic calculation of item metrics
+                      const w = parseFloat(item.weight) || 0;
+                      const sw = parseFloat(item.stoneweight) || 0;
+                      const nw = Math.max(0, w - sw);
+                      const gRate = parseFloat(item.goldrate) || 0;
+                      const item100PercentValue = nw * gRate;
+                      const manualItemLoanAmount =
+                        parseFloat(item.manualLoanAmount) || 0;
 
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Gross Wt (g)</label>
-            <input type="number" step="0.01" value={item.weight} onChange={(e) => handleItemChange(index, "weight", e.target.value)} className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500" required />
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Stone Wt (g)</label>
-            <input type="number" step="0.01" value={item.stoneweight} onChange={(e) => handleItemChange(index, "stoneweight", e.target.value)} className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500" />
-          </div>
-        </div>
+                      const autoCalculatedPercentage =
+                        item100PercentValue > 0
+                          ? (
+                              (manualItemLoanAmount / item100PercentValue) *
+                              100
+                            ).toFixed(2)
+                          : "0.00";
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Gold Rate/g</label>
-            <input type="number" value={item.goldrate} onChange={(e) => handleItemChange(index, "goldrate", e.target.value)} className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500" required />
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Lending %</label>
-            <input type="number" value={item.pawnpercentage} onChange={(e) => handleItemChange(index, "pawnpercentage", e.target.value)} className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500" required />
-          </div>
-        </div>
-        {/* Put this directly inside or immediately after your Weight / StoneWeight grid row columns */}
-<div className="col-span-2">
-  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-    Item Photo
-  </label>
-  <div className="flex items-center gap-2">
-    <input
-      type="file"
-      accept="image/*"
-      onChange={async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          try {
-            const base64Str = await fileToBase64(file);
-            handleItemChange(index, "image", base64Str);
-          } catch (err) {
-            console.error("Error converting file:", err);
-          }
-        }
-      }}
-      className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer"
-    />
-    {item.image && (
-      <img 
-        src={item.image} 
-        alt="Preview" 
-        className="h-10 w-10 object-cover rounded-lg border border-slate-200 shadow-sm"
-      />
-    )}
-  </div>
-</div>
-      </div>
-    ))}
-  </div>
-  
+                      return (
+                        <div
+                          key={index}
+                          className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm relative">
+                          {loanItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeLoanItem(index)}
+                              className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 bg-rose-50 p-1.5 rounded-md">
+                              <X size={16} strokeWidth={3} />
+                            </button>
+                          )}
 
-  <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center shadow-sm">
-    <p className="text-xs text-emerald-600 font-extrabold uppercase tracking-widest mb-1">Total Estimated Loan</p>
-    <p className="text-3xl font-black text-emerald-700 tracking-tight">₹{estimatedAmount > 0 ? estimatedAmount.toFixed(2) : "0.00"}</p>
-    <div className="flex justify-center gap-4 mt-2 text-[10px] font-bold text-emerald-600/70 uppercase">
-      <span>Total Gross: {totalGrossWeight.toFixed(2)}g</span>
-      <span>Total Net: {totalNetWeight.toFixed(2)}g</span>
-    </div>
-  </div>
-</div>
+                          <div className="mb-3">
+                            <label className="block text-xs font-black text-slate-500 uppercase mb-1">
+                              Product
+                            </label>
+                            <select
+                              value={item.productId}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  index,
+                                  "productId",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                              required>
+                              <option value="">-- Select Product --</option>
+                              {products.map((p) => (
+                                <option key={p._id} value={p._id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">
+                                Gross Wt (g)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.weight}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "weight",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">
+                                Stone Wt (g)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.stoneweight}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "stoneweight",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mb-3">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">
+                              Gold Rate/g
+                            </label>
+                            <input
+                              type="number"
+                              value={item.goldrate}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  index,
+                                  "goldrate",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full rounded-lg border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-amber-500"
+                              required
+                            />
+                          </div>
+
+                          {/* Reverse Logic Grid */}
+                          <div className="grid grid-cols-2 gap-3 mb-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <div>
+                              <label className="block text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">
+                                Loan Amount (₹)
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="e.g., 50000"
+                                value={item.manualLoanAmount || ""}
+                                onChange={(e) => {
+                                  handleItemChange(
+                                    index,
+                                    "manualLoanAmount",
+                                    e.target.value,
+                                  );
+                                  const newAmount =
+                                    parseFloat(e.target.value) || 0;
+                                  const newPct =
+                                    item100PercentValue > 0
+                                      ? (
+                                          (newAmount / item100PercentValue) *
+                                          100
+                                        ).toFixed(2)
+                                      : "0";
+                                  handleItemChange(
+                                    index,
+                                    "pawnpercentage",
+                                    newPct,
+                                  );
+                                }}
+                                className="w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-black text-emerald-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 shadow-inner"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                                Auto Lending %
+                              </label>
+                              <div className="w-full rounded-lg border-slate-300 bg-slate-200/60 px-3 py-2 text-sm font-bold text-slate-500 shadow-inner">
+                                {autoCalculatedPercentage}%
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                              Item Photo
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={async (e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    try {
+                                      const base64Str =
+                                        await fileToBase64(file);
+                                      handleItemChange(
+                                        index,
+                                        "image",
+                                        base64Str,
+                                      );
+                                    } catch (err) {
+                                      console.error(
+                                        "Error converting file:",
+                                        err,
+                                      );
+                                    }
+                                  }
+                                }}
+                                className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer"
+                              />
+                              {item.image && (
+                                <img
+                                  src={item.image}
+                                  alt="Preview"
+                                  className="h-10 w-10 object-cover rounded-lg border border-slate-200 shadow-sm"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center shadow-sm">
+                    <p className="text-xs text-emerald-600 font-extrabold uppercase tracking-widest mb-1">
+                      Total Estimated Loan
+                    </p>
+                    <p className="text-3xl font-black text-emerald-700 tracking-tight">
+                      ₹
+                      {estimatedAmount > 0
+                        ? estimatedAmount.toFixed(2)
+                        : "0.00"}
+                    </p>
+                    <div className="flex justify-center gap-4 mt-2 text-[10px] font-bold text-emerald-600/70 uppercase">
+                      <span>Total Gross: {totalGrossWeight.toFixed(2)}g</span>
+                      <span>Total Net: {totalNetWeight.toFixed(2)}g</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT SIDE COLUMN: Interest Settings (7 Columns) */}
                 <div className="lg:col-span-7 space-y-4">
                   <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
                     <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-3 flex items-center justify-between">
@@ -932,19 +1152,22 @@ export default function CustomersTab() {
                           <h5 className="text-xs font-black text-indigo-700 uppercase tracking-wider">
                             First Interest (Tier 1)
                           </h5>
-
                           <span className="bg-indigo-100 text-indigo-800 text-xs font-black px-3 py-1 rounded-lg border border-indigo-200 shadow-sm font-mono flex flex-col items-end">
                             <span className="text-[12px] opacity-70">
-                              ₹{(estimatedAmount * ((parseFloat(loanCalc.firstinterest) || 0) / 100)).toFixed(2)} /mo
+                              ₹
+                              {(
+                                estimatedAmount *
+                                ((parseFloat(loanCalc.firstinterest) || 0) /
+                                  100)
+                              ).toFixed(2)}{" "}
+                              /mo
                             </span>
-
                             <span className="text-sm">
                               Total: ₹
                               {loanCalc.firstTierTotal
                                 ? loanCalc.firstTierTotal.toFixed(2)
                                 : "0.00"}
                             </span>
-
                             <span className="text-[12px] opacity-50 italic">
                               (
                               {Math.ceil(
@@ -962,18 +1185,16 @@ export default function CustomersTab() {
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                               Interest Rate (%)
                             </label>
-                            <div className="relative">
-                              <input
-                                name="firstinterest"
-                                type="number"
-                                step="0.01"
-                                placeholder="0"
-                                value={loanCalc.firstinterest || ""}
-                                onChange={handleLoanCalcChange}
-                                className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-inner transition-all"
-                                required
-                              />
-                            </div>
+                            <input
+                              name="firstinterest"
+                              type="number"
+                              step="0.01"
+                              placeholder="0"
+                              value={loanCalc.firstinterest || ""}
+                              onChange={handleLoanCalcChange}
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-inner transition-all"
+                              required
+                            />
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
@@ -1014,16 +1235,20 @@ export default function CustomersTab() {
                           </h5>
                           <span className="bg-amber-100 text-amber-700 text-xs font-black px-3 py-1 rounded-lg border border-orange-200 shadow-sm font-mono flex flex-col items-end">
                             <span className="text-[12px] opacity-70">
-                             ₹{(estimatedAmount * ((parseFloat(loanCalc.thirdinterest) || 0) / 100)).toFixed(2)} /mo
+                              ₹
+                              {(
+                                estimatedAmount *
+                                ((parseFloat(loanCalc.secondinterest) || 0) /
+                                  100)
+                              ).toFixed(2)}{" "}
+                              /mo
                             </span>
-
                             <span className="text-sm">
                               Total: ₹
                               {loanCalc.secondTierTotal
                                 ? loanCalc.secondTierTotal.toFixed(2)
                                 : "0.00"}
                             </span>
-
                             <span className="text-[12px] opacity-50 italic">
                               (
                               {Math.ceil(
@@ -1041,18 +1266,16 @@ export default function CustomersTab() {
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                               Interest Rate (%)
                             </label>
-                            <div className="relative">
-                              <input
-                                name="secondinterest"
-                                type="number"
-                                step="0.01"
-                                placeholder="0"
-                                value={loanCalc.secondinterest || ""}
-                                onChange={handleLoanCalcChange}
-                                className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-inner transition-all"
-                                required
-                              />
-                            </div>
+                            <input
+                              name="secondinterest"
+                              type="number"
+                              step="0.01"
+                              placeholder="0"
+                              value={loanCalc.secondinterest || ""}
+                              onChange={handleLoanCalcChange}
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-inner transition-all"
+                              required
+                            />
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
@@ -1095,23 +1318,18 @@ export default function CustomersTab() {
                             <span className="text-[12px] opacity-70">
                               ₹
                               {(
-                                (((parseFloat(loanCalc.weight) -
-                                  parseFloat(loanCalc.stoneweight)) *
-                                  loanCalc.goldrate *
-                                  loanCalc.pawnpercentage) /
-                                  100) *
-                                (loanCalc.thirdinterest / 100)
+                                estimatedAmount *
+                                ((parseFloat(loanCalc.thirdinterest) || 0) /
+                                  100)
                               ).toFixed(2)}{" "}
                               /mo
                             </span>
-
                             <span className="text-sm">
                               Total: ₹
                               {loanCalc.thirdTierTotal
                                 ? loanCalc.thirdTierTotal.toFixed(2)
                                 : "0.00"}
                             </span>
-
                             <span className="text-[12px] opacity-50 italic font-bold">
                               (
                               {Math.ceil(
@@ -1129,18 +1347,16 @@ export default function CustomersTab() {
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                               Interest Rate (%)
                             </label>
-                            <div className="relative">
-                              <input
-                                name="thirdinterest"
-                                type="number"
-                                step="0.01"
-                                placeholder="0"
-                                value={loanCalc.thirdinterest || ""}
-                                onChange={handleLoanCalcChange}
-                                className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 shadow-inner transition-all"
-                                required
-                              />
-                            </div>
+                            <input
+                              name="thirdinterest"
+                              type="number"
+                              step="0.01"
+                              placeholder="0"
+                              value={loanCalc.thirdinterest || ""}
+                              onChange={handleLoanCalcChange}
+                              className="block w-full rounded-lg border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 shadow-inner transition-all"
+                              required
+                            />
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">

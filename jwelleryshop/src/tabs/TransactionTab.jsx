@@ -17,11 +17,25 @@ import * as XLSX from "xlsx";
 export default function TransactionTab() {
   const [isBackupMenuModalOpen, setIsBackupMenuModalOpen] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
+  
+  // 🟢 Unified single date state for the entire page
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split("T")[0]);
+  
   const [dailyCashInput, setDailyCashInput] = useState("");
   const [dailyCashReason, setDailyCashReason] = useState("");
   const [expenseName, setExpenseName] = useState("");
   const [todayStartingCash, setTodayStartingCash] = useState(0);
-  const [dailyStats, setDailyStats] = useState([]);
+  
+  // 🟢 Initialize as an Object so it doesn't crash your metrics cards
+  const [dailyStats, setDailyStats] = useState({
+    startingCash: 0,
+    capitalAdded: 0,
+    loanGiven: 0, 
+    income: 0,
+    expenses: 0,
+    expenseDetails: []
+  });
+
   const [expenseAmount, setExpenseAmount] = useState("");
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -29,20 +43,45 @@ export default function TransactionTab() {
   const [shopProfile, setShopProfile] = useState({});
   const [selectedBackupFile, setSelectedBackupFile] = useState(null);
   const [importPassword, setImportPassword] = useState("");
-  const [filterDate, setFilterDate] = useState("");
- 
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [filterDate, setFilterDate] = useState("");
+  const [allDailyStats, setAllDailyStats] = useState([]);
 
-  const filteredStats = dailyStats.filter((stat) => {
-    if (!filterDate) return true;
-    return stat.date === filterDate;
-  });
+  // 🟢 Fetches the exact stats for your selected target date
+  const fetchDailyLedgerStats = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/daily-stats", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      
+      if (res.data && Array.isArray(res.data)) {
+        setAllDailyStats(res.data);
+        const matchedDayStats = res.data.find(day => day.date === transactionDate);
+        
+        if (matchedDayStats) {
+          setDailyStats(matchedDayStats);
+          setTodayStartingCash(matchedDayStats.totalAmount || matchedDayStats.startingCash || 0);
+        } else {
+          setDailyStats({
+            startingCash: 0,
+            capitalAdded: 0,
+            loanGiven: 0,
+            income: 0,
+            expenses: 0,
+            expenseDetails: []
+          });
+          setTodayStartingCash(0);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching ledger stats for selected date:", err);
+    }
+  };
 
-  const todayStr = new Date().toLocaleDateString("en-CA");
-
-  const todaysStat = dailyStats.find((stat) => stat.date === todayStr);
-
-  const totalExpenses = todaysStat ? todaysStat.expenses : 0;
+  // 🟢 Perfectly synced: Re-fetches data whenever you change the calendar!
+  useEffect(() => {
+    fetchDailyLedgerStats();
+  }, [transactionDate]);
 
   const handleExportDailyExcel = async () => {
     try {
@@ -134,7 +173,6 @@ export default function TransactionTab() {
     try {
       const token = localStorage.getItem("token");
 
-      // Fetch the data from the backend for the Excel Sheet
       const res = await axios.post(
         "http://localhost:5000/api/reports/excel-export",
         {},
@@ -147,7 +185,6 @@ export default function TransactionTab() {
         return alert("No data to send!");
       }
 
-      // Format Data into Rows for Excel
       const groupedData = backendData.reduce((acc, item) => {
         const dateKey = new Date(item.createdAt).toLocaleDateString("ta-IN");
         if (!acc[dateKey]) acc[dateKey] = [];
@@ -179,7 +216,6 @@ export default function TransactionTab() {
         finalExcelRows.push({ "S.No": "", "Time": "", "Type": "", "Description": "", "Amount": "" });
       });
 
-      // Create the Excel Workbook
       const worksheet = XLSX.utils.json_to_sheet(finalExcelRows);
       const columnWidths = [ { wch: 16 }, { wch: 18 }, { wch: 35 }, { wch: 55 }, { wch: 15 } ];
       worksheet["!cols"] = columnWidths;
@@ -187,10 +223,8 @@ export default function TransactionTab() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Ledger");
 
-      // Convert Excel to Base64 String
       const base64Excel = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
 
-      // Send the Base64 String to the Backend (No target email needed)
       await axios.post(
         "http://localhost:5000/api/reports/email-excel",
         { base64Data: base64Excel },
@@ -285,32 +319,36 @@ export default function TransactionTab() {
       const token = localStorage.getItem("token");
       await axios.post(
         "http://localhost:5000/api/daily-cash",
-        { amount: dailyCashInput,
-          name: dailyCashReason || "Opening Cash",
+        { 
+          amount: dailyCashInput,
+          // 🟢 FIXED to 'source' so your server actually accepts the reason text!
+          name: dailyCashReason || "Opening Cash", 
+          date: transactionDate
          },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setDailyCashInput("");
-      fetchDailyCash();
-      fetchDailyStats();
+      setDailyCashReason(""); // Added to clean up form
+      fetchDailyLedgerStats(); // Refresh grid with new cash
     } catch (error) {
       console.error("Failed to add cash:", error);
     }
   };
 
-  const handleAddExpense = async () => {
+  const handleAddExpense = async (e) => {
+    e.preventDefault(); // Added to stop page reload!
     if (!expenseName || !expenseAmount)
       return alert("Please fill both expense fields!");
     try {
       const token = localStorage.getItem("token");
       await axios.post(
         "http://localhost:5000/api/expenses",
-        { name: expenseName, amount: expenseAmount },
+        { name: expenseName, amount: expenseAmount, date: transactionDate },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setExpenseName("");
       setExpenseAmount("");
-      fetchDailyStats();
+      fetchDailyLedgerStats(); // Refresh grid with new expense
     } catch (err) {
       console.error(err);
     }
@@ -348,34 +386,18 @@ export default function TransactionTab() {
     }
   };
 
-  const fetchDailyCash = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/daily-cash", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setTodayStartingCash(res.data.amount);
-    } catch (error) {
-      console.error("Failed to fetch daily cash:", error);
-    }
-  };
-
-  const fetchDailyStats = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/daily-stats", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
-      setDailyStats(res.data);
-    } catch (error) {
-      console.error("Error fetching daily stats:", error);
-    }
-  };
-
+  // 🟢 On initial Page Load, fetch shop profile and your target date stats
   useEffect(() => {
     fetchShopProfile();
-    fetchDailyCash();
-    fetchDailyStats();
+    fetchDailyLedgerStats();
   }, []);
+
+const totalExpenses = dailyStats?.expenses || 0;
+  const selectedDateStartingCash = dailyStats?.totalAmount || dailyStats?.startingCash || 0;
+  const filteredStats = allDailyStats.filter((stat) => {
+    if (!filterDate) return true;
+    return stat.date === filterDate;
+  });
 
   return (
     <>
@@ -488,6 +510,24 @@ export default function TransactionTab() {
       </>
 
       <div className="p-6 overflow-x-auto animate-in fade-in duration-300">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-slate-100/50 p-4 rounded-xl border border-slate-200">
+    <div className="flex items-center gap-2">
+      <Calendar className="text-slate-500" size={20} />
+      <h2 className="text-lg font-black text-slate-700">Daily Operations</h2>
+    </div>
+    <div className="flex items-center gap-3">
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+        Entry Date:
+      </label>
+      <input
+        type="date"
+        value={transactionDate}
+        onChange={(e) => setTransactionDate(e.target.value)}
+        max={new Date().toISOString().split("T")[0]} // Prevents selecting future dates
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
+      />
+    </div>
+  </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="bg-emerald-50/70 border border-emerald-100 p-5 sm:p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-all hover:shadow-md">
   <div className="mb-4">
@@ -540,10 +580,10 @@ export default function TransactionTab() {
 
   <div className="mt-4 pt-3 border-t border-emerald-200/60 flex justify-between items-center">
     <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">
-      Today's Balance:
+      {transactionDate === new Date().toISOString().split("T")[0] ? "Today's Balance:" : "Selected Date Balance:"}
     </span>
     <span className="text-lg font-black text-emerald-700">
-      ₹{todayStartingCash || 0}
+      ₹{selectedDateStartingCash || todayStartingCash || 0}
     </span>
   </div>
 </div>
@@ -599,7 +639,7 @@ export default function TransactionTab() {
 
             <div className="mt-4 pt-3 border-t border-red-200/60 flex justify-between items-center">
               <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">
-                Today's Total Expense:
+                {transactionDate === new Date().toISOString().split("T")[0] ? "Today's Total Expense:" : "Selected Date Expense:"}
               </span>
               <span className="text-lg font-black text-rose-700">
                 ₹{totalExpenses || 0}
@@ -695,132 +735,136 @@ export default function TransactionTab() {
                 </tr>
               </thead>
               <tbody className="bg-white/50 divide-y divide-slate-100">
-                {filteredStats && filteredStats.length > 0 ? (
-                  filteredStats.map((stat) => {
-                    const expensesTotal = stat.expenses || 0;
-                    const startingCash = stat.startingCash || 0; // Fetched from backend daily stats
-                    const income = stat.income || 0;
-                    const loanGiven = stat.loanGiven || 0;
+  {filteredStats && filteredStats.length > 0 ? (
+    filteredStats.map((stat) => {
+      // 🟢 FIXED MATH LOGIC: Use totalAmount first, fallback to startingCash
+      const expensesTotal = stat.expenses || 0;
+      const startingCash = stat.totalAmount > 0 
+        ? stat.totalAmount 
+        : (stat.amount > 0 ? stat.amount : (stat.startingCash || 0));
+        
+      const income = stat.income || 0;
+      const loanGiven = stat.loanGiven || 0;
 
-                    const netBalance =
-                      startingCash + income - (loanGiven + expensesTotal);
+      // Now the netBalance will correctly calculate the math!
+      const netBalance = startingCash + income - (loanGiven + expensesTotal);
 
-                    return (
-                      <tr
-                        key={stat.date}
-                        className="hover:bg-slate-50/80 transition-colors group">
-                        {/* Date */}
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-700">
-                          {new Date(stat.date).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </td>
+      return (
+        <tr
+          key={stat.date}
+          className="hover:bg-slate-50/80 transition-colors group">
+          {/* Date */}
+          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-700">
+            {new Date(stat.date).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </td>
 
-                        {/* Start Cash */}
-                        <td className="py-3 px-6 text-sm font-medium text-slate-600">
-  {stat.cashDetails && stat.cashDetails.length > 0 ? (
-    <div className="flex flex-col gap-1.5">
-      {stat.cashDetails.map((cash, idx) => (
-        <div
-          key={idx}
-          className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-emerald-200 transition-colors"
-        >
-          <span className="text-slate-600 text-xs font-bold">
-            {cash.name || "Initial Cash"}
-          </span>
-          <span className="font-bold text-emerald-600 text-xs ml-3">
-            ₹{cash.amount}
+          {/* Start Cash */}
+          <td className="py-3 px-6 text-sm font-medium text-slate-600">
+            {stat.cashDetails && stat.cashDetails.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {stat.cashDetails.map((cash, idx) => (
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-emerald-200 transition-colors"
+                  >
+                    <span className="text-slate-600 text-xs font-bold">
+                      {cash.name || "Initial Cash"}
+                    </span>
+                    <span className="font-bold text-emerald-600 text-xs ml-3">
+                      ₹{cash.amount}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="font-bold text-emerald-600 text-sm">
+                {stat.totalAmount > 0 
+                  ? `₹${stat.totalAmount.toFixed(2)}` 
+                  : stat.amount > 0 
+                    ? `₹${Number(stat.amount).toFixed(2)}` 
+                    : "-"}
+              </span>
+            )}
+          </td>
+
+          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-indigo-600">
+            {income > 0 ? `+ ₹${income.toFixed(2)}` : "-"}
+          </td>
+
+          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-rose-600">
+            {loanGiven > 0 ? `- ₹${loanGiven.toFixed(2)}` : "-"}
+          </td>
+
+          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-orange-500">
+            {expensesTotal > 0
+              ? `- ₹${expensesTotal.toFixed(2)}`
+              : "-"}
+          </td>
+
+          <td className="py-3 px-6 text-sm font-medium text-slate-600">
+            {stat.expenseDetails &&
+            stat.expenseDetails.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {stat.expenseDetails.map((exp, idx) => (
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-orange-200 transition-colors">
+                    <span className="text-slate-600 text-xs font-bold">
+                      {exp.name}
+                    </span>
+                    <span className="font-bold text-orange-600 text-xs ml-3">
+                      ₹{exp.amount}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="text-slate-300">-</span>
+            )}
+          </td>
+
+          <td className="py-4 px-6 whitespace-nowrap text-right">
+            <span
+              className={`inline-block px-4 py-2 rounded-xl text-sm font-black tracking-wide border ${
+                netBalance > 0
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : netBalance < 0
+                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                    : "bg-slate-50 text-slate-700 border-slate-200"
+              }`}>
+              {netBalance > 0 ? "+" : ""}₹{netBalance.toFixed(2)}
+            </span>
+          </td>
+        </tr>
+      );
+    })
+  ) : (
+    <tr>
+      <td colSpan="7" className="py-16 px-6 text-center">
+        <div className="flex flex-col items-center justify-center text-slate-400">
+          <svg
+            className="w-12 h-12 mb-3 text-slate-200"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span className="font-bold text-slate-500">
+            No transactions found for this date.
           </span>
         </div>
-      ))}
-    </div>
-  ) : (
-    <span className="font-bold text-emerald-600 text-sm">
-      {stat.totalAmount > 0 
-        ? `₹${stat.totalAmount.toFixed(2)}` 
-        : stat.amount > 0 
-          ? `₹${Number(stat.amount).toFixed(2)}` 
-          : "-"}
-    </span>
+      </td>
+    </tr>
   )}
-</td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-indigo-600">
-                          {income > 0 ? `+ ₹${income.toFixed(2)}` : "-"}
-                        </td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-rose-600">
-                          {loanGiven > 0 ? `- ₹${loanGiven.toFixed(2)}` : "-"}
-                        </td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-orange-500">
-                          {expensesTotal > 0
-                            ? `- ₹${expensesTotal.toFixed(2)}`
-                            : "-"}
-                        </td>
-
-                        <td className="py-3 px-6 text-sm font-medium text-slate-600">
-                          {stat.expenseDetails &&
-                          stat.expenseDetails.length > 0 ? (
-                            <div className="flex flex-col gap-1.5">
-                              {stat.expenseDetails.map((exp, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-orange-200 transition-colors">
-                                  <span className="text-slate-600 text-xs font-bold">
-                                    {exp.name}
-                                  </span>
-                                  <span className="font-bold text-orange-600 text-xs ml-3">
-                                    ₹{exp.amount}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-right">
-                          <span
-                            className={`inline-block px-4 py-2 rounded-xl text-sm font-black tracking-wide border ${
-                              netBalance > 0
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : netBalance < 0
-                                  ? "bg-rose-50 text-rose-700 border-rose-200"
-                                  : "bg-slate-50 text-slate-700 border-slate-200"
-                            }`}>
-                            {netBalance > 0 ? "+" : ""}₹{netBalance.toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="py-16 px-6 text-center">
-                      <div className="flex flex-col items-center justify-center text-slate-400">
-                        <svg
-                          className="w-12 h-12 mb-3 text-slate-200"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        <span className="font-bold text-slate-500">
-                          No transactions found.
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+</tbody>
             </table>
           </div>
         </div>

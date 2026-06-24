@@ -274,6 +274,7 @@ const loanSchema = new mongoose.Schema({
   stoneweight: Number,
   goldrate: Number,
   pawnpercentage: Number,
+  loanDate: { type: Date, required: true },
 
   firstinterest: Number,
   secondinterest: Number,
@@ -531,7 +532,7 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       { $match: matchCondition },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$loanDate" } },
           totalLoanGiven: { $sum: "$loanamount" },
         },
       },
@@ -724,7 +725,7 @@ app.get("/api/loans", verifyToken, async (req, res) => {
   .populate("customer")
   .populate("product")
   .populate("items.productId")
-  .sort({ createdAt: -1 });
+  .sort({ loanDate: -1, createdAt: -1 });
 
     const loansWithCalculations = loans.map((loan) => {
       const loanObj = loan.toObject();
@@ -1185,10 +1186,11 @@ app.post("/api/users", verifyToken, async (req, res) => {
 
 app.post("/api/expenses", verifyToken, async (req, res) => {
   try {
-    const { name, amount } = req.body;
+    const { name, amount, date } = req.body;
     const newExpense = new Expense({
       name,
       amount: Number(amount),
+      date:date ? new Date(date) : new Date(),
       createdBy: req.user.id,
     });
     await newExpense.save();
@@ -1283,22 +1285,20 @@ app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (re
 
 app.post("/api/daily-cash", verifyToken, async (req, res) => {
   try {
-    const { amount, name } = req.body;
+    const { amount, name, date } = req.body;
     const today = new Date().toLocaleDateString('en-CA'); // Matches your original formatting ("YYYY-MM-DD")
 
-    // Validation to ensure both input parameters are passed safely
+    const transactionDate = date || new Date().toLocaleDateString('en-CA');
+
     if (!name || !amount) {
       return res.status(400).json({ message: "Reason and Amount are required!" });
     }
 
     const dailyCash = await DailyCash.findOneAndUpdate(
-      { date: today, userId: req.user.id }, 
+      { date: transactionDate, userId: req.user.id }, 
       { 
-        // 1. Push the descriptive item itemization object to the array 
         $push: { cashDetails: { name: name, amount: Number(amount) } },
-        // 2. Increment the ongoing day's absolute cumulative balance summary
         $inc: { totalAmount: Number(amount) },
-        // On creation of the row, explicitly map user assignment ownership
         $setOnInsert: { userId: req.user.id } 
       }, 
       { new: true, upsert: true }
@@ -1507,6 +1507,8 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       secondInterestTo,
       thirdInterestFrom,
       thirdInterestTo,
+      loanDate,
+      loanamount
     } = req.body;
 
     const counter = await Counter.findOneAndUpdate(
@@ -1517,21 +1519,16 @@ app.post("/api/loans", verifyToken, async (req, res) => {
 
     const generatedLoanId = "LN" + String(counter.value).padStart(3, "0");
 
-    const netWeight = weight - stoneweight;
-
-    const goldValue = netWeight * goldrate;
-
-    const loanamount = (goldValue * pawnpercentage) / 100;
-
     const loan = new Loan({
       loanId: generatedLoanId,
       customer: customerId,
-      items: items || [], // <--- 2. SAVE THE MULTIPLE ITEMS TO THE DB
-      product: product || (items && items.length > 0 ? items[0].productId : null), // Fallback
+      items: items || [], 
+      product: product || (items && items.length > 0 ? items[0].productId : null), 
       weight: weight || 0,
       stoneweight: stoneweight || 0,
       goldrate: goldrate || 0,
       pawnpercentage: pawnpercentage || 0,
+      loanDate: loanDate ? new Date(loanDate) : new Date(), 
       firstinterest,
       secondinterest,
       thirdinterest,
@@ -1541,7 +1538,7 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       secondInterestTo: secondInterestTo || 180,
       thirdInterestFrom: thirdInterestFrom || 181,
       thirdInterestTo: thirdInterestTo || 270,
-      loanamount: req.body.loanamount || 0, // Ensure loan amount is taken from frontend
+      loanamount: loanamount || 0, 
       firstinterestAmount,
       secondinterestAmount,
       thirdinterestAmount,
@@ -1555,9 +1552,11 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       loan,
     });
   } catch (error) {
+    console.error("LOAN CREATION ERROR:", error); 
+    
     res.status(500).json({
       message: "Failed to create loan",
-      error,
+      error: error.message || error,
     });
   }
 });
