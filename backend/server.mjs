@@ -831,7 +831,7 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
 app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { bankLoanAmount, bankSettlementAmount, isRetrieved, retrievalStatus, retrievals } = req.body;
+    const { bankLoanAmount, bankSettlementAmount, isRetrieved, retrievalStatus, retrievals, bankLoanDate, bankSettlementDate } = req.body;
 
     // 1. Build the dynamic update fields map ($set)
     const updateFields = {};
@@ -864,7 +864,7 @@ app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
       updateFields.bankLoanAmount = parsedLoan; // Keep single reference field updated
       pushFields.bankLoans = {
         amount: parsedLoan,
-        date: new Date()
+        date: bankLoanDate ? new Date(bankLoanDate) : new Date()
       };
     }
 
@@ -872,7 +872,7 @@ app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
     if (bankSettlementAmount !== undefined && bankSettlementAmount !== "") {
       pushFields.bankSettlements = {
         amount: Number(bankSettlementAmount),
-        date: new Date()
+        date: bankSettlementDate ? new Date(bankSettlementDate) : new Date()
       };
     }
 

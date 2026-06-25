@@ -25,7 +25,7 @@ export default function ProfileTab() {
   const filteredPaidLoans = paidLoan.filter((pl) => {
     if (!filterDate) return true;
 
-    const targetDate = pl.paymentDate || pl.createdAt;
+    const targetDate = pl.paymentDate || pl.loanDate;
     if (!targetDate) return false;
 
     const formattedDate = new Date(targetDate).toLocaleDateString("en-CA");
@@ -128,8 +128,8 @@ export default function ProfileTab() {
                       </td>
 
                       <td className="py-4 px-6 whitespace-nowrap text-sm font-semibold text-slate-500">
-                        {pl.loan?.createdAt ? (
-                          new Date(pl.loan.createdAt).toLocaleDateString(
+                        {pl.loan?.loanDate ? (
+                          new Date(pl.loan.loanDate).toLocaleDateString(
                             "en-IN",
                             {
                               day: "2-digit",

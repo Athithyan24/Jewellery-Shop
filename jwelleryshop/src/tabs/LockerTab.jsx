@@ -9,6 +9,7 @@ import {
   Package,
   HandCoins,
   X,
+  Calendar,
 } from "lucide-react";
 
 export default function LockerTab() {
@@ -29,6 +30,16 @@ export default function LockerTab() {
 
   const [viewImageModalOpen, setViewImageModalOpen] = useState(false);
   const [activeLockerItemImages, setActiveLockerItemImages] = useState([]);
+  const [transactionDate, setTransactionDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [bankLoanDate, setBankLoanDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+
+  const [bankSettlementDate, setBankSettlementDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   const fetchCustomersLocker = async () => {
     try {
@@ -77,7 +88,10 @@ export default function LockerTab() {
     try {
       await axios.put(
         `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
-        { bankLoanAmount: parseFloat(bankLoanAmount) },
+        { 
+          bankLoanAmount: parseFloat(bankLoanAmount),
+          bankLoanDate: bankLoanDate
+         },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         },
@@ -85,6 +99,11 @@ export default function LockerTab() {
       alert("Bank loan recorded successfully!");
       setIsBankLoanModalOpen(false);
       setBankLoanAmount("");
+
+      if (typeof setBankLoanDate === 'function') {
+        setBankLoanDate(new Date().toISOString().split("T")[0]);
+      }
+
       fetchCustomersLocker();
     } catch (err) {
       alert("Failed to update bank loan");
@@ -97,7 +116,9 @@ export default function LockerTab() {
     try {
       await axios.put(
         `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
-        { bankSettlementAmount: parseFloat(settlementAmount) },
+        { bankSettlementAmount: parseFloat(settlementAmount),
+          bankSettlementDate: bankSettlementDate
+         },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         },
@@ -105,7 +126,13 @@ export default function LockerTab() {
       alert("Settlement payment added successfully!");
       setIsSettleModalOpen(false);
       setSettlementAmount("");
+
+      if (typeof setBankSettlementDate === 'function') {
+        setBankSettlementDate(new Date().toISOString().split("T")[0]);
+      }
+
       fetchCustomersLocker();
+
     } catch (err) {
       alert("Failed to add settlement payment");
     }
@@ -118,8 +145,11 @@ export default function LockerTab() {
 
     const finalRetrievedState = type === "Full";
 
-    // 1. Generate today's formatted date string (e.g., "15 Jun 2026")
-    const currentDateStr = new Date().toLocaleDateString("en-IN", {
+    const dateToFormat = transactionDate
+      ? new Date(transactionDate)
+      : new Date();
+
+    const currentDateStr = dateToFormat.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -163,6 +193,7 @@ export default function LockerTab() {
       setIsRetrieveModalOpen(false);
       setRetrieveDescription("");
       setRetrieveQuantity("");
+      setTransactionDate(new Date().toISOString().split("T")[0]);
       fetchCustomersLocker();
     } catch (err) {
       console.error("Retrieval error:", err);
@@ -248,18 +279,19 @@ export default function LockerTab() {
 
               <tbody className="bg-white divide-y divide-slate-100">
                 {filteredLockerByLoan.map((item) => {
-                  
                   const totalSettled =
-                    item.bankSettlements?.reduce((sum, s) => sum + s.amount, 0) || 0;
-                  
-                  const totalLoans = 
+                    item.bankSettlements?.reduce(
+                      (sum, s) => sum + s.amount,
+                      0,
+                    ) || 0;
+
+                  const totalLoans =
                     item.bankLoans?.reduce((sum, l) => sum + l.amount, 0) || 0;
 
                   return (
                     <tr
                       key={item._id}
-                      className="hover:bg-slate-50/80 transition-colors duration-150 group"
-                    >
+                      className="hover:bg-slate-50/80 transition-colors duration-150 group">
                       {/* Customer info */}
                       <td className="py-3.5 px-4 font-black text-slate-800 uppercase align-middle">
                         <div className="flex items-center gap-3">
@@ -289,17 +321,20 @@ export default function LockerTab() {
                         <div className="flex flex-col gap-1 max-w-full overflow-hidden">
                           {item.loan?.items && item.loan.items.length > 0 ? (
                             item.loan.items.map((loanItem, idx) => {
-                              const rawName = loanItem.productId?.name || loanItem.productId;
+                              const rawName =
+                                loanItem.productId?.name || loanItem.productId;
                               const isRawId =
-                                typeof rawName === "string" && /^[0-9a-fA-F]{24}$/.test(rawName);
+                                typeof rawName === "string" &&
+                                /^[0-9a-fA-F]{24}$/.test(rawName);
                               const productName =
-                                isRawId || !rawName ? `Item ${idx + 1}` : rawName;
+                                isRawId || !rawName
+                                  ? `Item ${idx + 1}`
+                                  : rawName;
 
                               return (
                                 <span
                                   key={idx}
-                                  className="truncate block bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded text-[11px] text-amber-800 font-bold w-fit max-w-full"
-                                >
+                                  className="truncate block bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded text-[11px] text-amber-800 font-bold w-fit max-w-full">
                                   {idx + 1}. {productName}
                                 </span>
                               );
@@ -307,10 +342,15 @@ export default function LockerTab() {
                           ) : (
                             <span className="text-[11px] bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded text-amber-800 font-bold w-fit">
                               {(() => {
-                                const rawSingleName = item.loan?.product?.name || item.loan?.product;
+                                const rawSingleName =
+                                  item.loan?.product?.name ||
+                                  item.loan?.product;
                                 const isSingleId =
-                                  typeof rawSingleName === "string" && /^[0-9a-fA-F]{24}$/.test(rawSingleName);
-                                return isSingleId || !rawSingleName ? "Product N/A" : rawSingleName;
+                                  typeof rawSingleName === "string" &&
+                                  /^[0-9a-fA-F]{24}$/.test(rawSingleName);
+                                return isSingleId || !rawSingleName
+                                  ? "Product N/A"
+                                  : rawSingleName;
                               })()}
                             </span>
                           )}
@@ -322,7 +362,8 @@ export default function LockerTab() {
 
                       {/* Images */}
                       <td className="py-3.5 px-4 text-center align-middle whitespace-nowrap">
-                        {item.loan?.items && item.loan.items.some((li) => li.image) ? (
+                        {item.loan?.items &&
+                        item.loan.items.some((li) => li.image) ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -332,9 +373,9 @@ export default function LockerTab() {
                               setActiveLockerItemImages(extractedImages);
                               setViewImageModalOpen(true);
                             }}
-                            className="inline-flex items-center justify-center bg-rose-50 hover:bg-rose-100/80 text-rose-700 font-bold text-[11px] px-2.5 py-1 rounded-lg border border-rose-200 shadow-2xs transition-all active:scale-95"
-                          >
-                            Images ({item.loan.items.filter((li) => li.image).length})
+                            className="inline-flex items-center justify-center bg-rose-50 hover:bg-rose-100/80 text-rose-700 font-bold text-[11px] px-2.5 py-1 rounded-lg border border-rose-200 shadow-2xs transition-all active:scale-95">
+                            Images (
+                            {item.loan.items.filter((li) => li.image).length})
                           </button>
                         ) : (
                           <span className="inline-block text-[10px] text-slate-400 font-semibold italic bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
@@ -346,8 +387,12 @@ export default function LockerTab() {
                       {/* Bank Info */}
                       <td className="py-3.5 px-4 align-middle">
                         <div className="text-xs leading-normal">
-                          <p className="font-bold text-slate-700 truncate">{item.bank?.name}</p>
-                          <p className="text-slate-500 truncate text-[11px]">{item.branchname}</p>
+                          <p className="font-bold text-slate-700 truncate">
+                            {item.bank?.name}
+                          </p>
+                          <p className="text-slate-500 truncate text-[11px]">
+                            {item.branchname}
+                          </p>
                           <p className="text-[10px] text-indigo-600 font-bold mt-0.5 truncate">
                             Staff: {item.obstaffname || "N/A"}
                           </p>
@@ -363,70 +408,82 @@ export default function LockerTab() {
 
                       {/* BANK LOAN HISTORY */}
                       <td className="py-3.5 px-4 align-middle">
-  <div className="flex flex-col gap-1 w-full text-xs">
-    {/* CASE 1: If new multi-history array exists and has data */}
-    {item.bankLoans && item.bankLoans.length > 0 ? (
-      <>
-        <div className="max-h-[72px] overflow-y-auto flex flex-col gap-1 pr-0.5 custom-scrollbar">
-          {item.bankLoans.map((loanEntry, idx) => (
-            <div
-              key={idx}
-              className="flex justify-between items-center bg-emerald-50/70 text-emerald-900 px-2 py-0.5 rounded border border-emerald-100 shadow-2xs"
-            >
-              <span className="text-[9px] text-emerald-600 font-bold">
-                {loanEntry.date ? new Date(loanEntry.date).toLocaleDateString("en-GB") : "Recent"}
-              </span>
-              <span className="font-black text-[11px]">
-                ₹{Number(loanEntry.amount || 0).toFixed(0)}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
-          <span className="font-bold text-slate-400">Grand Total:</span>
-          <span className="font-black text-emerald-700 text-[11px]">
-            ₹{totalLoans.toFixed(0)}
-          </span>
-        </div>
-      </>
-    ) : /* CASE 2: Fallback for your old single-value entries */
-    item.bankLoanAmount ? (
-      <>
-        <div className="bg-emerald-50/70 text-emerald-900 px-2 py-1 rounded border border-emerald-100 shadow-2xs flex justify-between items-center">
-          <span className="text-[9px] text-emerald-600 font-bold">Initial Loan</span>
-          <span className="font-black text-[11px]">
-            ₹{Number(item.bankLoanAmount).toFixed(0)}
-          </span>
-        </div>
-        <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
-          <span className="font-bold text-slate-400">Grand Total:</span>
-          <span className="font-black text-emerald-700 text-[11px]">
-            ₹{Number(item.bankLoanAmount).toFixed(0)}
-          </span>
-        </div>
-      </>
-    ) : (
-      /* CASE 3: No values are saved anywhere */
-      <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
-        No loans issued
-      </span>
-    )}
-  </div>
-</td>
+                        <div className="flex flex-col gap-1 w-full text-xs">
+                          {/* CASE 1: If new multi-history array exists and has data */}
+                          {item.bankLoans && item.bankLoans.length > 0 ? (
+                            <>
+                              <div className="max-h-[72px] overflow-y-auto flex flex-col gap-1 pr-0.5 custom-scrollbar">
+                                {item.bankLoans.map((loanEntry, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex justify-between items-center bg-emerald-50/70 text-emerald-900 px-2 py-0.5 rounded border border-emerald-100 shadow-2xs">
+                                    <span className="text-[9px] text-emerald-600 font-bold">
+                                      {loanEntry.date
+                                        ? new Date(
+                                            loanEntry.date,
+                                          ).toLocaleDateString("en-GB")
+                                        : "Recent"}
+                                    </span>
+                                    <span className="font-black text-[11px]">
+                                      ₹
+                                      {Number(loanEntry.amount || 0).toFixed(0)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
+                                <span className="font-bold text-slate-400">
+                                  Grand Total:
+                                </span>
+                                <span className="font-black text-emerald-700 text-[11px]">
+                                  ₹{totalLoans.toFixed(0)}
+                                </span>
+                              </div>
+                            </>
+                          ) : /* CASE 2: Fallback for your old single-value entries */
+                          item.bankLoanAmount ? (
+                            <>
+                              <div className="bg-emerald-50/70 text-emerald-900 px-2 py-1 rounded border border-emerald-100 shadow-2xs flex justify-between items-center">
+                                <span className="text-[9px] text-emerald-600 font-bold">
+                                  Initial Loan
+                                </span>
+                                <span className="font-black text-[11px]">
+                                  ₹{Number(item.bankLoanAmount).toFixed(0)}
+                                </span>
+                              </div>
+                              <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
+                                <span className="font-bold text-slate-400">
+                                  Grand Total:
+                                </span>
+                                <span className="font-black text-emerald-700 text-[11px]">
+                                  ₹{Number(item.bankLoanAmount).toFixed(0)}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            /* CASE 3: No values are saved anywhere */
+                            <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
+                              No loans issued
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
                       {/* Settlement History */}
                       <td className="py-3.5 px-4 align-middle">
                         <div className="flex flex-col gap-1 w-full text-xs">
-                          {item.bankSettlements && item.bankSettlements.length > 0 ? (
+                          {item.bankSettlements &&
+                          item.bankSettlements.length > 0 ? (
                             <>
                               <div className="max-h-[72px] overflow-y-auto flex flex-col gap-1 pr-0.5 custom-scrollbar">
                                 {item.bankSettlements.map((settle, idx) => (
                                   <div
                                     key={idx}
-                                    className="flex justify-between items-center bg-blue-50/70 text-blue-900 px-2 py-0.5 rounded border border-blue-100 shadow-2xs"
-                                  >
+                                    className="flex justify-between items-center bg-blue-50/70 text-blue-900 px-2 py-0.5 rounded border border-blue-100 shadow-2xs">
                                     <span className="text-[9px] text-blue-600 font-bold">
-                                      {new Date(settle.date).toLocaleDateString("en-GB")}
+                                      {new Date(settle.date).toLocaleDateString(
+                                        "en-GB",
+                                      )}
                                     </span>
                                     <span className="font-black text-[11px]">
                                       ₹{settle.amount.toFixed(0)}
@@ -435,7 +492,9 @@ export default function LockerTab() {
                                 ))}
                               </div>
                               <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
-                                <span className="font-bold text-slate-400">Paid:</span>
+                                <span className="font-bold text-slate-400">
+                                  Paid:
+                                </span>
                                 <span className="font-black text-blue-600 text-[11px]">
                                   ₹{totalSettled.toFixed(0)}
                                 </span>
@@ -453,26 +512,34 @@ export default function LockerTab() {
                       <td className="py-3.5 px-4 align-middle">
                         <div className="flex flex-col gap-1 w-full max-h-[95px] overflow-y-auto pr-0.5 custom-scrollbar">
                           {item.retrievals?.description ? (
-                            item.retrievals.description.split(" || ").map((desc, idx) => {
-                              const qty = item.retrievals.quantity?.split(" || ")[idx] || "";
-                              const date = item.retrievals.date?.split(" || ")[idx] || "";
-                              return (
-                                <div
-                                  key={idx}
-                                  className="text-[10px] text-orange-800 font-bold bg-orange-50/70 px-2 py-1 rounded border border-orange-200/70 flex justify-between items-center shadow-2xs gap-1"
-                                >
-                                  <span className="truncate max-w-[55px]">✔ {desc}</span>
-                                  <div className="flex gap-0.5 shrink-0">
-                                    <span className="text-[9px] bg-white px-1 py-0.5 rounded text-orange-600 border border-orange-100 font-medium">
-                                      {qty}
+                            item.retrievals.description
+                              .split(" || ")
+                              .map((desc, idx) => {
+                                const qty =
+                                  item.retrievals.quantity?.split(" || ")[
+                                    idx
+                                  ] || "";
+                                const date =
+                                  item.retrievals.date?.split(" || ")[idx] ||
+                                  "";
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="text-[10px] text-orange-800 font-bold bg-orange-50/70 px-2 py-1 rounded border border-orange-200/70 flex justify-between items-center shadow-2xs gap-1">
+                                    <span className="truncate max-w-[55px]">
+                                      ✔ {desc}
                                     </span>
-                                    <span className="text-[9px] bg-white px-1 py-0.5 rounded text-orange-600 border border-orange-100 font-medium">
-                                      {date}
-                                    </span>
+                                    <div className="flex gap-0.5 shrink-0">
+                                      <span className="text-[9px] bg-white px-1 py-0.5 rounded text-orange-600 border border-orange-100 font-medium">
+                                        {qty}
+                                      </span>
+                                      <span className="text-[9px] bg-white px-1 py-0.5 rounded text-orange-600 border border-orange-100 font-medium">
+                                        {date}
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })
+                                );
+                              })
                           ) : (
                             <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
                               No items retrieved
@@ -492,8 +559,7 @@ export default function LockerTab() {
                                 setBankLoanAmount("");
                                 setIsBankLoanModalOpen(true);
                               }}
-                              className="flex items-center justify-center gap-1 bg-indigo-600 text-white px-2 py-1 rounded border border-indigo-700 text-[10px] font-bold hover:bg-indigo-700/90 transition-all shadow-xs w-full"
-                            >
+                              className="flex items-center justify-center gap-1 bg-indigo-600 text-white px-2 py-1 rounded border border-indigo-700 text-[10px] font-bold hover:bg-indigo-700/90 transition-all shadow-xs w-full">
                               <Plus size={10} strokeWidth={3} /> Add Bank Loan
                             </button>
                           )}
@@ -506,8 +572,7 @@ export default function LockerTab() {
                                 setSettlementAmount("");
                                 setIsSettleModalOpen(true);
                               }}
-                              className="flex items-center justify-center gap-1 bg-blue-600 text-white px-2 py-1 rounded border border-blue-700 text-[10px] font-bold hover:bg-blue-700/90 transition-all shadow-xs w-full"
-                            >
+                              className="flex items-center justify-center gap-1 bg-blue-600 text-white px-2 py-1 rounded border border-blue-700 text-[10px] font-bold hover:bg-blue-700/90 transition-all shadow-xs w-full">
                               <HandCoins size={11} strokeWidth={3} /> Settlement
                             </button>
                           )}
@@ -523,11 +588,12 @@ export default function LockerTab() {
                                 setSelectedItem(item);
                                 setIsRetrieveModalOpen(true);
                               }}
-                              className="flex items-center justify-center gap-1 bg-slate-100 text-slate-700 border border-slate-300 px-2 py-1.5 rounded text-[10px] font-bold hover:bg-slate-200 transition-all w-full shadow-2xs"
-                            >
+                              className="flex items-center justify-center gap-1 bg-slate-100 text-slate-700 border border-slate-300 px-2 py-1.5 rounded text-[10px] font-bold hover:bg-slate-200 transition-all w-full shadow-2xs">
                               <ArrowRightLeft size={11} strokeWidth={2.5} />
                               <span className="truncate">
-                                {item.retrievalStatus === "Partially Retrieved" ? "Remaining" : "Retrieve"}
+                                {item.retrievalStatus === "Partially Retrieved"
+                                  ? "Remaining"
+                                  : "Retrieve"}
                               </span>
                             </button>
                           )}
@@ -556,6 +622,28 @@ export default function LockerTab() {
                 ×
               </button>
             </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-slate-100/50 p-4 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <Calendar className="text-slate-500" size={20} />
+                <h2 className="text-lg font-black text-slate-700">
+                  Daily Operations
+                </h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Entry Date:
+                </label>
+                <input
+                  type="date"
+                  value={bankLoanDate}
+                  onChange={(e) => setBankLoanDate(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
+                />
+              </div>
+            </div>
+
             <div className="p-6">
               <p className="text-xs text-slate-500 font-bold mb-4">
                 Enter the loan amount provided by the bank for this product.
@@ -592,6 +680,28 @@ export default function LockerTab() {
                 ×
               </button>
             </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-slate-100/50 p-4 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <Calendar className="text-slate-500" size={20} />
+                <h2 className="text-lg font-black text-slate-700">
+                  Daily Operations
+                </h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Entry Date:
+                </label>
+                <input
+                  type="date"
+                  value={bankSettlementDate}
+                  onChange={(e) => setBankSettlementDate(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
+                />
+              </div>
+            </div>
+
             <div className="p-6">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4 flex justify-between items-center">
                 <span className="text-xs font-bold text-blue-800">
@@ -602,7 +712,8 @@ export default function LockerTab() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-bold mb-4">
-                Enter the installment or settlement amount paid to the bank today.
+                Enter the installment or settlement amount paid to the bank
+                today.
               </p>
               <input
                 type="number"
@@ -636,7 +747,26 @@ export default function LockerTab() {
                 ×
               </button>
             </div>
-
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-slate-100/50 p-4 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <Calendar className="text-slate-500" size={20} />
+                <h2 className="text-lg font-black text-slate-700">
+                  Daily Operations
+                </h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Entry Date:
+                </label>
+                <input
+                  type="date"
+                  value={transactionDate}
+                  onChange={(e) => setTransactionDate(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
+                />
+              </div>
+            </div>
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-2">
                 <p className="text-xs font-bold text-blue-800">
@@ -733,7 +863,8 @@ export default function LockerTab() {
                 </button>
               </div>
               <p className="text-[10px] text-slate-400 text-center font-bold">
-                * Split retrieve adds to the list and keeps the button active. Full retrieve clears the locker.
+                * Split retrieve adds to the list and keeps the button active.
+                Full retrieve clears the locker.
               </p>
             </div>
           </div>
