@@ -17,23 +17,25 @@ import * as XLSX from "xlsx";
 export default function TransactionTab() {
   const [isBackupMenuModalOpen, setIsBackupMenuModalOpen] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
-  
+
   // 🟢 Unified single date state for the entire page
-  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split("T")[0]);
-  
+  const [transactionDate, setTransactionDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+
   const [dailyCashInput, setDailyCashInput] = useState("");
   const [dailyCashReason, setDailyCashReason] = useState("");
   const [expenseName, setExpenseName] = useState("");
   const [todayStartingCash, setTodayStartingCash] = useState(0);
-  
+
   // 🟢 Initialize as an Object so it doesn't crash your metrics cards
   const [dailyStats, setDailyStats] = useState({
     startingCash: 0,
     capitalAdded: 0,
-    loanGiven: 0, 
+    loanGiven: 0,
     income: 0,
     expenses: 0,
-    expenseDetails: []
+    expenseDetails: [],
   });
 
   const [expenseAmount, setExpenseAmount] = useState("");
@@ -47,7 +49,46 @@ export default function TransactionTab() {
   const [filterDate, setFilterDate] = useState("");
   const [allDailyStats, setAllDailyStats] = useState([]);
 
-  // 🟢 Fetches the exact stats for your selected target date
+  // 🟢 HELPER: Calculates chronological running balance for all days safely
+  const calculateRunningBalances = (stats) => {
+    const sortedStats = [...stats].sort(
+      (a, b) => new Date(a.date) - new Date(b.date),
+    );
+
+    let previousEndingBalance = 0;
+
+    const processedStats = sortedStats.map((stat) => {
+      // Force everything to be a Number to prevent accidental string concatenation
+      const manuallyAddedCash =
+        Number(stat.totalAmount) || Number(stat.startingCash) || 0;
+      const income = Number(stat.income) || 0;
+      const loanGiven = Number(stat.loanGiven) || 0;
+      const expenses = Number(stat.expenses) || 0;
+
+      // Starting cash for today = Yesterday's ending balance + whatever you manually added today
+      const totalStartingForDay = previousEndingBalance + manuallyAddedCash;
+
+      // End of day balance
+      const endOfDayBalance =
+        totalStartingForDay + income - loanGiven - expenses;
+
+      const carriedOverFromYesterday = previousEndingBalance;
+      previousEndingBalance = endOfDayBalance;
+
+      return {
+        ...stat,
+        carriedOverBalance: carriedOverFromYesterday,
+        manuallyAddedCash: manuallyAddedCash,
+        calculatedStartingBalance: totalStartingForDay,
+        endingBalance: endOfDayBalance,
+      };
+    });
+
+    return processedStats.sort((a, b) => new Date(b.date) - new Date(a.date));
+  };
+
+
+  // 🟢 BULLETPROOF FETCH & CALCULATOR
   const fetchDailyLedgerStats = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/daily-stats", {
@@ -55,30 +96,74 @@ export default function TransactionTab() {
       });
       
       if (res.data && Array.isArray(res.data)) {
-        setAllDailyStats(res.data);
-        const matchedDayStats = res.data.find(day => day.date === transactionDate);
-        
-        if (matchedDayStats) {
-          setDailyStats(matchedDayStats);
-          setTodayStartingCash(matchedDayStats.totalAmount || matchedDayStats.startingCash || 0);
+        // 1. Sort OLDEST to NEWEST to build a continuous timeline forward
+        const sortedByOldest = [...res.data].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        let previousClosingBalance = 0;
+
+        // 2. Calculate the exact math for every single day in history
+        const calculatedStats = sortedByOldest.map(day => {
+          // Force numbers to prevent errors
+          const manualCash = Number(day.totalAmount) || Number(day.startingCash) || 0;
+          const income = Number(day.income) || 0;
+          const loans = Number(day.loanGiven) || 0;
+          const expenses = Number(day.expenses) || 0;
+
+          // 🔥 Today's Opening Balance = Yesterday's Closing Balance + Any cash added today
+          const startingPool = previousClosingBalance + manualCash;
+
+          // 🔥 Today's Closing Balance
+          const closingBalance = startingPool + income - loans - expenses;
+
+          const processedDay = {
+            ...day,
+            startingCash: startingPool,       // OVERWRITES RAW DATA WITH CORRECT CARRY-OVER
+            totalAmount: startingPool,        // OVERWRITES RAW DATA FOR UI CARDS
+            carriedOverBalance: previousClosingBalance,
+            manuallyAddedCash: manualCash,
+            endingBalance: closingBalance
+          };
+
+          previousClosingBalance = closingBalance; // Carry forward to tomorrow
+          return processedDay;
+        });
+
+        // 3. Sort back to NEWEST to OLDEST for your bottom history table
+        const sortedByNewest = [...calculatedStats].sort((a, b) => new Date(b.date) - new Date(a.date));
+        setAllDailyStats(sortedByNewest);
+
+        // 4. Safely update Today's UI Cards without any timing glitches
+        const todayStats = calculatedStats.find(day => day.date === transactionDate);
+
+        if (todayStats) {
+          setDailyStats(todayStats);
+          setTodayStartingCash(todayStats.startingCash);
         } else {
+          // If the day is completely empty, grab the balance from the last active day
+          const pastDays = calculatedStats.filter(day => new Date(day.date) < new Date(transactionDate));
+          const carriedOver = pastDays.length > 0 ? pastDays[pastDays.length - 1].endingBalance : 0;
+
           setDailyStats({
-            startingCash: 0,
+            date: transactionDate,
+            startingCash: carriedOver,
+            totalAmount: carriedOver,
             capitalAdded: 0,
             loanGiven: 0,
             income: 0,
             expenses: 0,
-            expenseDetails: []
+            expenseDetails: [],
+            carriedOverBalance: carriedOver,
+            manuallyAddedCash: 0,
+            endingBalance: carriedOver
           });
-          setTodayStartingCash(0);
+          setTodayStartingCash(carriedOver);
         }
       }
     } catch (err) {
-      console.error("Error fetching ledger stats for selected date:", err);
+      console.error("Error fetching ledger stats:", err);
     }
   };
 
-  // 🟢 Perfectly synced: Re-fetches data whenever you change the calendar!
   useEffect(() => {
     fetchDailyLedgerStats();
   }, [transactionDate]);
@@ -112,11 +197,10 @@ export default function TransactionTab() {
 
         finalExcelRows.push({
           "S.No": `📅 தேதி: ${date}`,
-          "Time": "=================",
-          "Type": "===========================",
-          "Description":
-            "===============================================",
-          "Amount": "=======",
+          Time: "=================",
+          Type: "===========================",
+          Description: "===============================================",
+          Amount: "=======",
         });
 
         dayTransactions.forEach((item, index) => {
@@ -127,19 +211,19 @@ export default function TransactionTab() {
 
           finalExcelRows.push({
             "S.No": index + 1,
-            "Time": time,
-            "Type": item.type,
-            "Description": item.description,
-            "Amount": item.amount || 0,
+            Time: time,
+            Type: item.type,
+            Description: item.description,
+            Amount: item.amount || 0,
           });
         });
 
         finalExcelRows.push({
           "S.No": "",
-          "Time": "",
-          "Type": "",
-          "Description": "",
-          "Amount": "",
+          Time: "",
+          Type: "",
+          Description: "",
+          Amount: "",
         });
       });
 
@@ -167,7 +251,7 @@ export default function TransactionTab() {
     }
   };
 
- const handleAutoEmailBackup = async () => {
+  const handleAutoEmailBackup = async () => {
     setIsSendingEmail(true);
 
     try {
@@ -176,7 +260,7 @@ export default function TransactionTab() {
       const res = await axios.post(
         "http://localhost:5000/api/reports/excel-export",
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const backendData = res.data;
@@ -197,42 +281,59 @@ export default function TransactionTab() {
         const dayTransactions = groupedData[date];
         finalExcelRows.push({
           "S.No": `📅 தேதி: ${date}`,
-          "Time": "=================",
-          "Type": "===========================",
-          "Description": "===============================================",
-          "Amount": "=======",
+          Time: "=================",
+          Type: "===========================",
+          Description: "===============================================",
+          Amount: "=======",
         });
 
         dayTransactions.forEach((item, index) => {
-          const time = new Date(item.createdAt).toLocaleTimeString("ta-IN", { hour: "2-digit", minute: "2-digit" });
+          const time = new Date(item.createdAt).toLocaleTimeString("ta-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
           finalExcelRows.push({
             "S.No": index + 1,
-            "Time": time,
-            "Type": item.type,
-            "Description": item.description,
-            "Amount": item.amount || 0,
+            Time: time,
+            Type: item.type,
+            Description: item.description,
+            Amount: item.amount || 0,
           });
         });
-        finalExcelRows.push({ "S.No": "", "Time": "", "Type": "", "Description": "", "Amount": "" });
+        finalExcelRows.push({
+          "S.No": "",
+          Time: "",
+          Type: "",
+          Description: "",
+          Amount: "",
+        });
       });
 
       const worksheet = XLSX.utils.json_to_sheet(finalExcelRows);
-      const columnWidths = [ { wch: 16 }, { wch: 18 }, { wch: 35 }, { wch: 55 }, { wch: 15 } ];
+      const columnWidths = [
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 35 },
+        { wch: 55 },
+        { wch: 15 },
+      ];
       worksheet["!cols"] = columnWidths;
 
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Ledger");
 
-      const base64Excel = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
+      const base64Excel = XLSX.write(workbook, {
+        type: "base64",
+        bookType: "xlsx",
+      });
 
       await axios.post(
         "http://localhost:5000/api/reports/email-excel",
         { base64Data: base64Excel },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       alert("Backup Email Sent Successfully!");
-
     } catch (error) {
       console.error("Backup generation/sending failed:", error);
       alert("Error sending backup email");
@@ -242,10 +343,8 @@ export default function TransactionTab() {
   };
 
   const handleImportData = async () => {
-    if (!importPassword)
-      return alert("Enter password");
-    if (!selectedBackupFile)
-      return alert("Select a file");
+    if (!importPassword) return alert("Enter password");
+    if (!selectedBackupFile) return alert("Select a file");
 
     try {
       const fileReader = new FileReader();
@@ -261,9 +360,7 @@ export default function TransactionTab() {
           { headers: { Authorization: `Bearer ${token}` } },
         );
 
-        alert(
-          "Data Restored Successfully!",
-        );
+        alert("Data Restored Successfully!");
         setImportModalOpen(false);
         setImportPassword("");
         setSelectedBackupFile(null);
@@ -279,8 +376,7 @@ export default function TransactionTab() {
   };
 
   const handleExportData = async () => {
-    if (!exportPassword)
-      return alert("Enter password");
+    if (!exportPassword) return alert("Enter password");
 
     try {
       const token = localStorage.getItem("token");
@@ -319,12 +415,12 @@ export default function TransactionTab() {
       const token = localStorage.getItem("token");
       await axios.post(
         "http://localhost:5000/api/daily-cash",
-        { 
+        {
           amount: dailyCashInput,
           // 🟢 FIXED to 'source' so your server actually accepts the reason text!
-          name: dailyCashReason || "Opening Cash", 
-          date: transactionDate
-         },
+          name: dailyCashReason || "Opening Cash",
+          date: transactionDate,
+        },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setDailyCashInput("");
@@ -392,8 +488,8 @@ export default function TransactionTab() {
     fetchDailyLedgerStats();
   }, []);
 
-const totalExpenses = dailyStats?.expenses || 0;
-  const selectedDateStartingCash = dailyStats?.totalAmount || dailyStats?.startingCash || 0;
+  const totalExpenses = dailyStats?.expenses || 0;
+  const selectedDateStartingCash = dailyStats?.calculatedStartingBalance || 0;
   const filteredStats = allDailyStats.filter((stat) => {
     if (!filterDate) return true;
     return stat.date === filterDate;
@@ -406,7 +502,8 @@ const totalExpenses = dailyStats?.expenses || 0;
           <button
             onClick={handleExportDailyExcel}
             className="group relative flex items-center justify-center gap-3 bg-emerald-50 text-emerald-700 border border-emerald-200 px-6 py-2.5 rounded-xl shadow-sm hover:bg-emerald-600 hover:text-white hover:border-emerald-600 font-bold transition-all duration-300 active:scale-95 overflow-hidden"
-            title="Download Daily Report as Excel">
+            title="Download Daily Report as Excel"
+          >
             {/* Icon Wrapper */}
             <div className="relative transition-all duration-500 group-hover:translate-x-11.25 group-hover:rotate-12 group-hover:scale-125">
               {/* Lucide FileDown Icon */}
@@ -426,28 +523,33 @@ const totalExpenses = dailyStats?.expenses || 0;
             </span>
           </button>
           <button
-  onClick={handleAutoEmailBackup}
-  disabled={isSendingEmail}
-  className="group relative flex items-center justify-center gap-3 bg-blue-50 text-blue-700 border border-blue-200 px-6 py-2.5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 font-bold transition-all duration-300 active:scale-95 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-  title="1-Click Auto Backup (Excel + JSON)"
->
-  <div className="relative transition-all duration-500 group-hover:translate-x-11.25 group-hover:-rotate-12 group-hover:scale-125">
-    <div className="transform transition-transform duration-500 group-hover:animate-pulse hover:pl-5">
-        {isSendingEmail ? <span className="animate-spin text-xl">⏳</span> : <Mail size={20} strokeWidth={2.5} />}
-    </div>
-  </div>
-  <span className="transition-all duration-500 group-hover:opacity-0 group-hover:translate-x-10">
-    {isSendingEmail ? "Sending..." : "Backup Data"}
-  </span>
-  <span className="absolute -translate-x-full opacity-0 transition-all duration-500 group-hover:-translate-x-3.75 group-hover:opacity-100">
-    Send
-  </span>
-</button>
+            onClick={handleAutoEmailBackup}
+            disabled={isSendingEmail}
+            className="group relative flex items-center justify-center gap-3 bg-blue-50 text-blue-700 border border-blue-200 px-6 py-2.5 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 font-bold transition-all duration-300 active:scale-95 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+            title="1-Click Auto Backup (Excel + JSON)"
+          >
+            <div className="relative transition-all duration-500 group-hover:translate-x-11.25 group-hover:-rotate-12 group-hover:scale-125">
+              <div className="transform transition-transform duration-500 group-hover:animate-pulse hover:pl-5">
+                {isSendingEmail ? (
+                  <span className="animate-spin text-xl">⏳</span>
+                ) : (
+                  <Mail size={20} strokeWidth={2.5} />
+                )}
+              </div>
+            </div>
+            <span className="transition-all duration-500 group-hover:opacity-0 group-hover:translate-x-10">
+              {isSendingEmail ? "Sending..." : "Backup Data"}
+            </span>
+            <span className="absolute -translate-x-full opacity-0 transition-all duration-500 group-hover:-translate-x-3.75 group-hover:opacity-100">
+              Send
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setIsBackupMenuModalOpen(true)}
             title="தரவு பாதுகாப்பு (Backup & Restore)"
-            className="group relative inline-flex items-center justify-center w-[50px] h-[50px] bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-full shadow-lg transform scale-100 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-300 active:scale-95">
+            className="group relative inline-flex items-center justify-center w-[50px] h-[50px] bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-full shadow-lg transform scale-100 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-300 active:scale-95"
+          >
             <Import
               size={26}
               strokeWidth={2.5}
@@ -457,7 +559,8 @@ const totalExpenses = dailyStats?.expenses || 0;
 
           <button
             onClick={() => setProfileModal(true)}
-            className="group relative flex items-center gap-3 px-6 py-2.5 bg-white text-green-500 border-none rounded-lg cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 ml-auto overflow-hidden">
+            className="group relative flex items-center gap-3 px-6 py-2.5 bg-white text-green-500 border-none rounded-lg cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 ml-auto overflow-hidden"
+          >
             {/* Text Layer */}
             <span className="relative z-20 font-bold text-sm tracking-wide pointer-events-none">
               + Add Shop Profile
@@ -468,7 +571,8 @@ const totalExpenses = dailyStats?.expenses || 0;
               {/* 1. Card Icon */}
               <svg
                 viewBox="0 0 24 24"
-                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0s]">
+                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0s]"
+              >
                 <path
                   d="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18C2,19.11 2.89,20 4,20H20C21.11,20 22,19.11 22,18V6C22,4.89 21.11,4 20,4Z"
                   fill="currentColor"
@@ -478,7 +582,8 @@ const totalExpenses = dailyStats?.expenses || 0;
               {/* 2. Payment Icon */}
               <svg
                 viewBox="0 0 24 24"
-                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0.5s]">
+                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_0.5s]"
+              >
                 <path
                   d="M2,17H22V21H2V17M6.25,7H9V6H6V3H18V6H15V7H17.75L19,17H5L6.25,7M9,10H15V8H9V10M9,13H15V11H9V13Z"
                   fill="currentColor"
@@ -488,7 +593,8 @@ const totalExpenses = dailyStats?.expenses || 0;
               {/* 3. Dollar Icon */}
               <svg
                 viewBox="0 0 24 24"
-                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_1s]">
+                className="absolute inset-0 w-6 h-6 text-green-500 opacity-0 transition-all group-hover:animate-[iconRotate_2.5s_infinite_1s]"
+              >
                 <path
                   d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"
                   fill="currentColor"
@@ -498,7 +604,8 @@ const totalExpenses = dailyStats?.expenses || 0;
               {/* 4. Wallet Icon (Default) */}
               <svg
                 viewBox="0 0 24 24"
-                className="absolute inset-0 w-6 h-6 text-green-500 transition-all duration-300 group-hover:opacity-0">
+                className="absolute inset-0 w-6 h-6 text-green-500 transition-all duration-300 group-hover:opacity-0"
+              >
                 <path
                   d="M21,18V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5A2,2 0 0,1 5,3H19A2,2 0 0,1 21,5V6H12C10.89,6 10,6.9 10,8V16A2,2 0 0,0 12,18M12,16H22V8H12M16,13.5A1.5,1.5 0 0,1 14.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,12A1.5,1.5 0 0,1 16,13.5Z"
                   fill="currentColor"
@@ -511,82 +618,88 @@ const totalExpenses = dailyStats?.expenses || 0;
 
       <div className="p-6 overflow-x-auto animate-in fade-in duration-300">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-slate-100/50 p-4 rounded-xl border border-slate-200">
-    <div className="flex items-center gap-2">
-      <Calendar className="text-slate-500" size={20} />
-      <h2 className="text-lg font-black text-slate-700">Daily Operations</h2>
-    </div>
-    <div className="flex items-center gap-3">
-      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-        Entry Date:
-      </label>
-      <input
-        type="date"
-        value={transactionDate}
-        onChange={(e) => setTransactionDate(e.target.value)}
-        max={new Date().toISOString().split("T")[0]} // Prevents selecting future dates
-        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
-      />
-    </div>
-  </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="text-slate-500" size={20} />
+            <h2 className="text-lg font-black text-slate-700">
+              Daily Operations
+            </h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Entry Date:
+            </label>
+            <input
+              type="date"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              max={new Date().toISOString().split("T")[0]} // Prevents selecting future dates
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
+            />
+          </div>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="bg-emerald-50/70 border border-emerald-100 p-5 sm:p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-all hover:shadow-md">
-  <div className="mb-4">
-    <h3 className="text-emerald-800 font-bold flex items-center gap-2 text-lg">
-      <span className="bg-emerald-100 p-2 rounded-lg shadow-sm">
-        <HandCoins />
-      </span>{" "}
-      Daily Cash In
-    </h3>
-    <p className="text-xs text-emerald-600 mt-1 font-medium">
-      Opening Balance Details
-    </p>
-  </div>
+            <div className="mb-4">
+              <h3 className="text-emerald-800 font-bold flex items-center gap-2 text-lg">
+                <span className="bg-emerald-100 p-2 rounded-lg shadow-sm">
+                  <HandCoins />
+                </span>{" "}
+                Daily Cash In
+              </h3>
+              <p className="text-xs text-emerald-600 mt-1 font-medium">
+                Opening Balance Details
+              </p>
+            </div>
 
-  <form
-    onSubmit={handleAddDailyCash}
-    className="flex flex-col sm:flex-row gap-3">
-    <input
-      type="text"
-      placeholder="Reason (e.g., Opening Balance, Owner Cash)"
-      value={dailyCashReason}
-      onChange={(e) => setDailyCashReason(e.target.value)}
-      className="flex-1 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors text-emerald-900"
-    />
-    <input
-      type="number"
-      value={dailyCashInput}
-      onChange={(e) => setDailyCashInput(e.target.value)}
-      placeholder="Amount (₹)"
-      className="w-full sm:w-32 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors font-bold text-emerald-900"
-    />
-    <button
-      type="submit"
-      className="group relative flex z-0 items-center w-40 h-12 bg-emerald-500 border border-emerald-600 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-emerald-800">
-      {/* The Button Text */}
-      <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
-        Cash In
-      </span>
+            <form
+              onSubmit={handleAddDailyCash}
+              className="flex flex-col sm:flex-row gap-3"
+            >
+              <input
+                type="text"
+                placeholder="Reason (e.g., Opening Balance, Owner Cash)"
+                value={dailyCashReason}
+                onChange={(e) => setDailyCashReason(e.target.value)}
+                className="flex-1 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors text-emerald-900"
+              />
+              <input
+                type="number"
+                value={dailyCashInput}
+                onChange={(e) => setDailyCashInput(e.target.value)}
+                placeholder="Amount (₹)"
+                className="w-full sm:w-32 rounded-xl border border-emerald-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-white transition-colors font-bold text-emerald-900"
+              />
+              <button
+                type="submit"
+                className="group relative flex z-0 items-center w-40 h-12 bg-emerald-500 border border-emerald-600 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-emerald-800"
+              >
+                {/* The Button Text */}
+                <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
+                  Cash In
+                </span>
 
-      {/* The Animated Icon Container */}
-      <span className="absolute right-0 flex items-center justify-center w-11.25 h-full bg-emerald-600 transition-all duration-300 group-hover:w-full">
-        <Plus
-          className="text-white transition-all duration-300 group-hover:scale-110"
-          size={22}
-          strokeWidth={3}
-        />
-      </span>
-    </button>
-  </form>
+                {/* The Animated Icon Container */}
+                <span className="absolute right-0 flex items-center justify-center w-11.25 h-full bg-emerald-600 transition-all duration-300 group-hover:w-full">
+                  <Plus
+                    className="text-white transition-all duration-300 group-hover:scale-110"
+                    size={22}
+                    strokeWidth={3}
+                  />
+                </span>
+              </button>
+            </form>
 
-  <div className="mt-4 pt-3 border-t border-emerald-200/60 flex justify-between items-center">
-    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">
-      {transactionDate === new Date().toISOString().split("T")[0] ? "Today's Balance:" : "Selected Date Balance:"}
-    </span>
-    <span className="text-lg font-black text-emerald-700">
-      ₹{selectedDateStartingCash || todayStartingCash || 0}
-    </span>
-  </div>
-</div>
+            <div className="mt-4 pt-3 border-t border-emerald-200/60 flex justify-between items-center">
+              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">
+                {transactionDate === new Date().toISOString().split("T")[0]
+                  ? "Today's Balance:"
+                  : "Selected Date Balance:"}
+              </span>
+              <span className="text-lg font-black text-emerald-700">
+                ₹{selectedDateStartingCash || todayStartingCash || 0}
+              </span>
+            </div>
+          </div>
 
           <div className="bg-rose-50/70 border border-rose-100 p-5 sm:p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-all hover:shadow-md">
             <div className="mb-4">
@@ -603,7 +716,8 @@ const totalExpenses = dailyStats?.expenses || 0;
 
             <form
               onSubmit={handleAddExpense}
-              className="flex flex-col sm:flex-row gap-3">
+              className="flex flex-col sm:flex-row gap-3"
+            >
               <input
                 type="text"
                 placeholder="Reason"
@@ -620,7 +734,8 @@ const totalExpenses = dailyStats?.expenses || 0;
               />
               <button
                 type="submit"
-                className="group relative flex items-center w-40 h-12 bg-rose-600 border border-rose-700 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-rose-800">
+                className="group relative flex items-center w-40 h-12 bg-rose-600 border border-rose-700 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 active:scale-95 shadow-md active:bg-rose-800"
+              >
                 {/* The Button Text - Moves left slightly on hover */}
                 <span className="ml-6 text-white font-bold text-sm transition-all duration-300 group-hover:opacity-0 group-hover:-translate-x-4">
                   Cash Out
@@ -639,7 +754,9 @@ const totalExpenses = dailyStats?.expenses || 0;
 
             <div className="mt-4 pt-3 border-t border-red-200/60 flex justify-between items-center">
               <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">
-                {transactionDate === new Date().toISOString().split("T")[0] ? "Today's Total Expense:" : "Selected Date Expense:"}
+                {transactionDate === new Date().toISOString().split("T")[0]
+                  ? "Today's Total Expense:"
+                  : "Selected Date Expense:"}
               </span>
               <span className="text-lg font-black text-rose-700">
                 ₹{totalExpenses || 0}
@@ -683,7 +800,8 @@ const totalExpenses = dailyStats?.expenses || 0;
                 {filterDate && (
                   <button
                     onClick={() => setFilterDate("")}
-                    className="text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 px-4 py-2.5 rounded-xl transition-all shadow-sm border border-rose-100 hover:border-rose-500 active:scale-95">
+                    className="text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 px-4 py-2.5 rounded-xl transition-all shadow-sm border border-rose-100 hover:border-rose-500 active:scale-95"
+                  >
                     Clear
                   </button>
                 )}
@@ -699,7 +817,7 @@ const totalExpenses = dailyStats?.expenses || 0;
               <thead className="bg-slate-50/80">
                 <tr>
                   <th className="py-4 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                  Date
+                    Date
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-emerald-600 uppercase tracking-wider">
                     Initial Amount
@@ -730,141 +848,149 @@ const totalExpenses = dailyStats?.expenses || 0;
                   </th>
                   <th className="py-4 px-6 text-xs font-extrabold text-slate-800 uppercase tracking-wider text-right">
                     Net Balance
-                    
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white/50 divide-y divide-slate-100">
-  {filteredStats && filteredStats.length > 0 ? (
-    filteredStats.map((stat) => {
-      // 🟢 FIXED MATH LOGIC: Use totalAmount first, fallback to startingCash
-      const expensesTotal = stat.expenses || 0;
-      const startingCash = stat.totalAmount > 0 
-        ? stat.totalAmount 
-        : (stat.amount > 0 ? stat.amount : (stat.startingCash || 0));
-        
-      const income = stat.income || 0;
-      const loanGiven = stat.loanGiven || 0;
+                {filteredStats && filteredStats.length > 0 ? (
+                  filteredStats.map((stat) => {
+                    // 🟢 FIXED MATH LOGIC: Use totalAmount first, fallback to startingCash
+                    const expensesTotal = stat.expenses || 0;
+                    const startingCash =
+                      stat.totalAmount > 0
+                        ? stat.totalAmount
+                        : stat.amount > 0
+                          ? stat.amount
+                          : stat.startingCash || 0;
 
-      // Now the netBalance will correctly calculate the math!
-      const netBalance = startingCash + income - (loanGiven + expensesTotal);
+                    const income = stat.income || 0;
+                    const loanGiven = stat.loanGiven || 0;
 
-      return (
-        <tr
-          key={stat.date}
-          className="hover:bg-slate-50/80 transition-colors group">
-          {/* Date */}
-          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-700">
-            {new Date(stat.date).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          </td>
+                    // Now the netBalance will correctly calculate the math!
+                    const netBalance =
+                      startingCash + income - (loanGiven + expensesTotal);
 
-          {/* Start Cash */}
-          <td className="py-3 px-6 text-sm font-medium text-slate-600">
-            {stat.cashDetails && stat.cashDetails.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                {stat.cashDetails.map((cash, idx) => (
-                  <div
-                    key={idx}
-                    className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-emerald-200 transition-colors"
-                  >
-                    <span className="text-slate-600 text-xs font-bold">
-                      {cash.name || "Initial Cash"}
-                    </span>
-                    <span className="font-bold text-emerald-600 text-xs ml-3">
-                      ₹{cash.amount}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <span className="font-bold text-emerald-600 text-sm">
-                {stat.totalAmount > 0 
-                  ? `₹${stat.totalAmount.toFixed(2)}` 
-                  : stat.amount > 0 
-                    ? `₹${Number(stat.amount).toFixed(2)}` 
-                    : "-"}
-              </span>
-            )}
-          </td>
+                    return (
+                      <tr
+                        key={stat.date}
+                        className="hover:bg-slate-50/80 transition-colors group"
+                      >
+                        {/* Date */}
+                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-700">
+                          {new Date(stat.date).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
 
-          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-indigo-600">
-            {income > 0 ? `+ ₹${income.toFixed(2)}` : "-"}
-          </td>
+                        {/* Start Cash */}
+                        <td className="py-3 px-6 text-sm font-medium text-slate-600">
+                          {stat.cashDetails && stat.cashDetails.length > 0 ? (
+                            <div className="flex flex-col gap-1.5">
+                              {stat.cashDetails.map((cash, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-emerald-200 transition-colors"
+                                >
+                                  <span className="text-slate-600 text-xs font-bold">
+                                    {cash.name || "Initial Cash"}
+                                  </span>
+                                  <span className="font-bold text-emerald-600 text-xs ml-3">
+                                    ₹{cash.amount}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="font-bold text-emerald-600 text-sm">
+                              {stat.totalAmount > 0
+                                ? `₹${stat.totalAmount.toFixed(2)}`
+                                : stat.amount > 0
+                                  ? `₹${Number(stat.amount).toFixed(2)}`
+                                  : "-"}
+                            </span>
+                          )}
+                        </td>
 
-          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-rose-600">
-            {loanGiven > 0 ? `- ₹${loanGiven.toFixed(2)}` : "-"}
-          </td>
+                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-indigo-600">
+                          {income > 0 ? `+ ₹${income.toFixed(2)}` : "-"}
+                        </td>
 
-          <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-orange-500">
-            {expensesTotal > 0
-              ? `- ₹${expensesTotal.toFixed(2)}`
-              : "-"}
-          </td>
+                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-rose-600">
+                          {loanGiven > 0 ? `- ₹${loanGiven.toFixed(2)}` : "-"}
+                        </td>
 
-          <td className="py-3 px-6 text-sm font-medium text-slate-600">
-            {stat.expenseDetails &&
-            stat.expenseDetails.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                {stat.expenseDetails.map((exp, idx) => (
-                  <div
-                    key={idx}
-                    className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-orange-200 transition-colors">
-                    <span className="text-slate-600 text-xs font-bold">
-                      {exp.name}
-                    </span>
-                    <span className="font-bold text-orange-600 text-xs ml-3">
-                      ₹{exp.amount}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <span className="text-slate-300">-</span>
-            )}
-          </td>
+                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-orange-500">
+                          {expensesTotal > 0
+                            ? `- ₹${expensesTotal.toFixed(2)}`
+                            : "-"}
+                        </td>
 
-          <td className="py-4 px-6 whitespace-nowrap text-right">
-            <span
-              className={`inline-block px-4 py-2 rounded-xl text-sm font-black tracking-wide border ${
-                netBalance > 0
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : netBalance < 0
-                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                    : "bg-slate-50 text-slate-700 border-slate-200"
-              }`}>
-              {netBalance > 0 ? "+" : ""}₹{netBalance.toFixed(2)}
-            </span>
-          </td>
-        </tr>
-      );
-    })
-  ) : (
-    <tr>
-      <td colSpan="7" className="py-16 px-6 text-center">
-        <div className="flex flex-col items-center justify-center text-slate-400">
-          <svg
-            className="w-12 h-12 mb-3 text-slate-200"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
-          <span className="font-bold text-slate-500">
-            No transactions found for this date.
-          </span>
-        </div>
-      </td>
-    </tr>
-  )}
-</tbody>
+                        <td className="py-3 px-6 text-sm font-medium text-slate-600">
+                          {stat.expenseDetails &&
+                          stat.expenseDetails.length > 0 ? (
+                            <div className="flex flex-col gap-1.5">
+                              {stat.expenseDetails.map((exp, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-orange-200 transition-colors"
+                                >
+                                  <span className="text-slate-600 text-xs font-bold">
+                                    {exp.name}
+                                  </span>
+                                  <span className="font-bold text-orange-600 text-xs ml-3">
+                                    ₹{exp.amount}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-6 whitespace-nowrap text-right">
+                          <span
+                            className={`inline-block px-4 py-2 rounded-xl text-sm font-black tracking-wide border ${
+                              netBalance > 0
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : netBalance < 0
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : "bg-slate-50 text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            {netBalance > 0 ? "+" : ""}₹{netBalance.toFixed(2)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="py-16 px-6 text-center">
+                      <div className="flex flex-col items-center justify-center text-slate-400">
+                        <svg
+                          className="w-12 h-12 mb-3 text-slate-200"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          ></path>
+                        </svg>
+                        <span className="font-bold text-slate-500">
+                          No transactions found for this date.
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
             </table>
           </div>
         </div>
@@ -882,7 +1008,8 @@ const totalExpenses = dailyStats?.expenses || 0;
               </h3>
               <button
                 onClick={() => setProfileModal(false)}
-                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors font-bold">
+                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors font-bold"
+              >
                 ✕
               </button>
             </div>
@@ -890,7 +1017,8 @@ const totalExpenses = dailyStats?.expenses || 0;
             <form
               id="shop-profile-form"
               className="flex flex-col flex-1 overflow-hidden"
-              onSubmit={handleProfileSubmit}>
+              onSubmit={handleProfileSubmit}
+            >
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
@@ -1020,12 +1148,14 @@ const totalExpenses = dailyStats?.expenses || 0;
                 <button
                   type="button"
                   onClick={() => setProfileModal(false)}
-                  className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-50 shadow-sm transition-colors">
+                  className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-lg hover:bg-slate-50 shadow-sm transition-colors"
+                >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-all active:scale-95">
+                  className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-all active:scale-95"
+                >
                   Save
                 </button>
               </div>
@@ -1046,17 +1176,20 @@ const totalExpenses = dailyStats?.expenses || 0;
                 </h3>
                 <button
                   onClick={() => setIsBackupMenuModalOpen(false)}
-                  className="text-slate-400 hover:text-rose-500 transition-colors p-1 bg-slate-50 rounded-full hover:bg-rose-50">
+                  className="text-slate-400 hover:text-rose-500 transition-colors p-1 bg-slate-50 rounded-full hover:bg-rose-50"
+                >
                   <svg
                     className="w-6 h-6"
                     fill="none"
                     stroke="currentColor"
-                    viewBox="0 0 24 24">
+                    viewBox="0 0 24 24"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"></path>
+                      d="M6 18L18 6M6 6l12 12"
+                    ></path>
                   </svg>
                 </button>
               </div>
@@ -1069,7 +1202,8 @@ const totalExpenses = dailyStats?.expenses || 0;
                     setIsBackupMenuModalOpen(false);
                     setExportModalOpen(true);
                   }}
-                  className="p-4 border border-slate-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50 transition-all cursor-pointer group shadow-sm hover:shadow-md">
+                  className="p-4 border border-slate-200 rounded-xl hover:border-emerald-300 hover:bg-emerald-50 transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-base font-bold text-slate-900 group-hover:text-emerald-800">
@@ -1084,12 +1218,14 @@ const totalExpenses = dailyStats?.expenses || 0;
                         className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
-                        viewBox="0 0 24 24">
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth="2"
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        ></path>
                       </svg>
                     </div>
                   </div>
@@ -1101,7 +1237,8 @@ const totalExpenses = dailyStats?.expenses || 0;
                     setIsBackupMenuModalOpen(false); // Close menu
                     setImportModalOpen(true); // Open file upload modal
                   }}
-                  className="p-4 border border-slate-200 rounded-xl hover:border-rose-300 hover:bg-rose-50 transition-all cursor-pointer group shadow-sm hover:shadow-md">
+                  className="p-4 border border-slate-200 rounded-xl hover:border-rose-300 hover:bg-rose-50 transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-base font-bold text-slate-900 group-hover:text-rose-800">
@@ -1116,12 +1253,14 @@ const totalExpenses = dailyStats?.expenses || 0;
                         className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
-                        viewBox="0 0 24 24">
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth="2"
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                        ></path>
                       </svg>
                     </div>
                   </div>
@@ -1139,9 +1278,7 @@ const totalExpenses = dailyStats?.expenses || 0;
                 🛡️
               </div>
 
-              <h3 className="text-xl font-black text-slate-800 mb-2">
-                Export
-              </h3>
+              <h3 className="text-xl font-black text-slate-800 mb-2">Export</h3>
               <p className="text-sm text-slate-500 mb-6 font-medium leading-relaxed">
                 Enter the owner's{" "}
                 <span className="font-bold text-emerald-600">
@@ -1166,12 +1303,14 @@ const totalExpenses = dailyStats?.expenses || 0;
                     setExportModalOpen(false);
                     setExportPassword("");
                   }}
-                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                >
                   Cancel
                 </button>
                 <button
                   onClick={handleExportData}
-                  className="flex-1 px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md active:scale-95">
+                  className="flex-1 px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-md active:scale-95"
+                >
                   Download
                 </button>
               </div>
@@ -1221,12 +1360,14 @@ const totalExpenses = dailyStats?.expenses || 0;
                     setImportPassword("");
                     setSelectedBackupFile(null);
                   }}
-                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                >
                   Cancel
                 </button>
                 <button
                   onClick={handleImportData}
-                  className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-all shadow-md active:scale-95">
+                  className="flex-1 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-all shadow-md active:scale-95"
+                >
                   Restore
                 </button>
               </div>
@@ -1235,7 +1376,6 @@ const totalExpenses = dailyStats?.expenses || 0;
         </div>
       )}
       {/* Email Modal */}
-      
     </>
   );
 }
