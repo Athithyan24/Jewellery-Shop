@@ -2,6 +2,7 @@ const { app, BrowserWindow } = require("electron");
 const path = require("path");
 const { fork } = require("child_process");
 const fs = require("fs");
+const os = require("os");
 
 let mainWindow;
 let backendProcess;
@@ -32,7 +33,7 @@ app.whenReady().then(() => {
   const userDataPath = app.getPath("userData");
   console.log("Your device storage folder is at:", userDataPath);
 
-  const uploadDir = path.join(userDataPath, "shop_uploads");
+  const uploadDir = path.join(os.homedir(), "PawnShopData", "uploads");
 
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
