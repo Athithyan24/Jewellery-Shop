@@ -31,11 +31,15 @@ export default function TransactionTab() {
   // 🟢 Initialize as an Object so it doesn't crash your metrics cards
   const [dailyStats, setDailyStats] = useState({
     startingCash: 0,
-    capitalAdded: 0,
-    loanGiven: 0,
-    income: 0,
-    expenses: 0,
-    expenseDetails: [],
+  capitalAdded: 0,
+  loanGiven: 0,
+  income: 0,
+  expenses: 0,
+  expenseDetails: [],
+  bankLoanReceived: 0, // ✨ Initialize missing field
+  bankSettlementPaid: 0, // ✨ Initialize missing field
+  bankLoanDetails: [],
+  bankSettlementDetails: []
   });
 
   const [expenseAmount, setExpenseAmount] = useState("");
@@ -109,16 +113,20 @@ export default function TransactionTab() {
           const loans = Number(day.loanGiven) || 0;
           const expenses = Number(day.expenses) || 0;
 
+          const bankCashIn = Number(day.bankLoanReceived) || 0;
+          const bankCashOut = Number(day.bankSettlementPaid) || 0;
+
           // 🔥 Today's Opening Balance = Yesterday's Closing Balance + Any cash added today
           const startingPool = previousClosingBalance + manualCash;
 
           // 🔥 Today's Closing Balance
-          const closingBalance = startingPool + income - loans - expenses;
+          const closingBalance = startingPool + income + bankCashIn - loans - expenses - bankCashOut;
 
           const processedDay = {
             ...day,
             startingCash: startingPool,       // OVERWRITES RAW DATA WITH CORRECT CARRY-OVER
             totalAmount: startingPool,        // OVERWRITES RAW DATA FOR UI CARDS
+            calculatedStartingBalance: startingPool,        
             carriedOverBalance: previousClosingBalance,
             manuallyAddedCash: manualCash,
             endingBalance: closingBalance
@@ -145,16 +153,21 @@ export default function TransactionTab() {
 
           setDailyStats({
             date: transactionDate,
-            startingCash: carriedOver,
-            totalAmount: carriedOver,
-            capitalAdded: 0,
-            loanGiven: 0,
-            income: 0,
-            expenses: 0,
-            expenseDetails: [],
-            carriedOverBalance: carriedOver,
-            manuallyAddedCash: 0,
-            endingBalance: carriedOver
+    startingCash: carriedOver,
+    totalAmount: carriedOver,
+    capitalAdded: 0,
+    loanGiven: 0,
+    income: 0,
+    expenses: 0,
+    expenseDetails: [],
+    carriedOverBalance: carriedOver,
+    manuallyAddedCash: 0,
+    endingBalance: carriedOver,
+    cashDetails: [],
+    bankLoanReceived: 0, // ✨ Prevent NaN math issues
+    bankSettlementPaid: 0, // ✨ Prevent NaN math issues
+    bankLoanDetails: [],
+    bankSettlementDetails: []
           });
           setTodayStartingCash(carriedOver);
         }
@@ -488,12 +501,174 @@ export default function TransactionTab() {
     fetchDailyLedgerStats();
   }, []);
 
-  const totalExpenses = dailyStats?.expenses || 0;
+ const totalExpenses = dailyStats?.expenses || 0;
   const selectedDateStartingCash = dailyStats?.calculatedStartingBalance || 0;
-  const filteredStats = allDailyStats.filter((stat) => {
-    if (!filterDate) return true;
-    return stat.date === filterDate;
-  });
+
+  let activeDate = filterDate;
+  if (!activeDate) {
+    activeDate = new Date().toISOString().split('T')[0]; 
+  }
+
+  const filteredStats = allDailyStats.filter((stat) => stat.date === activeDate);
+
+  // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
+  // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
+  let dayBookEntries = [];
+  let totalDebit = 0;
+  let totalCredit = 0;
+
+  filteredStats.forEach((stat) => {
+  // Helper to format Date + Time for individual entries
+  const formatDateTime = (isoDate) => {
+    const d = new Date(isoDate);
+    const datePart = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const timePart = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${datePart} - ${timePart}`;
+  };
+
+  // Base Date for Fallbacks (Carry Over, Total Summaries)
+  const baseDateStr = new Date(stat.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  // 1. CREDIT: Previous Day Carry Over
+  if (stat.carriedOverBalance > 0) {
+    dayBookEntries.push({
+      id: `${stat.date}-carryover`,
+      date: baseDateStr,
+      history: "Previous Day Carry Over Balance",
+      debit: 0,
+      credit: stat.carriedOverBalance,
+    });
+    totalCredit += stat.carriedOverBalance;
+  }
+
+  // 2. CREDIT: Daily Cash Added
+  if (stat.cashDetails && stat.cashDetails.length > 0) {
+    stat.cashDetails.forEach((cash, idx) => {
+      const amt = Number(cash.amount) || 0;
+      dayBookEntries.push({
+        id: `${stat.date}-cash-${idx}`,
+        date: baseDateStr, 
+        history: cash.name || "Manually Added Cash",
+        debit: 0,
+        credit: amt,
+      });
+      totalCredit += amt;
+    });
+  } else if (stat.manuallyAddedCash > 0) {
+    dayBookEntries.push({
+      id: `${stat.date}-start`,
+      date: baseDateStr,
+      history: "Opening Balance / Cash In",
+      debit: 0,
+      credit: stat.manuallyAddedCash,
+    });
+    totalCredit += stat.manuallyAddedCash;
+  }
+
+  // 3. CREDIT: INDIVIDUAL Income / Interest Paid
+  if (stat.incomeDetails && stat.incomeDetails.length > 0) {
+    stat.incomeDetails.forEach((inc, idx) => {
+      const amt = Number(inc.amount) || 0;
+      dayBookEntries.push({
+        id: `${stat.date}-inc-${idx}`,
+        date: formatDateTime(inc.date || stat.date),
+        history: `LOAN/INTEREST PAID BY ${inc.customerName?.toUpperCase() || "CUSTOMER"} FOR ${inc.loanId || "N/A"}`,
+        debit: 0,
+        credit: amt,
+      });
+      totalCredit += amt;
+    });
+  } else if (stat.income > 0) { // Fallback for old data
+    dayBookEntries.push({
+      id: `${stat.date}-inc`,
+      date: baseDateStr,
+      history: "Income (Loan Received / Interest Paid)",
+      debit: 0,
+      credit: Number(stat.income),
+    });
+    totalCredit += Number(stat.income);
+  }
+
+  // 4. CREDIT: INDIVIDUAL Bank Loan Taken (Locker Storage)
+  if (stat.bankLoanDetails && stat.bankLoanDetails.length > 0) {
+    stat.bankLoanDetails.forEach((bl, idx) => {
+      const amt = Number(bl.amount) || 0;
+      dayBookEntries.push({
+        id: `${stat.date}-bankloan-${idx}`,
+        date: formatDateTime(bl.date || stat.date),
+        history: `${bl.loanId || "N/A"} ${bl.productName?.toUpperCase() || "ITEM"} KEPT IN ${bl.bankName?.toUpperCase() || "BANK"} BANK LOCKER ${bl.lockerNo || "N/A"}`,
+        debit: 0,
+        credit: amt,
+      });
+      totalCredit += amt;
+    });
+  }
+
+  // 5. DEBIT: INDIVIDUAL Loan Given 
+  if (stat.loanDetails && stat.loanDetails.length > 0) {
+    stat.loanDetails.forEach((loan, idx) => {
+      const amt = Number(loan.amount) || 0;
+      dayBookEntries.push({
+        id: `${stat.date}-loan-${idx}`,
+        date: formatDateTime(loan.date || stat.date),
+        history: `LOAN GIVEN TO ${loan.customerName?.toUpperCase() || "CUSTOMER"} FOR ${loan.loanId || "N/A"}`,
+        debit: amt,
+        credit: 0,
+      });
+      totalDebit += amt;
+    });
+  } else if (stat.loanGiven > 0) { // Fallback for old data
+    dayBookEntries.push({
+      id: `${stat.date}-loan`,
+      date: baseDateStr,
+      history: "Loan Given (Cash Out)",
+      debit: Number(stat.loanGiven),
+      credit: 0,
+    });
+    totalDebit += Number(stat.loanGiven);
+  }
+
+  // 6. DEBIT: INDIVIDUAL Bank Settlement Paid
+  if (stat.bankSettlementDetails && stat.bankSettlementDetails.length > 0) {
+    stat.bankSettlementDetails.forEach((bs, idx) => {
+      const amt = Number(bs.amount) || 0;
+      dayBookEntries.push({
+        id: `${stat.date}-banksettlement-${idx}`,
+        date: formatDateTime(bs.date || stat.date),
+        history: `LOAN/INTEREST PAID TO THE ${bs.bankName?.toUpperCase() || "BANK"}`,
+        debit: amt,
+        credit: 0,
+      });
+      totalDebit += amt;
+    });
+  }
+
+  // 7. DEBIT: Expenses
+  if (stat.expenseDetails && stat.expenseDetails.length > 0) {
+    stat.expenseDetails.forEach((exp, idx) => {
+      const amt = Number(exp.amount) || 0;
+      dayBookEntries.push({
+        id: `${stat.date}-exp-${idx}`,
+        date: baseDateStr,
+        history: `Expense: ${exp.name}`,
+        debit: amt,
+        credit: 0,
+      });
+      totalDebit += amt;
+    });
+  } else if (stat.expenses > 0) {
+    dayBookEntries.push({
+      id: `${stat.date}-exp-total`,
+      date: baseDateStr,
+      history: "Shop Expenses",
+      debit: Number(stat.expenses),
+      credit: 0,
+    });
+    totalDebit += Number(stat.expenses);
+  }
+});
+
+  const overallBalance = totalCredit - totalDebit;
 
   return (
     <>
@@ -813,162 +988,51 @@ export default function TransactionTab() {
           </div>
 
           <div className="overflow-x-auto custom-scrollbar">
-            <table className="min-w-full divide-y divide-slate-200 text-sm text-left">
+            <table className="min-w-full divide-y divide-slate-200 text-sm text-left border-b border-slate-200">
               <thead className="bg-slate-50/80">
                 <tr>
-                  <th className="py-4 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                  <th className="py-4 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider w-1/6">
                     Date
                   </th>
-                  <th className="py-4 px-6 text-xs font-extrabold text-emerald-600 uppercase tracking-wider">
-                    Initial Amount
-                    <br />
-                    <span className="text-[10px] text-slate-400">
-                      START CASH
-                    </span>
+                  <th className="py-4 px-6 text-xs font-extrabold text-indigo-600 uppercase tracking-wider w-3/6">
+                    Transaction History
                   </th>
-                  <th className="py-4 px-6 text-xs font-extrabold text-indigo-600 uppercase tracking-wider">
-                    Income
+                  <th className="py-4 px-6 text-xs font-extrabold text-rose-600 uppercase tracking-wider text-right w-1/6">
+                    Debit
                     <br />
-                    <span className="text-[10px] text-slate-400">INCOME</span>
+                    <span className="text-[10px] text-slate-400">CASH OUT</span>
                   </th>
-                  <th className="py-4 px-6 text-xs font-extrabold text-rose-600 uppercase tracking-wider">
-                    Loan Given
+                  <th className="py-4 px-6 text-xs font-extrabold text-emerald-600 uppercase tracking-wider text-right w-1/6">
+                    Credit
                     <br />
-                    <span className="text-[10px] text-slate-400">LOAN OUT</span>
-                  </th>
-                  <th className="py-4 px-6 text-xs font-extrabold text-orange-600 uppercase tracking-wider">
-                    Expenses
-                    <br />
-                    <span className="text-[10px] text-slate-400">EXP. OUT</span>
-                  </th>
-                  <th className="py-4 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                    Reason
-                    <br />
-                    <span className="text-[10px] text-slate-400">REASON</span>
-                  </th>
-                  <th className="py-4 px-6 text-xs font-extrabold text-slate-800 uppercase tracking-wider text-right">
-                    Net Balance
+                    <span className="text-[10px] text-slate-400">CASH IN</span>
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white/50 divide-y divide-slate-100">
-                {filteredStats && filteredStats.length > 0 ? (
-                  filteredStats.map((stat) => {
-                    // 🟢 FIXED MATH LOGIC: Use totalAmount first, fallback to startingCash
-                    const expensesTotal = stat.expenses || 0;
-                    const startingCash =
-                      stat.totalAmount > 0
-                        ? stat.totalAmount
-                        : stat.amount > 0
-                          ? stat.amount
-                          : stat.startingCash || 0;
-
-                    const income = stat.income || 0;
-                    const loanGiven = stat.loanGiven || 0;
-
-                    // Now the netBalance will correctly calculate the math!
-                    const netBalance =
-                      startingCash + income - (loanGiven + expensesTotal);
-
-                    return (
-                      <tr
-                        key={stat.date}
-                        className="hover:bg-slate-50/80 transition-colors group"
-                      >
-                        {/* Date */}
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-700">
-                          {new Date(stat.date).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </td>
-
-                        {/* Start Cash */}
-                        <td className="py-3 px-6 text-sm font-medium text-slate-600">
-                          {stat.cashDetails && stat.cashDetails.length > 0 ? (
-                            <div className="flex flex-col gap-1.5">
-                              {stat.cashDetails.map((cash, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-emerald-200 transition-colors"
-                                >
-                                  <span className="text-slate-600 text-xs font-bold">
-                                    {cash.name || "Initial Cash"}
-                                  </span>
-                                  <span className="font-bold text-emerald-600 text-xs ml-3">
-                                    ₹{cash.amount}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="font-bold text-emerald-600 text-sm">
-                              {stat.totalAmount > 0
-                                ? `₹${stat.totalAmount.toFixed(2)}`
-                                : stat.amount > 0
-                                  ? `₹${Number(stat.amount).toFixed(2)}`
-                                  : "-"}
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-indigo-600">
-                          {income > 0 ? `+ ₹${income.toFixed(2)}` : "-"}
-                        </td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-rose-600">
-                          {loanGiven > 0 ? `- ₹${loanGiven.toFixed(2)}` : "-"}
-                        </td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-orange-500">
-                          {expensesTotal > 0
-                            ? `- ₹${expensesTotal.toFixed(2)}`
-                            : "-"}
-                        </td>
-
-                        <td className="py-3 px-6 text-sm font-medium text-slate-600">
-                          {stat.expenseDetails &&
-                          stat.expenseDetails.length > 0 ? (
-                            <div className="flex flex-col gap-1.5">
-                              {stat.expenseDetails.map((exp, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm min-w-35 group-hover:border-orange-200 transition-colors"
-                                >
-                                  <span className="text-slate-600 text-xs font-bold">
-                                    {exp.name}
-                                  </span>
-                                  <span className="font-bold text-orange-600 text-xs ml-3">
-                                    ₹{exp.amount}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-6 whitespace-nowrap text-right">
-                          <span
-                            className={`inline-block px-4 py-2 rounded-xl text-sm font-black tracking-wide border ${
-                              netBalance > 0
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : netBalance < 0
-                                  ? "bg-rose-50 text-rose-700 border-rose-200"
-                                  : "bg-slate-50 text-slate-700 border-slate-200"
-                            }`}
-                          >
-                            {netBalance > 0 ? "+" : ""}₹{netBalance.toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
+                {dayBookEntries.length > 0 ? (
+                  dayBookEntries.map((entry) => (
+                    <tr
+                      key={entry.id}
+                      className="hover:bg-slate-50/80 transition-colors group"
+                    >
+                      <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-700">
+                        {entry.date}
+                      </td>
+                      <td className="py-4 px-6 text-sm font-medium text-slate-700 leading-relaxed">
+                        {entry.history}
+                      </td>
+                      <td className="py-4 px-6 whitespace-nowrap text-right text-sm font-bold text-rose-600">
+                        {entry.debit > 0 ? `₹${entry.debit.toFixed(2)}` : "-"}
+                      </td>
+                      <td className="py-4 px-6 whitespace-nowrap text-right text-sm font-bold text-emerald-600">
+                        {entry.credit > 0 ? `₹${entry.credit.toFixed(2)}` : "-"}
+                      </td>
+                    </tr>
+                  ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="py-16 px-6 text-center">
+                    <td colSpan="4" className="py-16 px-6 text-center">
                       <div className="flex flex-col items-center justify-center text-slate-400">
                         <svg
                           className="w-12 h-12 mb-3 text-slate-200"
@@ -984,13 +1048,53 @@ export default function TransactionTab() {
                           ></path>
                         </svg>
                         <span className="font-bold text-slate-500">
-                          No transactions found for this date.
+                          No transactions found.
                         </span>
                       </div>
                     </td>
                   </tr>
                 )}
               </tbody>
+              
+              {/* Tally / Totals Footer */}
+              <tfoot className="bg-slate-100/90 border-t-2 border-slate-300">
+                <tr>
+                  <td
+                    colSpan="2"
+                    className="py-4 px-6 text-right text-sm font-black text-slate-600 uppercase tracking-widest"
+                  >
+                    Total Tally:
+                  </td>
+                  <td className="py-4 px-6 text-right text-base font-black text-rose-700 bg-rose-50/50">
+                    ₹{totalDebit.toFixed(2)}
+                  </td>
+                  <td className="py-4 px-6 text-right text-base font-black text-emerald-700 bg-emerald-50/50">
+                    ₹{totalCredit.toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td
+                    colSpan="2"
+                    className="py-5 px-6 text-right text-sm font-black text-slate-800 uppercase tracking-widest border-t border-slate-200"
+                  >
+                    Closing Net Balance:
+                  </td>
+                  <td
+                    colSpan="2"
+                    className="py-5 px-6 text-right border-t border-slate-200"
+                  >
+                    <span
+                      className={`inline-block px-8 py-3 rounded-xl text-lg font-black tracking-wide border shadow-sm ${
+                        overallBalance >= 0
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                          : "bg-rose-50 text-rose-700 border-rose-300"
+                      }`}
+                    >
+                      {overallBalance >= 0 ? "+" : ""}₹{overallBalance.toFixed(2)}
+                    </span>
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>

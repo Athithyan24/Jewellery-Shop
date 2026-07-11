@@ -18,45 +18,51 @@ import bcrypt from "bcrypt";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const envPath = fs.existsSync(path.join(__dirname, ".env")) 
-  ? path.join(__dirname, ".env") 
+const envPath = fs.existsSync(path.join(__dirname, ".env"))
+  ? path.join(__dirname, ".env")
   : path.join(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 const app = express();
 app.use(helmet({ crossOriginResourcePolicy: false }));
 const allowedOrigins = [
-  'http://localhost:5173', 
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'file://'
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "file://",
 ];
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // Allow non-browser requests (Electron)
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('Blocked by CORS policy'), false);
-    }
-    return callback(null, true);
-  }
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // Allow non-browser requests (Electron)
+      if (allowedOrigins.indexOf(origin) === -1) {
+        return callback(new Error("Blocked by CORS policy"), false);
+      }
+      return callback(null, true);
+    },
+  }),
+);
 app.use(express.json());
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // Limit each IP to 1000 requests per 15 minutes
-  message: "Too many requests, please try again later."
+  message: "Too many requests, please try again later.",
 });
 app.use("/api", globalLimiter);
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Only 5 login attempts allowed per 15 minutes
-  message: { message: "Too many login attempts. Please try again after 15 minutes." }
+  message: {
+    message: "Too many login attempts. Please try again after 15 minutes.",
+  },
 });
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.SECRET_KEY || "jwellery@123";
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/jwelleryshop";
+const MONGO_URI =
+  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/jwelleryshop";
 // This creates a permanent, safe folder in your computer's main User directory
 // Example: C:\Users\YourPCName\PawnShopData\uploads
-const uploadPath = process.env.UPLOAD_DIR || path.join(os.homedir(), "PawnShopData", "uploads");
+const uploadPath =
+  process.env.UPLOAD_DIR || path.join(os.homedir(), "PawnShopData", "uploads");
 
 if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath, { recursive: true });
@@ -73,8 +79,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.use("/uploads", express.static(uploadPath));
-
-
 
 mongoose
   .connect(MONGO_URI)
@@ -130,7 +134,7 @@ const customerSchema = new mongoose.Schema({
   aadhar: { type: String, required: true, unique: true },
   aadharimage: { type: String, required: true },
   recentimage: { type: String, required: true },
- 
+
   phone: { type: String, required: true },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -257,14 +261,16 @@ const loanSchema = new mongoose.Schema({
     ref: "Customer",
     required: true,
   },
-  items: [{
-    productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-    weight: Number,
-    stoneweight: Number,
-    goldrate: Number,
-    pawnpercentage: Number,
-    image: String
-  }],
+  items: [
+    {
+      productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+      weight: Number,
+      stoneweight: Number,
+      goldrate: Number,
+      pawnpercentage: Number,
+      image: String,
+    },
+  ],
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",
@@ -373,15 +379,16 @@ const bankDetailsSchema = new mongoose.Schema({
   bankSettlements: [
     {
       amount: { type: Number, required: true },
-      date: { type: Date, default: Date.now }
-    }
+      date: { type: Date, default: Date.now },
+      paymentType: { type: String, default: "Interest" },
+    },
   ],
   bankLoans: [
-  {
-    amount: { type: Number, required: true },
-    date: { type: Date, default: Date.now }
-  }
-],
+    {
+      amount: { type: Number, required: true },
+      date: { type: Date, default: Date.now },
+    },
+  ],
   retrievalStatus: { type: String, default: "None" }, // "None", "Partial", "Full"
   retrievals: {
     type: mongoose.Schema.Types.Mixed, // Flexible field to store retrieval details as an object
@@ -400,10 +407,10 @@ const bankDetailsSchema = new mongoose.Schema({
 const BankDetails = mongoose.model("BankDetails", bankDetailsSchema);
 
 const expenseSchema = new mongoose.Schema({
-  name: { type: String, required: true }, 
+  name: { type: String, required: true },
   amount: { type: Number, required: true },
   date: { type: Date, default: Date.now },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });
 const Expense = mongoose.model("Expense", expenseSchema);
 
@@ -412,10 +419,15 @@ const shopProfileSchema = new mongoose.Schema({
   ownerName: { type: String, required: true },
   phone: { type: String, required: true },
   address: { type: String, required: true },
-  shopimage: { type: String }, 
+  shopimage: { type: String },
   deletePassword: { type: String },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true }
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+    unique: true,
+  },
 });
 const ShopProfile = mongoose.model("ShopProfile", shopProfileSchema);
 
@@ -425,12 +437,12 @@ const dailyCashSchema = new mongoose.Schema({
   cashDetails: [
     {
       name: { type: String, required: true },
-      amount: { type: Number, required: true }
-    }
+      amount: { type: Number, required: true },
+    },
   ],
   // 2. Holds the total compiled sum of cash for the day
   totalAmount: { type: Number, required: true, default: 0 },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 });
 
 dailyCashSchema.index({ date: 1, userId: 1 }, { unique: true });
@@ -528,22 +540,40 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
         ? {}
         : { createdBy: new mongoose.Types.ObjectId(req.user.id) };
 
-    const dailyLoans = await Loan.aggregate([
+   const dailyLoans = await Loan.aggregate([
       { $match: matchCondition },
+      { $lookup: { from: "customers", localField: "customer", foreignField: "_id", as: "customerDoc" } },
+      { $unwind: { path: "$customerDoc", preserveNullAndEmptyArrays: true } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$loanDate" } },
           totalLoanGiven: { $sum: "$loanamount" },
+          loanDetails: { $push: { 
+            amount: "$loanamount", 
+            loanId: "$loanId", 
+            customerName: "$customerDoc.name", 
+            date: "$loanDate" 
+          }}
         },
       },
     ]);
 
     const dailyIncome = await PayLoan.aggregate([
       { $match: matchCondition },
+      { $lookup: { from: "customers", localField: "customer", foreignField: "_id", as: "customerDoc" } },
+      { $unwind: { path: "$customerDoc", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "loans", localField: "loan", foreignField: "_id", as: "loanDoc" } },
+      { $unwind: { path: "$loanDoc", preserveNullAndEmptyArrays: true } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$paymentDate" } },
           totalIncome: { $sum: "$amountPaid" },
+          incomeDetails: { $push: { 
+            amount: "$amountPaid", 
+            loanId: "$loanDoc.loanId", 
+            customerName: "$customerDoc.name", 
+            date: "$paymentDate" 
+          }}
         },
       },
     ]);
@@ -552,17 +582,61 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       { $match: matchCondition },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }, 
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
           totalExpenses: { $sum: "$amount" },
           expenseDetails: { $push: { name: "$name", amount: "$amount" } },
         },
       },
     ]);
 
-    const cashMatchCondition = 
-      req.user.role === "superadmin"
-        ? {}
-        : { userId: req.user.id };
+    // 🟢 Fetch Bank Loans (Money coming INTO the shop from the locker)
+const dailyBankLoans = await BankDetails.aggregate([
+      { $match: matchCondition },
+      { $unwind: "$bankLoans" },
+      { $lookup: { from: "loans", localField: "loan", foreignField: "_id", as: "loanDoc" } },
+      { $unwind: { path: "$loanDoc", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "products", localField: "loanDoc.product", foreignField: "_id", as: "productDoc" } },
+      { $unwind: { path: "$productDoc", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "banks", localField: "bank", foreignField: "_id", as: "bankDoc" } },
+      { $unwind: { path: "$bankDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$bankLoans.date" } },
+          totalBankLoans: { $sum: "$bankLoans.amount" },
+          bankLoanDetails: { $push: { 
+            amount: "$bankLoans.amount", 
+            date: "$bankLoans.date",
+            loanId: "$loanDoc.loanId",
+            productName: "$productDoc.name",
+            bankName: "$bankDoc.name",
+            lockerNo: "$lockerno"
+          }}
+        },
+      },
+    ]);
+
+// 🟢 Fetch Bank Settlements (Money going OUT of the shop to pay the locker)
+const dailyBankSettlements = await BankDetails.aggregate([
+      { $match: matchCondition },
+      { $unwind: "$bankSettlements" },
+      { $lookup: { from: "banks", localField: "bank", foreignField: "_id", as: "bankDoc" } },
+      { $unwind: { path: "$bankDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$bankSettlements.date" } },
+          totalBankSettlements: { $sum: "$bankSettlements.amount" },
+          bankSettlementDetails: { $push: { 
+            amount: "$bankSettlements.amount", 
+            paymentType: "$bankSettlements.paymentType",
+            date: "$bankSettlements.date",
+            bankName: "$bankDoc.name"
+          }}
+        },
+      },
+    ]);
+
+    const cashMatchCondition =
+      req.user.role === "superadmin" ? {} : { userId: req.user.id };
 
     const dailyCash = await DailyCash.find(cashMatchCondition);
 
@@ -572,47 +646,62 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       if (!statsMap[date]) {
         statsMap[date] = {
           date: date,
-          loanGiven: 0,
-          income: 0,
+          loanGiven: 0,loanDetails: [],
+          income: 0,incomeDetails: [],
           expenses: 0,
           expenseDetails: [],
-          // 1. Initialize the new variables so frontend reads them cleanly
+          bankLoanReceived: 0, // 🟢 NEW Field for Frontend
+          bankLoanDetails: [],
+          bankSettlementPaid: 0, // 🟢 NEW Field for Frontend
+          bankSettlementDetails : [],
           startingCash: 0,
           cashDetails: [],
-          totalAmount: 0
+          totalAmount: 0,
         };
       }
     };
 
+    // Safely map all aggregations to the specific date
     dailyLoans.forEach((item) => {
-      initMapEntry(item._id);
-      statsMap[item._id].loanGiven = item.totalLoanGiven;
+      if (item._id) { initMapEntry(item._id); statsMap[item._id].loanGiven = item.totalLoanGiven; }
     });
 
     dailyIncome.forEach((item) => {
-      initMapEntry(item._id);
-      statsMap[item._id].income = item.totalIncome;
+      if (item._id) { initMapEntry(item._id); statsMap[item._id].income = item.totalIncome; }
     });
 
     dailyExpenses.forEach((item) => {
-      initMapEntry(item._id);
-      statsMap[item._id].expenses = item.totalExpenses;
-      statsMap[item._id].expenseDetails = item.expenseDetails;
+      if (item._id) { 
+        initMapEntry(item._id); 
+        statsMap[item._id].expenses = item.totalExpenses;
+        statsMap[item._id].expenseDetails = item.expenseDetails; 
+      }
     });
 
-    // 2. Updated loop to handle the new schema array structure safely
+    // 🟢 Map Bank Loans to the date
+    dailyBankLoans.forEach((item) => {
+      if (item._id) { initMapEntry(item._id); 
+        statsMap[item._id].bankLoanReceived = item.totalBankLoans;
+        statsMap[item._id].bankLoanDetails = item.bankLoanDetails; }
+    });
+
+    // 🟢 Map Bank Settlements to the date
+    dailyBankSettlements.forEach((item) => {
+      if (item._id) { initMapEntry(item._id); 
+        statsMap[item._id].bankSettlementPaid = item.totalBankSettlements;
+        statsMap[item._id].bankSettlementDetails = item.bankSettlementDetails; 
+      }
+    });
+
     dailyCash.forEach((item) => {
       initMapEntry(item.date);
-      // Map the array elements and running total balance to the row mapping element
       statsMap[item.date].cashDetails = item.cashDetails || [];
       statsMap[item.date].totalAmount = item.totalAmount || 0;
-      
-      // Backward compatibility backup: if old document records have 'amount' instead
       statsMap[item.date].startingCash = item.totalAmount || item.amount || 0;
     });
 
     const statsArray = Object.values(statsMap).sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
+      (a, b) => new Date(b.date) - new Date(a.date),
     );
 
     res.status(200).json(statsArray);
@@ -650,17 +739,28 @@ app.get("/api/loguser", verifyToken, async (req, res) => {
 });
 
 const calculateAccruedInterest = (loan, targetDate = new Date()) => {
-  if (!loan || !loan.createdAt) return { total: 0, pending: 0, months: 0, effectivePrincipal: 0, tier1: 0, tier2: 0, tier3: 0 };
+  if (!loan || !loan.createdAt)
+    return {
+      total: 0,
+      pending: 0,
+      months: 0,
+      effectivePrincipal: 0,
+      tier1: 0,
+      tier2: 0,
+      tier3: 0,
+    };
 
   const startDate = new Date(loan.createdAt);
   const endDate = new Date(targetDate);
 
-  let months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+  let months =
+    (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+    (endDate.getMonth() - startDate.getMonth());
   let days = endDate.getDate() - startDate.getDate();
   if (days < 0) months -= 1;
   const chargeableMonths = Math.max(months, 1);
 
-  let runningPrincipal = (loan.loanamount || 0);
+  let runningPrincipal = loan.loanamount || 0;
   let totalInterestAccrued = 0;
   let remainingPaidInterest = loan.interestPaid || 0;
 
@@ -672,12 +772,12 @@ const calculateAccruedInterest = (loan, targetDate = new Date()) => {
   for (let m = 1; m <= chargeableMonths; m++) {
     const daysElapsedAtThisMonth = m * 30;
     let rate = loan.firstinterest || 1;
-    
+
     // Determine rate and accumulate by tier
     if (daysElapsedAtThisMonth > 180) {
-        rate = loan.thirdinterest || 2;
+      rate = loan.thirdinterest || 2;
     } else if (daysElapsedAtThisMonth > 90) {
-        rate = loan.secondinterest || 1.5;
+      rate = loan.secondinterest || 1.5;
     }
 
     const interestForThisMonth = (runningPrincipal * rate) / 100;
@@ -694,7 +794,7 @@ const calculateAccruedInterest = (loan, targetDate = new Date()) => {
     } else {
       const unpaidPortion = interestForThisMonth - remainingPaidInterest;
       remainingPaidInterest = 0;
-      runningPrincipal += unpaidPortion; 
+      runningPrincipal += unpaidPortion;
     }
   }
 
@@ -712,40 +812,46 @@ const calculateAccruedInterest = (loan, targetDate = new Date()) => {
     tier3: Math.round(tier3Accrued),
     tier1Gross: Math.round(tier1Accrued), // Added for frontend compatibility
     tier2Gross: Math.round(tier2Accrued),
-    tier3Gross: Math.round(tier3Accrued)
+    tier3Gross: Math.round(tier3Accrued),
   };
 };
 
 app.get("/api/loans", verifyToken, async (req, res) => {
   try {
-    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const query =
+      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const finalQuery = { ...query, isDeleted: { $ne: true } };
 
     const loans = await Loan.find(finalQuery)
-  .populate("customer")
-  .populate("product")
-  .populate("items.productId")
-  .sort({ loanDate: -1, createdAt: -1 });
+      .populate("customer")
+      .populate("product")
+      .populate("items.productId")
+      .sort({ loanDate: -1, createdAt: -1 });
 
     const loansWithCalculations = loans.map((loan) => {
       const loanObj = loan.toObject();
       const interestData = calculateAccruedInterest(loanObj);
-      
+
       const interestPaid = loanObj.interestPaid || 0;
       const pendingInterest = Math.max(interestData.total - interestPaid, 0);
-      const remainingPrincipal = Math.max(loanObj.loanamount - (loanObj.principalPaid || 0), 0);
-      
+      const remainingPrincipal = Math.max(
+        loanObj.loanamount - (loanObj.principalPaid || 0),
+        0,
+      );
+
       return {
         ...loanObj,
         interestBreakdown: interestData, // Now contains tier1, tier2, tier3
         pendingInterest: pendingInterest,
         currentBalance: remainingPrincipal + pendingInterest,
         dateRanges: {
-           // 🟢 These will now work because interestData.tier1 is defined
-           tier1: `Month 1-3 (₹${interestData.tier1})`,
-           tier2: interestData.tier2 > 0 ? `Month 4-6 (₹${interestData.tier2})` : "-",
-           tier3: interestData.tier3 > 0 ? `Month 7+ (₹${interestData.tier3})` : "-",
-        }
+          // 🟢 These will now work because interestData.tier1 is defined
+          tier1: `Month 1-3 (₹${interestData.tier1})`,
+          tier2:
+            interestData.tier2 > 0 ? `Month 4-6 (₹${interestData.tier2})` : "-",
+          tier3:
+            interestData.tier3 > 0 ? `Month 7+ (₹${interestData.tier3})` : "-",
+        },
       };
     });
 
@@ -803,9 +909,36 @@ app.get("/api/banks", verifyToken, async (req, res) => {
   }
 });
 
+app.post("/api/banks", verifyToken, async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Bank name is required!" });
+    }
+    const existingBank = await Bank.findOne({ name: name.trim() });
+    if (existingBank) {
+      return res.status(200).json(existingBank);
+    }
+    const newBank = new Bank({
+      name: name.trim(),
+    });
+
+    await newBank.save();
+    res.status(201).json(newBank);
+  } catch (error) {
+    console.error("Error creating manual bank:", error);
+    res.status(500).json({
+      message: "Failed to create new bank",
+      error: error.message || error,
+    });
+  }
+});
+
 app.get("/api/bankDetails", verifyToken, async (req, res) => {
   try {
-    const query = req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
+    const query =
+      req.user.role === "superadmin" ? {} : { createdBy: req.user.id };
     const locker = await BankDetails.find(query)
       .populate("customer", "name recentimage")
       .populate("bank", "name")
@@ -813,14 +946,16 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
         path: "loan",
         select: "product loanamount loanId items",
         populate: [
-          { path: "product", select: "name" },          
-          { path: "items.productId", select: "name" }   
-        ]
+          { path: "product", select: "name" },
+          { path: "items.productId", select: "name" },
+        ],
       });
     res.status(200).json(locker);
   } catch (error) {
     console.error("Error fetching Customers Locker: ", error);
-    res.status(500).json({ message: "Failed to fetch Customer's Assigned Locker" });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch Customer's Assigned Locker" });
   }
 });
 
@@ -831,7 +966,16 @@ app.get("/api/bankDetails", verifyToken, async (req, res) => {
 app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { bankLoanAmount, bankSettlementAmount, isRetrieved, retrievalStatus, retrievals, bankLoanDate, bankSettlementDate } = req.body;
+    const {
+      bankLoanAmount,
+      bankSettlementAmount,
+      isRetrieved,
+      retrievalStatus,
+      retrievals,
+      bankLoanDate,
+      bankSettlementDate,
+      paymentType,
+    } = req.body;
 
     // 1. Build the dynamic update fields map ($set)
     const updateFields = {};
@@ -864,7 +1008,7 @@ app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
       updateFields.bankLoanAmount = parsedLoan; // Keep single reference field updated
       pushFields.bankLoans = {
         amount: parsedLoan,
-        date: bankLoanDate ? new Date(bankLoanDate) : new Date()
+        date: bankLoanDate ? new Date(bankLoanDate) : new Date(),
       };
     }
 
@@ -872,7 +1016,8 @@ app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
     if (bankSettlementAmount !== undefined && bankSettlementAmount !== "") {
       pushFields.bankSettlements = {
         amount: Number(bankSettlementAmount),
-        date: bankSettlementDate ? new Date(bankSettlementDate) : new Date()
+        date: bankSettlementDate ? new Date(bankSettlementDate) : new Date(),
+        paymentType: paymentType || "Interest",
       };
     }
 
@@ -882,27 +1027,26 @@ app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
     }
 
     // 3. Direct execution updates database
-    const bankDetail = await BankDetails.findByIdAndUpdate(
-      id,
-      updateQuery,
-      { new: true, runValidators: true }
-    );
+    const bankDetail = await BankDetails.findByIdAndUpdate(id, updateQuery, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!bankDetail) {
       return res.status(404).json({ message: "Locker record not found" });
     }
 
-    res.status(200).json({ message: "Locker details updated successfully", bankDetail });
-    
+    res
+      .status(200)
+      .json({ message: "Locker details updated successfully", bankDetail });
   } catch (error) {
     console.error("Error updating bank locker details:", error);
-    res.status(500).json({ 
-      message: "Failed to update locker details", 
-      error: error.message || error 
+    res.status(500).json({
+      message: "Failed to update locker details",
+      error: error.message || error,
     });
   }
 });
-
 
 app.post("/api/backup/export", verifyToken, async (req, res) => {
   try {
@@ -913,17 +1057,19 @@ app.post("/api/backup/export", verifyToken, async (req, res) => {
     const shopProfile = await ShopProfile.findOne({ userId: req.user.id });
 
     if (!shopProfile || shopProfile.deletePassword !== password) {
-      return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+      return res
+        .status(401)
+        .json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
     }
 
     const backupData = {
-      users: await User.find({ role: "worker" }), 
+      users: await User.find({ role: "worker" }),
       customers: await Customer.find(),
       loans: await Loan.find(),
       expenses: await Expense.find(),
-      payLoans: await PayLoan.find(),         
-      bankDetails: await BankDetails.find(),  
-      dailyCash: await DailyCash.find(),      
+      payLoans: await PayLoan.find(),
+      bankDetails: await BankDetails.find(),
+      dailyCash: await DailyCash.find(),
     };
 
     res.status(200).json(backupData);
@@ -944,14 +1090,43 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
       .populate("customer")
       .populate("loan");
 
+    const bankDetails = await BankDetails.find({ createdBy: userId }).populate("customer").populate("loan");
+
     const reportData = [];
+
+    bankDetails.forEach((b) => {
+      if (b.bankLoans && b.bankLoans.length > 0) {
+        b.bankLoans.forEach((bl) => {
+          reportData.push({
+            type: "வங்கி கடன் (Bank Loan Received)",
+            description: `Bank Vault: ${b.bank?.name || 'Bank'} - Loan No: ${b.loan?.loanId || 'N/A'}`,
+            amount: bl.amount || 0,
+            createdAt: bl.date || b.createdAt,
+          });
+        });
+      }
+
+      if (b.bankSettlements && b.bankSettlements.length > 0) {
+        b.bankSettlements.forEach((bs) => {
+          reportData.push({
+            type: "வங்கி கட்டணம் (Bank Settlement Paid)",
+            description: `Vault Settlement: ${b.bank?.name || 'Bank'} - Loan No: ${b.loan?.loanId || 'N/A'} (${bs.paymentType})`,
+            amount: bs.amount || 0,
+            createdAt: bs.date || b.createdAt,
+          });
+        });
+      }
+    });
+
+    reportData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    res.status(200).json(reportData);
 
     dailyCash.forEach((c) => {
       reportData.push({
         type: "தொடக்க இருப்பு (Starting Cash)",
         description: "அன்றைய தின கல்லா இருப்பு",
         amount: c.amount || 0,
-        createdAt: c.date || c.createdAt
+        createdAt: c.date || c.createdAt,
       });
     });
 
@@ -960,7 +1135,7 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
         type: "புதிய வாடிக்கையாளர் (New Customer)",
         description: c.name || "Customer",
         amount: 0,
-        createdAt: c.createdAt || c._id.getTimestamp() 
+        createdAt: c.createdAt || c._id.getTimestamp(),
       });
     });
 
@@ -969,7 +1144,7 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
         type: "கடன் வழங்கப்பட்டது (Loan Given)",
         description: `Loan No: ${l.loanId} - ${l.customer?.name || "Unknown"}`,
         amount: l.loanamount || 0,
-        createdAt: l.createdAt || l._id.getTimestamp()
+        createdAt: l.createdAt || l._id.getTimestamp(),
       });
     });
 
@@ -978,14 +1153,15 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
         type: "செலவு (Expense)",
         description: e.expenseName || e.description || e.name || "Expense",
         amount: parseFloat(e.expenseAmount) || parseFloat(e.amount) || 0,
-        createdAt: e.createdAt || (e._id ? e._id.getTimestamp() : new Date())
+        createdAt: e.createdAt || (e._id ? e._id.getTimestamp() : new Date()),
       });
     });
 
     payLoans.forEach((p) => {
       const actualLoanId = p.loan?.loanId || p.loanId || "N/A";
-      const loanNo = actualLoanId !== "N/A" ? `Loan No: ${actualLoanId}` : "Loan N/A";
-      
+      const loanNo =
+        actualLoanId !== "N/A" ? `Loan No: ${actualLoanId}` : "Loan N/A";
+
       const custName = p.customer?.name || "Unknown";
       const interestDetail = p.interestPaid ? `(Int: ₹${p.interestPaid})` : "";
 
@@ -993,7 +1169,7 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
         type: "வரவு (Loan Payment)",
         description: `${loanNo} - ${custName} ${interestDetail}`,
         amount: p.amountPaid || 0,
-        createdAt: p.paymentDate || p.createdAt || p._id.getTimestamp()
+        createdAt: p.paymentDate || p.createdAt || p._id.getTimestamp(),
       });
     });
 
@@ -1002,7 +1178,12 @@ app.post("/api/reports/excel-export", verifyToken, async (req, res) => {
     res.status(200).json(reportData);
   } catch (error) {
     console.error("Export Error:", error);
-    res.status(500).json({ message: "Failed to generate Excel report", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Failed to generate Excel report",
+        error: error.message,
+      });
   }
 });
 
@@ -1017,12 +1198,12 @@ app.post("/api/reports/email-excel", verifyToken, async (req, res) => {
     // 1. DYNAMICALLY GENERATE FULL DATABASE JSON BACKUP
     const models = mongoose.modelNames(); // Gets ['User', 'Customer', 'Product', 'Loan', etc.]
     const backupData = {};
-    
+
     // Loop through every model and fetch all its data
     for (const modelName of models) {
       backupData[modelName] = await mongoose.model(modelName).find({});
     }
-    
+
     // Convert the database object to a JSON string, then to Base64
     const jsonString = JSON.stringify(backupData, null, 2);
     const base64Json = Buffer.from(jsonString).toString("base64");
@@ -1064,10 +1245,11 @@ app.post("/api/reports/email-excel", verifyToken, async (req, res) => {
     // 5. Send the email
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: "Backup sent successfully!" });
-    
   } catch (error) {
     console.error("Email Error:", error);
-    res.status(500).json({ message: "Failed to send backup", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to send backup", error: error.message });
   }
 });
 
@@ -1076,18 +1258,20 @@ app.post("/api/backup/import", verifyToken, async (req, res) => {
     if (req.user.role !== "superadmin" && req.user.role !== "worker") {
       return res.status(403).json({ message: "Access denied!" });
     }
-    
+
     const { password, backupData } = req.body;
-    
+
     if (req.user.role === "worker") {
       const shopProfile = await ShopProfile.findOne({ userId: req.user.id });
       if (!shopProfile || shopProfile.deletePassword !== password) {
-        return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+        return res
+          .status(401)
+          .json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
       }
     }
 
     if (backupData.users && backupData.users.length > 0) {
-      await User.deleteMany({ role: "worker" }); 
+      await User.deleteMany({ role: "worker" });
       await User.insertMany(backupData.users);
     }
 
@@ -1116,7 +1300,12 @@ app.post("/api/backup/import", verifyToken, async (req, res) => {
       await DailyCash.insertMany(backupData.dailyCash);
     }
 
-    res.status(200).json({ message: "முழு தரவும் வெற்றிகரமாக மீட்டமைக்கப்பட்டது! (Full data imported successfully!)" });
+    res
+      .status(200)
+      .json({
+        message:
+          "முழு தரவும் வெற்றிகரமாக மீட்டமைக்கப்பட்டது! (Full data imported successfully!)",
+      });
   } catch (error) {
     res.status(500).json({ message: "Import failed", error: error.message });
   }
@@ -1124,7 +1313,7 @@ app.post("/api/backup/import", verifyToken, async (req, res) => {
 
 app.get("/api/shop-profile", verifyToken, async (req, res) => {
   try {
-    const profile = await ShopProfile.findOne({ userId: req.user.id }); 
+    const profile = await ShopProfile.findOne({ userId: req.user.id });
     res.status(200).json(profile || {});
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch shop profile" });
@@ -1133,22 +1322,22 @@ app.get("/api/shop-profile", verifyToken, async (req, res) => {
 
 app.get("/api/daily-cash", verifyToken, async (req, res) => {
   try {
-    const today = new Date().toLocaleDateString('en-CA'); 
+    const today = new Date().toLocaleDateString("en-CA");
     const cash = await DailyCash.findOne({ date: today, userId: req.user.id });
     res.status(200).json({ amount: cash ? cash.amount : 0 });
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch cash", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch cash", error: error.message });
   }
 });
 
 app.post("/api/users", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "superadmin") {
-      return res
-        .status(403)
-        .json({
-          message: "Access denied: Only superadmins can create workers.",
-        });
+      return res.status(403).json({
+        message: "Access denied: Only superadmins can create workers.",
+      });
     }
 
     const { username, password, shopname } = req.body;
@@ -1190,7 +1379,7 @@ app.post("/api/expenses", verifyToken, async (req, res) => {
     const newExpense = new Expense({
       name,
       amount: Number(amount),
-      date:date ? new Date(date) : new Date(),
+      date: date ? new Date(date) : new Date(),
       createdBy: req.user.id,
     });
     await newExpense.save();
@@ -1202,10 +1391,27 @@ app.post("/api/expenses", verifyToken, async (req, res) => {
 
 app.post("/api/bankDetails", verifyToken, async (req, res) => {
   try {
-    const { loanId, bankId, branchname, ledgercreationdate, obstaffname, obaccountno, accountno, lockerno } = req.body;
+    const {
+      loanId,
+      bankId,
+      branchname,
+      ledgercreationdate,
+      obstaffname,
+      obaccountno,
+      accountno,
+      lockerno,
+    } = req.body;
     const loan = await Loan.findById(loanId);
-    if (!loan || !bankId || !branchname || !ledgercreationdate
-      || !obstaffname || !obaccountno || !accountno || !lockerno) {
+    if (
+      !loan ||
+      !bankId ||
+      !branchname ||
+      !ledgercreationdate ||
+      !obstaffname ||
+      !obaccountno ||
+      !accountno ||
+      !lockerno
+    ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -1239,74 +1445,103 @@ app.post("/api/bankDetails", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/shop-profile", verifyToken, upload.single("shopimage"), async (req, res) => {
-  try {
-    const { shopName, ownerName, phone, address, deletePassword, currentPassword } = req.body;
-    
-    const existingProfile = await ShopProfile.findOne({ userId: req.user.id });
+app.post(
+  "/api/shop-profile",
+  verifyToken,
+  upload.single("shopimage"),
+  async (req, res) => {
+    try {
+      const {
+        shopName,
+        ownerName,
+        phone,
+        address,
+        deletePassword,
+        currentPassword,
+      } = req.body;
 
-    if (existingProfile && existingProfile.deletePassword) {
-      if (!currentPassword) {
-        return res.status(401).json({ message: "மாற்றங்களைச் சேமிக்க தற்போதைய கடவுச்சொல்லை உள்ளிடவும்! (Current password required!)" });
+      const existingProfile = await ShopProfile.findOne({
+        userId: req.user.id,
+      });
+
+      if (existingProfile && existingProfile.deletePassword) {
+        if (!currentPassword) {
+          return res
+            .status(401)
+            .json({
+              message:
+                "மாற்றங்களைச் சேமிக்க தற்போதைய கடவுச்சொல்லை உள்ளிடவும்! (Current password required!)",
+            });
+        }
+        if (currentPassword !== existingProfile.deletePassword) {
+          return res
+            .status(401)
+            .json({
+              message: "தவறான கடவுச்சொல்! (Incorrect current password!)",
+            });
+        }
       }
-      if (currentPassword !== existingProfile.deletePassword) {
-        return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect current password!)" });
+
+      let updateData = {
+        shopName,
+        ownerName,
+        phone,
+        address,
+        userId: req.user.id,
+        updatedBy: req.user.id,
+      };
+
+      if (deletePassword && deletePassword.trim() !== "") {
+        updateData.deletePassword = deletePassword;
       }
-    }
 
-    let updateData = { 
-      shopName, 
-      ownerName, 
-      phone, 
-      address, 
-      userId: req.user.id,    
-      updatedBy: req.user.id 
-    };
-    
-    if (deletePassword && deletePassword.trim() !== "") {
-      updateData.deletePassword = deletePassword;
-    }
-    
-    if (req.file) {
-      updateData.shopimage = req.file.filename;
-    }
-    
-    const profile = await ShopProfile.findOneAndUpdate(
-      { userId: req.user.id }, 
-      { $set: updateData }, 
-      { new: true, upsert: true }
-    );
+      if (req.file) {
+        updateData.shopimage = req.file.filename;
+      }
 
-    res.status(200).json({ message: "Shop Profile updated successfully", profile });
-  } catch (error) {
-    res.status(500).json({ message: "Update failed", error: error.message });
-  }
-});
+      const profile = await ShopProfile.findOneAndUpdate(
+        { userId: req.user.id },
+        { $set: updateData },
+        { new: true, upsert: true },
+      );
+
+      res
+        .status(200)
+        .json({ message: "Shop Profile updated successfully", profile });
+    } catch (error) {
+      res.status(500).json({ message: "Update failed", error: error.message });
+    }
+  },
+);
 
 app.post("/api/daily-cash", verifyToken, async (req, res) => {
   try {
     const { amount, name, date } = req.body;
-    const today = new Date().toLocaleDateString('en-CA'); // Matches your original formatting ("YYYY-MM-DD")
+    const today = new Date().toLocaleDateString("en-CA"); // Matches your original formatting ("YYYY-MM-DD")
 
-    const transactionDate = date || new Date().toLocaleDateString('en-CA');
+    const transactionDate = date || new Date().toLocaleDateString("en-CA");
 
     if (!name || !amount) {
-      return res.status(400).json({ message: "Reason and Amount are required!" });
+      return res
+        .status(400)
+        .json({ message: "Reason and Amount are required!" });
     }
 
     const dailyCash = await DailyCash.findOneAndUpdate(
-      { date: transactionDate, userId: req.user.id }, 
-      { 
+      { date: transactionDate, userId: req.user.id },
+      {
         $push: { cashDetails: { name: name, amount: Number(amount) } },
         $inc: { totalAmount: Number(amount) },
-        $setOnInsert: { userId: req.user.id } 
-      }, 
-      { new: true, upsert: true }
+        $setOnInsert: { userId: req.user.id },
+      },
+      { new: true, upsert: true },
     );
-    
+
     res.status(200).json({ message: "Cash added successfully", dailyCash });
   } catch (error) {
-    res.status(500).json({ message: "Failed to add cash", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to add cash", error: error.message });
   }
 });
 
@@ -1401,7 +1636,7 @@ app.post("/api/payLoan", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/login",loginLimiter, async (req, res) => {
+app.post("/api/login", loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -1430,7 +1665,10 @@ app.post("/api/login",loginLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/customers", verifyToken,upload.fields([
+app.post(
+  "/api/customers",
+  verifyToken,
+  upload.fields([
     { name: "aadharimage", maxCount: 1 },
     { name: "recentimage", maxCount: 1 },
   ]),
@@ -1439,7 +1677,7 @@ app.post("/api/customers", verifyToken,upload.fields([
       if (!req.body) {
         return res.status(400).json({ message: "Form data missing" });
       }
-      
+
       if (
         !req.files ||
         !req.files["aadharimage"] ||
@@ -1449,13 +1687,14 @@ app.post("/api/customers", verifyToken,upload.fields([
       }
 
       const counter = await Counter.findOneAndUpdate(
-      { name: "customerId" },
-      { $inc: { value: 1 } },
-      { new: true, upsert: true }
-    );
+        { name: "customerId" },
+        { $inc: { value: 1 } },
+        { new: true, upsert: true },
+      );
 
       const { name, dob, address, aadhar, phone } = req.body;
-      const generatedCustomerId = "CUST" + String(counter.value).padStart(3, "0");
+      const generatedCustomerId =
+        "CUST" + String(counter.value).padStart(3, "0");
 
       const newCustomer = new Customer({
         name,
@@ -1508,13 +1747,13 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       thirdInterestFrom,
       thirdInterestTo,
       loanDate,
-      loanamount
+      loanamount,
     } = req.body;
 
     const counter = await Counter.findOneAndUpdate(
       { name: "loanId" },
       { $inc: { value: 1 } },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     const generatedLoanId = "LN" + String(counter.value).padStart(3, "0");
@@ -1522,13 +1761,14 @@ app.post("/api/loans", verifyToken, async (req, res) => {
     const loan = new Loan({
       loanId: generatedLoanId,
       customer: customerId,
-      items: items || [], 
-      product: product || (items && items.length > 0 ? items[0].productId : null), 
+      items: items || [],
+      product:
+        product || (items && items.length > 0 ? items[0].productId : null),
       weight: weight || 0,
       stoneweight: stoneweight || 0,
       goldrate: goldrate || 0,
       pawnpercentage: pawnpercentage || 0,
-      loanDate: loanDate ? new Date(loanDate) : new Date(), 
+      loanDate: loanDate ? new Date(loanDate) : new Date(),
       firstinterest,
       secondinterest,
       thirdinterest,
@@ -1538,7 +1778,7 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       secondInterestTo: secondInterestTo || 180,
       thirdInterestFrom: thirdInterestFrom || 181,
       thirdInterestTo: thirdInterestTo || 270,
-      loanamount: loanamount || 0, 
+      loanamount: loanamount || 0,
       firstinterestAmount,
       secondinterestAmount,
       thirdinterestAmount,
@@ -1552,8 +1792,8 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       loan,
     });
   } catch (error) {
-    console.error("LOAN CREATION ERROR:", error); 
-    
+    console.error("LOAN CREATION ERROR:", error);
+
     res.status(500).json({
       message: "Failed to create loan",
       error: error.message || error,
@@ -1563,21 +1803,28 @@ app.post("/api/loans", verifyToken, async (req, res) => {
 
 app.delete("/api/loans/:id", verifyToken, async (req, res) => {
   try {
-    const { password } = req.body; 
+    const { password } = req.body;
 
     const shopProfile = await ShopProfile.findOne();
     if (!shopProfile || !shopProfile.deletePassword) {
-      return res.status(400).json({ message: "சுயவிவரத்தில் கடவுச்சொல் அமைக்கப்படவில்லை! (Delete password not set in Shop Profile)" });
+      return res
+        .status(400)
+        .json({
+          message:
+            "சுயவிவரத்தில் கடவுச்சொல் அமைக்கப்படவில்லை! (Delete password not set in Shop Profile)",
+        });
     }
 
     if (password !== shopProfile.deletePassword) {
-      return res.status(401).json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
+      return res
+        .status(401)
+        .json({ message: "தவறான கடவுச்சொல்! (Incorrect password!)" });
     }
 
     const deletedLoan = await Loan.findByIdAndUpdate(
-      req.params.id, 
+      req.params.id,
       { isDeleted: true },
-      { returnDocument: "after" }
+      { returnDocument: "after" },
     );
 
     if (!deletedLoan) {
@@ -1586,7 +1833,9 @@ app.delete("/api/loans/:id", verifyToken, async (req, res) => {
 
     res.status(200).json({ message: "Loan deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Failed to delete loan", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to delete loan", error: error.message });
   }
 });
 

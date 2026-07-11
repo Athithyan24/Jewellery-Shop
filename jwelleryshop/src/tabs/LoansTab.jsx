@@ -27,6 +27,8 @@ export default function LoansTab() {
   const [currentUser, setCurrentUser] = useState(null);
   const [payAmount, setPayAmount] = useState("");
   const [bankList, setBankList] = useState([]);
+  const [isNewBank, setIsNewBank] = useState(false);
+  const [newBankName, setNewBankName] = useState("");
 
   // 🟢 1. PERFECT PAWN SHOP MATH (Calendar Months + Leftover Days)
   // 🟢 SECURE MATH FROM BACKEND
@@ -71,12 +73,26 @@ export default function LoansTab() {
 
     try {
       const token = localStorage.getItem("token");
+      if (isNewBank) {
+        if (!newBankName.trim()) return alert("Please enter the new bank name");
+        const bankRes = await axios.post(
+          "http://localhost:5000/api/banks",
+          { name: newBankName, branch: bankData.branchname },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        bankData.bankId = bankRes.data._id || bankRes.data.bank?._id; 
+        if (typeof fetchBanks === 'function') fetchBanks(); 
+      }
+
+      console.log("Sending to server:", bankData);
+
       await axios.post("http://localhost:5000/api/bankDetails", bankData, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       alert("The bank details have been saved!");
       setIsBankModalOpen(false);
+      setIsNewBank(false);
       fetchLoans();
     } catch (error) {
       console.error("Server says:", error.response?.data);
@@ -1157,25 +1173,52 @@ export default function LoansTab() {
 
             <form onSubmit={handleBankSubmit} className="p-6">
               <div className="space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    Select Bank
-                  </label>
-                  <select
-                    name="bankId"
-                    className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
-                    required>
-                    <option value="" disabled selected>
-                      -- Select Bank --
-                    </option>
-                    {bankList.map((bank) => (
-                      <option key={bank._id} value={bank._id}>
-                        {bank.name}
+                
+                {/* 🟢 DROPDOWN WITH MANUAL OVERRIDE */}
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                      Select Bank
+                    </label>
+                    <select
+                      name="bankId"
+                      onChange={(e) => setIsNewBank(e.target.value === "manual")}
+                      className="w-full rounded-lg border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                      required>
+                      <option value="" disabled selected>
+                        -- Select Bank --
                       </option>
-                    ))}
-                  </select>
+                      {bankList.map((bank) => (
+                        <option key={bank._id} value={bank._id}>
+                          {bank.name}
+                        </option>
+                      ))}
+                      {/* NEW MANUAL OPTION */}
+                      <option value="manual" className="font-bold text-indigo-600">
+                        + Add New Bank Manually
+                      </option>
+                    </select>
+                  </div>
+
+                  {/* 🟢 REVEALED INPUT WHEN "MANUAL" IS SELECTED */}
+                  {isNewBank && (
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                      <label className="block text-xs font-bold text-indigo-600 mb-1.5 uppercase tracking-wide">
+                        Enter New Bank Name
+                      </label>
+                      <input
+                        type="text"
+                        value={newBankName}
+                        onChange={(e) => setNewBankName(e.target.value)}
+                        placeholder="e.g. State Bank of India"
+                        className="w-full rounded-lg border-indigo-300 bg-indigo-50/50 px-4 py-3 text-sm font-bold text-indigo-900 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
+                        required={isNewBank}
+                      />
+                    </div>
+                  )}
                 </div>
 
+                {/* THE REST OF YOUR FORM STAYS EXACTLY THE SAME */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
@@ -1254,7 +1297,10 @@ export default function LoansTab() {
               <div className="mt-8 flex gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsBankModalOpen(false)}
+                  onClick={() => {
+                    setIsBankModalOpen(false);
+                    setIsNewBank(false); // Clean up state if canceled
+                  }}
                   className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
                   Cancel
                 </button>

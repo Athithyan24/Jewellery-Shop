@@ -22,6 +22,10 @@ export default function LockerTab() {
   const [isRetrieveModalOpen, setIsRetrieveModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
+  // 🟢 NEW: Added States to control full-expanded history ledger modal
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
+
   // Input Handling States
   const [bankLoanAmount, setBankLoanAmount] = useState("");
   const [settlementAmount, setSettlementAmount] = useState("");
@@ -110,20 +114,22 @@ export default function LockerTab() {
     }
   };
 
-  const handleSettleBankLoan = async () => {
+  const handleSettleBankLoan = async (paymentType) => {
     if (!settlementAmount || !selectedItem)
       return alert("Please enter the settlement amount");
     try {
       await axios.put(
         `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
-        { bankSettlementAmount: parseFloat(settlementAmount),
-          bankSettlementDate: bankSettlementDate
+        { 
+          bankSettlementAmount: parseFloat(settlementAmount),
+          bankSettlementDate: bankSettlementDate,
+          paymentType: paymentType
          },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         },
       );
-      alert("Settlement payment added successfully!");
+      alert(`${paymentType} payment added successfully!`);
       setIsSettleModalOpen(false);
       setSettlementAmount("");
 
@@ -279,12 +285,6 @@ export default function LockerTab() {
 
               <tbody className="bg-white divide-y divide-slate-100">
                 {filteredLockerByLoan.map((item) => {
-                  const totalSettled =
-                    item.bankSettlements?.reduce(
-                      (sum, s) => sum + s.amount,
-                      0,
-                    ) || 0;
-
                   const totalLoans =
                     item.bankLoans?.reduce((sum, l) => sum + l.amount, 0) || 0;
 
@@ -409,7 +409,6 @@ export default function LockerTab() {
                       {/* BANK LOAN HISTORY */}
                       <td className="py-3.5 px-4 align-middle">
                         <div className="flex flex-col gap-1 w-full text-xs">
-                          {/* CASE 1: If new multi-history array exists and has data */}
                           {item.bankLoans && item.bankLoans.length > 0 ? (
                             <>
                               <div className="max-h-[72px] overflow-y-auto flex flex-col gap-1 pr-0.5 custom-scrollbar">
@@ -440,8 +439,7 @@ export default function LockerTab() {
                                 </span>
                               </div>
                             </>
-                          ) : /* CASE 2: Fallback for your old single-value entries */
-                          item.bankLoanAmount ? (
+                          ) : item.bankLoanAmount ? (
                             <>
                               <div className="bg-emerald-50/70 text-emerald-900 px-2 py-1 rounded border border-emerald-100 shadow-2xs flex justify-between items-center">
                                 <span className="text-[9px] text-emerald-600 font-bold">
@@ -461,7 +459,6 @@ export default function LockerTab() {
                               </div>
                             </>
                           ) : (
-                            /* CASE 3: No values are saved anywhere */
                             <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
                               No loans issued
                             </span>
@@ -469,43 +466,17 @@ export default function LockerTab() {
                         </div>
                       </td>
 
-                      {/* Settlement History */}
+                      {/* 🟢 NEW: Clean View History Button instead of crowded list */}
                       <td className="py-3.5 px-4 align-middle">
-                        <div className="flex flex-col gap-1 w-full text-xs">
-                          {item.bankSettlements &&
-                          item.bankSettlements.length > 0 ? (
-                            <>
-                              <div className="max-h-[72px] overflow-y-auto flex flex-col gap-1 pr-0.5 custom-scrollbar">
-                                {item.bankSettlements.map((settle, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="flex justify-between items-center bg-blue-50/70 text-blue-900 px-2 py-0.5 rounded border border-blue-100 shadow-2xs">
-                                    <span className="text-[9px] text-blue-600 font-bold">
-                                      {new Date(settle.date).toLocaleDateString(
-                                        "en-GB",
-                                      )}
-                                    </span>
-                                    <span className="font-black text-[11px]">
-                                      ₹{settle.amount.toFixed(0)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="mt-0.5 pt-0.5 border-t border-slate-200 flex justify-between items-center text-[10px]">
-                                <span className="font-bold text-slate-400">
-                                  Paid:
-                                </span>
-                                <span className="font-black text-blue-600 text-[11px]">
-                                  ₹{totalSettled.toFixed(0)}
-                                </span>
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 italic text-center py-1 bg-slate-50/50 rounded border border-slate-100 block">
-                              No settlements
-                            </span>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedHistoryItem(item);
+                            setIsHistoryModalOpen(true);
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl transition-all font-bold text-xs shadow-sm active:scale-95">
+                          View History
+                        </button>
                       </td>
 
                       {/* Retrieval Details */}
@@ -723,11 +694,23 @@ export default function LockerTab() {
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-lg font-black text-slate-800 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                 autoFocus
               />
-              <button
-                onClick={handleSettleBankLoan}
-                className="w-full mt-6 bg-blue-600 text-white font-black py-3 rounded-xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all">
-                Add Payment
-              </button>
+              <div className="mt-6 flex gap-3">
+                {/* 1. The Loan (Principal) Button */}
+                <button
+                  type="button"
+                  onClick={() => handleSettleBankLoan("Principal")}
+                  className="flex-1 bg-slate-800 text-white font-black py-3 rounded-xl hover:bg-slate-900 shadow-lg active:scale-95 transition-all">
+                  Loan
+                </button>
+
+                {/* 2. The Interest Button */}
+                <button
+                  type="button"
+                  onClick={() => handleSettleBankLoan("Interest")}
+                  className="flex-1 bg-blue-600 text-white font-black py-3 rounded-xl hover:bg-blue-700 shadow-lg active:scale-95 transition-all">
+                  Interest
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -927,6 +910,95 @@ export default function LockerTab() {
                 }}
                 className="px-5 py-2 bg-slate-800 text-white text-sm font-black rounded-xl hover:bg-slate-900 transition-all active:scale-95 shadow-md">
                 Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 NEW: Payment History Expanded Modal Panel Layout */}
+      {isHistoryModalOpen && selectedHistoryItem && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
+              <h3 className="font-black flex items-center gap-2">
+                <Calendar size={18} /> Payment History Ledger
+              </h3>
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="text-2xl hover:rotate-90 transition-transform outline-none">
+                ×
+              </button>
+            </div>
+
+            <div className="p-6 bg-slate-50">
+              {/* Summary Metrics Banner Block */}
+              <div className="flex gap-4 mb-6">
+                <div className="flex-1 bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Loan Paid</span>
+                  <span className="text-base font-black text-slate-800">
+                    ₹{(selectedHistoryItem.bankSettlements?.filter(s => s.paymentType === "Principal").reduce((sum, s) => sum + s.amount, 0) || 0).toFixed(0)}
+                  </span>
+                </div>
+                <div className="flex-1 bg-blue-50 p-3 rounded-xl border border-blue-100 shadow-xs flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-black text-blue-500 uppercase tracking-wider mb-1">Total Interest Paid</span>
+                  <span className="text-base font-black text-blue-700">
+                    ₹{(selectedHistoryItem.bankSettlements?.filter(s => s.paymentType !== "Principal").reduce((sum, s) => sum + s.amount, 0) || 0).toFixed(0)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Ledger Items Scroll View */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                <div className="max-h-[260px] overflow-y-auto custom-scrollbar">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-100 sticky top-0 border-b border-slate-200 z-10">
+                      <tr>
+                        <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Date Paid</th>
+                        <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Payment Type</th>
+                        <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {selectedHistoryItem.bankSettlements && selectedHistoryItem.bankSettlements.length > 0 ? (
+                        selectedHistoryItem.bankSettlements.map((settle, idx) => {
+                          const isPrincipal = settle.paymentType === "Principal";
+                          return (
+                            <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="p-3 text-xs font-bold text-slate-700">
+                                {new Date(settle.date).toLocaleDateString("en-GB")}
+                              </td>
+                              <td className="p-3">
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                                  isPrincipal 
+                                    ? "bg-slate-100 text-slate-700 border border-slate-200" 
+                                    : "bg-blue-100 text-blue-700 border border-blue-200"
+                                }`}>
+                                  {isPrincipal ? "Loan" : "Interest"}
+                                </span>
+                              </td>
+                              <td className="p-3 text-xs font-black text-slate-800 text-right">
+                                ₹{settle.amount.toFixed(0)}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="3" className="p-6 text-center text-xs font-bold text-slate-400 italic bg-slate-50/50">
+                            No payment ledger records saved yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="w-full mt-5 bg-slate-800 text-white font-black py-2.5 rounded-xl hover:bg-slate-900 shadow-md active:scale-95 transition-all text-sm">
+                Close Viewer
               </button>
             </div>
           </div>
