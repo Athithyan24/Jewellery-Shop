@@ -67,6 +67,13 @@ export default function LoansTab() {
 
     const bankData = Object.fromEntries(formData.entries());
 
+    if (bankData.ledgercreationdate) {
+      const now = new Date();
+      const [year, month, day] = bankData.ledgercreationdate.split('-');
+      // Create a new Date object in local time, then convert to ISO string for the backend
+      bankData.ledgercreationdate = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+    }
+
     bankData.loanId = selectedLoanForBank?._id;
 
     console.log("Sending to server:", bankData);

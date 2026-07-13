@@ -3,6 +3,9 @@ import axios from "axios";
 import { Search, Handshake, Users, X, Plus } from "lucide-react";
 import { getDatabase } from "../db";
 export default function CustomersTab() {
+
+  // ✨ NEW: States for Bank Loan Taking Model
+const [adminPassword, setAdminPassword] = useState("");
   const [offlineCustomers, setOfflineCustomers] = useState([]);
   const [CustomerModal, setCustomerModal] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -11,9 +14,7 @@ export default function CustomersTab() {
   const [LoanModal, setLoanModal] = useState(false);
   const [products, setProducts] = useState([]);
   const [loans, setLoans] = useState([]);
-  const [selectedLoanDate, setSelectedLoanDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [selectedLoanDate, setSelectedLoanDate] = useState(new Date().toLocaleDateString("en-CA"));
   const [loanCalc, setLoanCalc] = useState({
     weight: "",
     stoneweight: "",
@@ -43,9 +44,7 @@ export default function CustomersTab() {
     },
   ]);
 
-  const [loanDate, setLoanDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [loanDate, setLoanDate] = useState(new Date().toLocaleDateString("en-CA"));
 
   const handleItemChange = (index, field, value) => {
     const updated = [...loanItems];
@@ -166,6 +165,19 @@ export default function CustomersTab() {
 
   const handleLoanSubmit = async (e) => {
     e.preventDefault();
+    const today = new Date().toLocaleDateString("en-CA"); // Gets today's date in YYYY-MM-DD format
+    
+    if (selectedLoanDate < today) {
+      // Prompt the user for a password
+      const enteredPassword = window.prompt("⚠️ Past date selected! Please enter the Admin password to authorize this backdated loan:");
+      
+      // Verification check (Replace 'admin123' with your actual password or state variable)
+      if (enteredPassword !== "admin123") {
+        alert("❌ Authorization failed! Incorrect password. Loan creation cancelled.");
+        return; // This stops the function and prevents the loan from being submitted
+      }
+    }
+    // 👈 END OF NEW CODE
     try {
       const finalFirstInterest = parseFloat(e.target.firstinterest.value) || 0;
       const finalSecondInterest =
@@ -410,11 +422,47 @@ export default function CustomersTab() {
     }
   };
 
+  const fetchShopProfile = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/shop-profile", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (res.data && res.data.deletePassword) {
+        setAdminPassword(res.data.deletePassword);
+      }
+    } catch (error) {
+      console.error("Error fetching shop profile:", error);
+    }
+  };
+
+  const handleLoanDateChange = (e) => {
+    const newlySelectedDate = e.target.value;
+    const today = new Date().toLocaleDateString("en-CA"); // Gets today in YYYY-MM-DD format
+
+    // If the selected date is anything other than today's date
+    if (newlySelectedDate !== today) {
+      const enteredPassword = window.prompt("⚠️ You are selecting a different date. Please enter the secret password:");
+      
+      // Verification check (Replace 'admin123' with your fetched shop profile password if needed)
+      if (enteredPassword === adminPassword) {
+        setSelectedLoanDate(newlySelectedDate); // Allow the date change
+      } else {
+        alert("❌ Incorrect password. Date selection cancelled.");
+        // Revert back to today's date (or keep it as the previously selected date)
+        setSelectedLoanDate(today); 
+      }
+    } else {
+      // If it is today's date, just set it normally without a password
+      setSelectedLoanDate(newlySelectedDate);
+    }
+  };
+
   useEffect(() => {
     fetchOfflineCustomers();
     fetchCustomers();
     fetchProducts();
     fetchLoans();
+    fetchShopProfile();
   }, []);
   return (
     <>
@@ -879,7 +927,7 @@ export default function CustomersTab() {
                       type="date"
                       value={selectedLoanDate}
                       max={new Date().toISOString().split("T")[0]} // Blocks selecting future dates
-                      onChange={(e) => setSelectedLoanDate(e.target.value)}
+                      onChange={handleLoanDateChange}
                       className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-inner"
                       required
                     />

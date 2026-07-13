@@ -15,6 +15,12 @@ import {
 import * as XLSX from "xlsx";
 
 export default function TransactionTab() {
+  
+  // ✨ NEW: States for past date password verification
+  const [isDatePasswordModalOpen, setIsDatePasswordModalOpen] = useState(false);
+  const [datePassword, setDatePassword] = useState("");
+  const [pendingTransactionDate, setPendingTransactionDate] = useState("");
+
   const [isBackupMenuModalOpen, setIsBackupMenuModalOpen] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
 
@@ -511,6 +517,35 @@ export default function TransactionTab() {
 
   const filteredStats = allDailyStats.filter((stat) => stat.date === activeDate);
 
+  const handleDateChangeRequest = (e) => {
+    const newDate = e.target.value;
+    const today = new Date().toISOString().split("T")[0];
+
+    // If the selected date is earlier than today, require password
+    if (newDate < today) {
+      setPendingTransactionDate(newDate);
+      setIsDatePasswordModalOpen(true);
+    } else {
+      // If it's today, allow it directly
+      setTransactionDate(newDate);
+    }
+  };
+
+  const handleVerifyDatePassword = () => {
+    if (!datePassword) return alert("Enter password");
+    
+    // Check against the shop profile's secret password
+    if (datePassword === shopProfile?.deletePassword) {
+      setTransactionDate(pendingTransactionDate);
+      setIsDatePasswordModalOpen(false);
+      setDatePassword("");
+      setPendingTransactionDate("");
+    } else {
+      alert("Incorrect Secret Password!");
+    }
+  };
+
+  // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
   // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
   // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
   let dayBookEntries = [];
@@ -518,155 +553,176 @@ export default function TransactionTab() {
   let totalCredit = 0;
 
   filteredStats.forEach((stat) => {
-  // Helper to format Date + Time for individual entries
-  const formatDateTime = (isoDate) => {
-    const d = new Date(isoDate);
-    const datePart = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    const timePart = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    return `${datePart} - ${timePart}`;
-  };
+    // Helper to format Date + Time for individual entries
+    const formatDateTime = (isoDate) => {
+      const d = new Date(isoDate);
+      const datePart = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      const timePart = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      return `${datePart} - ${timePart}`;
+    };
 
-  // Base Date for Fallbacks (Carry Over, Total Summaries)
-  const baseDateStr = new Date(stat.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    // Base Date for Fallbacks (Carry Over, Total Summaries)
+    const baseDateStr = new Date(stat.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    // We get the midnight timestamp of the day to pin opening balances to the very top
+    const baseStartOfDay = new Date(stat.date).setHours(0, 0, 0, 0);
 
-  // 1. CREDIT: Previous Day Carry Over
-  if (stat.carriedOverBalance > 0) {
-    dayBookEntries.push({
-      id: `${stat.date}-carryover`,
-      date: baseDateStr,
-      history: "Previous Day Carry Over Balance",
-      debit: 0,
-      credit: stat.carriedOverBalance,
-    });
-    totalCredit += stat.carriedOverBalance;
-  }
-
-  // 2. CREDIT: Daily Cash Added
-  if (stat.cashDetails && stat.cashDetails.length > 0) {
-    stat.cashDetails.forEach((cash, idx) => {
-      const amt = Number(cash.amount) || 0;
+    // 1. CREDIT: Previous Day Carry Over
+    if (stat.carriedOverBalance > 0) {
       dayBookEntries.push({
-        id: `${stat.date}-cash-${idx}`,
-        date: baseDateStr, 
-        history: cash.name || "Manually Added Cash",
-        debit: 0,
-        credit: amt,
-      });
-      totalCredit += amt;
-    });
-  } else if (stat.manuallyAddedCash > 0) {
-    dayBookEntries.push({
-      id: `${stat.date}-start`,
-      date: baseDateStr,
-      history: "Opening Balance / Cash In",
-      debit: 0,
-      credit: stat.manuallyAddedCash,
-    });
-    totalCredit += stat.manuallyAddedCash;
-  }
-
-  // 3. CREDIT: INDIVIDUAL Income / Interest Paid
-  if (stat.incomeDetails && stat.incomeDetails.length > 0) {
-    stat.incomeDetails.forEach((inc, idx) => {
-      const amt = Number(inc.amount) || 0;
-      dayBookEntries.push({
-        id: `${stat.date}-inc-${idx}`,
-        date: formatDateTime(inc.date || stat.date),
-        history: `LOAN/INTEREST PAID BY ${inc.customerName?.toUpperCase() || "CUSTOMER"} FOR ${inc.loanId || "N/A"}`,
-        debit: 0,
-        credit: amt,
-      });
-      totalCredit += amt;
-    });
-  } else if (stat.income > 0) { // Fallback for old data
-    dayBookEntries.push({
-      id: `${stat.date}-inc`,
-      date: baseDateStr,
-      history: "Income (Loan Received / Interest Paid)",
-      debit: 0,
-      credit: Number(stat.income),
-    });
-    totalCredit += Number(stat.income);
-  }
-
-  // 4. CREDIT: INDIVIDUAL Bank Loan Taken (Locker Storage)
-  if (stat.bankLoanDetails && stat.bankLoanDetails.length > 0) {
-    stat.bankLoanDetails.forEach((bl, idx) => {
-      const amt = Number(bl.amount) || 0;
-      dayBookEntries.push({
-        id: `${stat.date}-bankloan-${idx}`,
-        date: formatDateTime(bl.date || stat.date),
-        history: `${bl.loanId || "N/A"} ${bl.productName?.toUpperCase() || "ITEM"} KEPT IN ${bl.bankName?.toUpperCase() || "BANK"} BANK LOCKER ${bl.lockerNo || "N/A"}`,
-        debit: 0,
-        credit: amt,
-      });
-      totalCredit += amt;
-    });
-  }
-
-  // 5. DEBIT: INDIVIDUAL Loan Given 
-  if (stat.loanDetails && stat.loanDetails.length > 0) {
-    stat.loanDetails.forEach((loan, idx) => {
-      const amt = Number(loan.amount) || 0;
-      dayBookEntries.push({
-        id: `${stat.date}-loan-${idx}`,
-        date: formatDateTime(loan.date || stat.date),
-        history: `LOAN GIVEN TO ${loan.customerName?.toUpperCase() || "CUSTOMER"} FOR ${loan.loanId || "N/A"}`,
-        debit: amt,
-        credit: 0,
-      });
-      totalDebit += amt;
-    });
-  } else if (stat.loanGiven > 0) { // Fallback for old data
-    dayBookEntries.push({
-      id: `${stat.date}-loan`,
-      date: baseDateStr,
-      history: "Loan Given (Cash Out)",
-      debit: Number(stat.loanGiven),
-      credit: 0,
-    });
-    totalDebit += Number(stat.loanGiven);
-  }
-
-  // 6. DEBIT: INDIVIDUAL Bank Settlement Paid
-  if (stat.bankSettlementDetails && stat.bankSettlementDetails.length > 0) {
-    stat.bankSettlementDetails.forEach((bs, idx) => {
-      const amt = Number(bs.amount) || 0;
-      dayBookEntries.push({
-        id: `${stat.date}-banksettlement-${idx}`,
-        date: formatDateTime(bs.date || stat.date),
-        history: `LOAN/INTEREST PAID TO THE ${bs.bankName?.toUpperCase() || "BANK"}`,
-        debit: amt,
-        credit: 0,
-      });
-      totalDebit += amt;
-    });
-  }
-
-  // 7. DEBIT: Expenses
-  if (stat.expenseDetails && stat.expenseDetails.length > 0) {
-    stat.expenseDetails.forEach((exp, idx) => {
-      const amt = Number(exp.amount) || 0;
-      dayBookEntries.push({
-        id: `${stat.date}-exp-${idx}`,
+        id: `${stat.date}-carryover`,
         date: baseDateStr,
-        history: `Expense: ${exp.name}`,
-        debit: amt,
+        rawDate: baseStartOfDay - 2000, // Force to the absolute top
+        history: "Previous Day Carry Over Balance",
+        debit: 0,
+        credit: stat.carriedOverBalance,
+      });
+      totalCredit += stat.carriedOverBalance;
+    }
+
+    // 2. CREDIT: Daily Cash Added
+    if (stat.cashDetails && stat.cashDetails.length > 0) {
+      stat.cashDetails.forEach((cash, idx) => {
+        const amt = Number(cash.amount) || 0;
+        dayBookEntries.push({
+          id: `${stat.date}-cash-${idx}`,
+          date: baseDateStr, 
+          rawDate: cash.date ? new Date(cash.date).getTime() : (baseStartOfDay - 1000), // Pin right after carryover
+          history: cash.name || "Manually Added Cash",
+          debit: 0,
+          credit: amt,
+        });
+        totalCredit += amt;
+      });
+    } else if (stat.manuallyAddedCash > 0) {
+      dayBookEntries.push({
+        id: `${stat.date}-start`,
+        date: baseDateStr,
+        rawDate: baseStartOfDay - 1000, // Force right after carry over
+        history: "Opening Balance / Cash In",
+        debit: 0,
+        credit: stat.manuallyAddedCash,
+      });
+      totalCredit += stat.manuallyAddedCash;
+    }
+
+    // 3. CREDIT: INDIVIDUAL Income / Interest Paid
+    if (stat.incomeDetails && stat.incomeDetails.length > 0) {
+      stat.incomeDetails.forEach((inc, idx) => {
+        const amt = Number(inc.amount) || 0;
+        const incDate = inc.date || stat.date;
+        dayBookEntries.push({
+          id: `${stat.date}-inc-${idx}`,
+          date: formatDateTime(incDate),
+          rawDate: new Date(incDate).getTime(), // Track exact time
+          history: `LOAN/INTEREST PAID BY ${inc.customerName?.toUpperCase() || "CUSTOMER"} FOR ${inc.loanId || "N/A"}`,
+          debit: 0,
+          credit: amt,
+        });
+        totalCredit += amt;
+      });
+    } else if (stat.income > 0) {
+      dayBookEntries.push({
+        id: `${stat.date}-inc`,
+        date: baseDateStr,
+        rawDate: baseStartOfDay + 1000,
+        history: "Income (Loan Received / Interest Paid)",
+        debit: 0,
+        credit: Number(stat.income),
+      });
+      totalCredit += Number(stat.income);
+    }
+
+    // 4. CREDIT: INDIVIDUAL Bank Loan Taken (Locker Storage)
+    if (stat.bankLoanDetails && stat.bankLoanDetails.length > 0) {
+      stat.bankLoanDetails.forEach((bl, idx) => {
+        const amt = Number(bl.amount) || 0;
+        const blDate = bl.date || stat.date;
+        dayBookEntries.push({
+          id: `${stat.date}-bankloan-${idx}`,
+          date: formatDateTime(blDate),
+          rawDate: new Date(blDate).getTime(), // Track exact time
+          history: `${bl.loanId || "N/A"} ${bl.productName?.toUpperCase() || "ITEM"} KEPT IN ${bl.bankName?.toUpperCase() || "BANK"} BANK LOCKER ${bl.lockerNo || "N/A"}`,
+          debit: 0,
+          credit: amt,
+        });
+        totalCredit += amt;
+      });
+    }
+
+    // 5. DEBIT: INDIVIDUAL Loan Given 
+    if (stat.loanDetails && stat.loanDetails.length > 0) {
+      stat.loanDetails.forEach((loan, idx) => {
+        const amt = Number(loan.amount) || 0;
+        const loanDate = loan.date || stat.date;
+        dayBookEntries.push({
+          id: `${stat.date}-loan-${idx}`,
+          date: formatDateTime(loanDate),
+          rawDate: new Date(loanDate).getTime(), // Track exact time
+          history: `LOAN GIVEN TO ${loan.customerName?.toUpperCase() || "CUSTOMER"} FOR ${loan.loanId || "N/A"}`,
+          debit: amt,
+          credit: 0,
+        });
+        totalDebit += amt;
+      });
+    } else if (stat.loanGiven > 0) { // Fallback for old data
+      dayBookEntries.push({
+        id: `${stat.date}-loan`,
+        date: baseDateStr,
+        rawDate: baseStartOfDay + 2000,
+        history: "Loan Given (Cash Out)",
+        debit: Number(stat.loanGiven),
         credit: 0,
       });
-      totalDebit += amt;
-    });
-  } else if (stat.expenses > 0) {
-    dayBookEntries.push({
-      id: `${stat.date}-exp-total`,
-      date: baseDateStr,
-      history: "Shop Expenses",
-      debit: Number(stat.expenses),
-      credit: 0,
-    });
-    totalDebit += Number(stat.expenses);
-  }
-});
+      totalDebit += Number(stat.loanGiven);
+    }
+
+    // 6. DEBIT: INDIVIDUAL Bank Settlement Paid
+    if (stat.bankSettlementDetails && stat.bankSettlementDetails.length > 0) {
+      stat.bankSettlementDetails.forEach((bs, idx) => {
+        const amt = Number(bs.amount) || 0;
+        const bsDate = bs.date || stat.date;
+        dayBookEntries.push({
+          id: `${stat.date}-banksettlement-${idx}`,
+          date: formatDateTime(bsDate),
+          rawDate: new Date(bsDate).getTime(), // Track exact time
+          history: `LOAN/INTEREST PAID TO THE ${bs.bankName?.toUpperCase() || "BANK"}`,
+          debit: amt,
+          credit: 0,
+        });
+        totalDebit += amt;
+      });
+    }
+
+    // 7. DEBIT: Expenses
+    if (stat.expenseDetails && stat.expenseDetails.length > 0) {
+      stat.expenseDetails.forEach((exp, idx) => {
+        const amt = Number(exp.amount) || 0;
+        const expDate = exp.date || stat.date;
+        dayBookEntries.push({
+          id: `${stat.date}-exp-${idx}`,
+          date: formatDateTime(expDate), // Upgraded to show time if available
+          rawDate: new Date(expDate).getTime(), // Track exact time
+          history: `Expense: ${exp.name}`,
+          debit: amt,
+          credit: 0,
+        });
+        totalDebit += amt;
+      });
+    } else if (stat.expenses > 0) {
+      dayBookEntries.push({
+        id: `${stat.date}-exp-total`,
+        date: baseDateStr,
+        rawDate: baseStartOfDay + 3000,
+        history: "Shop Expenses",
+        debit: Number(stat.expenses),
+        credit: 0,
+      });
+      totalDebit += Number(stat.expenses);
+    }
+  });
+
+  // 🟢 NEW: Sort the entire daybook chronologically by the exact time they occurred!
+  dayBookEntries.sort((a, b) => a.rawDate - b.rawDate);
 
   const overallBalance = totalCredit - totalDebit;
 
@@ -806,8 +862,8 @@ export default function TransactionTab() {
             <input
               type="date"
               value={transactionDate}
-              onChange={(e) => setTransactionDate(e.target.value)}
-              max={new Date().toISOString().split("T")[0]} // Prevents selecting future dates
+              onChange={handleDateChangeRequest} // ✨ Updated to use the interceptor
+              max={new Date().toISOString().split("T")[0]} 
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
             />
           </div>
@@ -1480,6 +1536,52 @@ export default function TransactionTab() {
         </div>
       )}
       {/* Email Modal */}
+      {/* ✨ NEW: Past Date Password Verification Modal */}
+      {isDatePasswordModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm border-4 border-yellow-50">
+                🔒
+              </div>
+
+              <h3 className="text-xl font-black text-slate-800 mb-2">Admin Access Required</h3>
+              <p className="text-sm text-slate-500 mb-6 font-medium leading-relaxed">
+                Modifying transactions on past dates requires the owner's secret password.
+              </p>
+
+              {/* Password Input */}
+              <input
+                type="password"
+                placeholder="Secret Password"
+                value={datePassword}
+                onChange={(e) => setDatePassword(e.target.value)}
+                className="w-full tracking-widest text-lg text-center rounded-xl border-slate-300 bg-slate-50 px-4 py-3 font-bold text-slate-800 focus:border-yellow-500 focus:bg-white focus:ring-2 focus:ring-yellow-500/20 transition-all outline-none shadow-inner mb-6"
+              />
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setIsDatePasswordModalOpen(false);
+                    setDatePassword("");
+                    setPendingTransactionDate("");
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleVerifyDatePassword}
+                  className="flex-1 px-4 py-2.5 bg-yellow-500 text-white font-bold rounded-xl hover:bg-yellow-600 transition-all shadow-md active:scale-95"
+                >
+                  Unlock
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

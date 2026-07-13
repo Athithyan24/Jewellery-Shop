@@ -45,6 +45,8 @@ export default function LockerTab() {
     new Date().toISOString().split("T")[0],
   );
 
+  const [adminPassword, setAdminPassword] = useState("");
+
   const fetchCustomersLocker = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/bankDetails", {
@@ -56,9 +58,50 @@ export default function LockerTab() {
     }
   };
 
+  const fetchShopProfile = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/shop-profile", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (res.data && res.data.deletePassword) {
+        setAdminPassword(res.data.deletePassword);
+      }
+    } catch (error) {
+      console.error("Error fetching shop profile:", error);
+    }
+  };
+
   useEffect(() => {
     fetchCustomersLocker();
+    fetchShopProfile();
   }, []);
+
+  // 👉 NEW: Reusable secure date change handler
+  const handleSecureDateChange = (e, setDateFunction) => {
+    const newlySelectedDate = e.target.value;
+    const today = new Date().toLocaleDateString("en-CA"); // Gets today in YYYY-MM-DD format
+
+    if (newlySelectedDate !== today) {
+      const enteredPassword = window.prompt("⚠️ You are selecting a different date. Please enter the secret password:");
+      
+      // 1. Handle if the user clicks "Cancel"
+      if (enteredPassword === null) {
+        setDateFunction(today); 
+        return;
+      }
+
+      // 2. Compare against your actual adminPassword state
+      if (enteredPassword === adminPassword) {
+        setDateFunction(newlySelectedDate); 
+      } else {
+        alert("❌ Incorrect password. Date selection cancelled.");
+        setDateFunction(today); 
+      }
+    } else {
+      // If it's today's date, update without prompt
+      setDateFunction(newlySelectedDate);
+    }
+  };
 
   // BUG FIX: Safely auto-select the first item for BOTH single products AND multiple items arrays
   useEffect(() => {
@@ -86,6 +129,13 @@ export default function LockerTab() {
     }
   }, [selectedItem]);
 
+  const combineDateAndTime = (dateStr) => {
+    if (!dateStr) return new Date().toISOString();
+    const now = new Date();
+    const [year, month, day] = dateStr.split('-');
+    return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+  };
+
   const handleUpdateBankLoan = async () => {
     if (!bankLoanAmount || !selectedItem)
       return alert("Please enter an amount");
@@ -94,7 +144,7 @@ export default function LockerTab() {
         `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
         { 
           bankLoanAmount: parseFloat(bankLoanAmount),
-          bankLoanDate: bankLoanDate
+          bankLoanDate: combineDateAndTime(bankLoanDate)
          },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -122,7 +172,7 @@ export default function LockerTab() {
         `http://localhost:5000/api/bankDetails/${selectedItem._id}`,
         { 
           bankSettlementAmount: parseFloat(settlementAmount),
-          bankSettlementDate: bankSettlementDate,
+          bankSettlementDate: combineDateAndTime(bankSettlementDate),
           paymentType: paymentType
          },
         {
@@ -608,7 +658,7 @@ export default function LockerTab() {
                 <input
                   type="date"
                   value={bankLoanDate}
-                  onChange={(e) => setBankLoanDate(e.target.value)}
+                  onChange={(e)=>handleSecureDateChange(e, setBankLoanDate)}
                   max={new Date().toISOString().split("T")[0]}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
                 />
@@ -666,7 +716,7 @@ export default function LockerTab() {
                 <input
                   type="date"
                   value={bankSettlementDate}
-                  onChange={(e) => setBankSettlementDate(e.target.value)}
+                  onChange={(e) => handleSecureDateChange(e, setBankSettlementDate)}
                   max={new Date().toISOString().split("T")[0]}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
                 />
@@ -744,7 +794,7 @@ export default function LockerTab() {
                 <input
                   type="date"
                   value={transactionDate}
-                  onChange={(e) => setTransactionDate(e.target.value)}
+                  onChange={(e) => handleSecureDateChange(e, setTransactionDate)}
                   max={new Date().toISOString().split("T")[0]}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm cursor-pointer"
                 />
