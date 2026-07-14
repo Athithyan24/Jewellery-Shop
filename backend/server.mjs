@@ -546,7 +546,13 @@ app.get("/api/daily-stats", verifyToken, async (req, res) => {
       { $unwind: { path: "$customerDoc", preserveNullAndEmptyArrays: true } },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$loanDate" } },
+          _id: { 
+  $dateToString: { 
+    format: "%Y-%m-%d", 
+    date: "$loanDate", 
+    timezone: "Asia/Kolkata" 
+  } 
+},
           totalLoanGiven: { $sum: "$loanamount" },
           loanDetails: { $push: { 
             amount: "$loanamount", 
@@ -663,11 +669,21 @@ const dailyBankSettlements = await BankDetails.aggregate([
 
     // Safely map all aggregations to the specific date
     dailyLoans.forEach((item) => {
-      if (item._id) { initMapEntry(item._id); statsMap[item._id].loanGiven = item.totalLoanGiven; }
+      if (item._id) { 
+        initMapEntry(item._id); 
+        statsMap[item._id].loanGiven = item.totalLoanGiven;
+        // Map the detailed array to the stats map
+        statsMap[item._id].loanDetails = item.loanDetails; 
+      }
     });
 
     dailyIncome.forEach((item) => {
-      if (item._id) { initMapEntry(item._id); statsMap[item._id].income = item.totalIncome; }
+      if (item._id) { 
+        initMapEntry(item._id); 
+        statsMap[item._id].income = item.totalIncome;
+        // Map the detailed array to the stats map
+        statsMap[item._id].incomeDetails = item.incomeDetails; 
+      }
     });
 
     dailyExpenses.forEach((item) => {
@@ -1006,17 +1022,37 @@ app.put("/api/bankDetails/:id", verifyToken, async (req, res) => {
     if (bankLoanAmount !== undefined && bankLoanAmount !== "") {
       const parsedLoan = Number(bankLoanAmount);
       updateFields.bankLoanAmount = parsedLoan; // Keep single reference field updated
+      
+      // --- TIME FIX LOGIC ---
+      let finalBankLoanDate = new Date();
+      if (bankLoanDate) {
+        finalBankLoanDate = new Date(bankLoanDate);
+        const now = new Date();
+        finalBankLoanDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+      }
+      // ----------------------
+
       pushFields.bankLoans = {
         amount: parsedLoan,
-        date: bankLoanDate ? new Date(bankLoanDate) : new Date(),
+        date: finalBankLoanDate, // Updated to use time-corrected date
       };
     }
 
     // Push new settlement values to history array
     if (bankSettlementAmount !== undefined && bankSettlementAmount !== "") {
+      
+      // --- TIME FIX LOGIC ---
+      let finalSettlementDate = new Date();
+      if (bankSettlementDate) {
+        finalSettlementDate = new Date(bankSettlementDate);
+        const now = new Date();
+        finalSettlementDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+      }
+      // ----------------------
+
       pushFields.bankSettlements = {
         amount: Number(bankSettlementAmount),
-        date: bankSettlementDate ? new Date(bankSettlementDate) : new Date(),
+        date: finalSettlementDate, // Updated to use time-corrected date
         paymentType: paymentType || "Interest",
       };
     }
@@ -1322,7 +1358,7 @@ app.get("/api/shop-profile", verifyToken, async (req, res) => {
 
 app.get("/api/daily-cash", verifyToken, async (req, res) => {
   try {
-    const today = new Date().toLocaleDateString("en-CA");
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const cash = await DailyCash.findOne({ date: today, userId: req.user.id });
     res.status(200).json({ amount: cash ? cash.amount : 0 });
   } catch (error) {
@@ -1517,7 +1553,7 @@ app.post(
 app.post("/api/daily-cash", verifyToken, async (req, res) => {
   try {
     const { amount, name, date } = req.body;
-    const today = new Date().toLocaleDateString("en-CA"); // Matches your original formatting ("YYYY-MM-DD")
+    const today = new Date().toLocaleDateString("en-CA",{ timeZone: "Asia/Kolkata" }); // Matches your original formatting ("YYYY-MM-DD")
 
     const transactionDate = date || new Date().toLocaleDateString("en-CA");
 
@@ -1758,6 +1794,16 @@ app.post("/api/loans", verifyToken, async (req, res) => {
 
     const generatedLoanId = "LN" + String(counter.value).padStart(3, "0");
 
+    // --- TIME FIX LOGIC ---
+    // Take the date from the frontend, but apply the exact current time to it
+    let finalLoanDate = new Date();
+    if (loanDate) {
+      finalLoanDate = new Date(loanDate);
+      const now = new Date();
+      finalLoanDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    }
+    // ----------------------
+
     const loan = new Loan({
       loanId: generatedLoanId,
       customer: customerId,
@@ -1768,7 +1814,7 @@ app.post("/api/loans", verifyToken, async (req, res) => {
       stoneweight: stoneweight || 0,
       goldrate: goldrate || 0,
       pawnpercentage: pawnpercentage || 0,
-      loanDate: loanDate ? new Date(loanDate) : new Date(),
+      loanDate: finalLoanDate, // Updated to use the time-corrected date
       firstinterest,
       secondinterest,
       thirdinterest,

@@ -37,15 +37,15 @@ export default function TransactionTab() {
   // 🟢 Initialize as an Object so it doesn't crash your metrics cards
   const [dailyStats, setDailyStats] = useState({
     startingCash: 0,
-  capitalAdded: 0,
-  loanGiven: 0,
-  income: 0,
-  expenses: 0,
-  expenseDetails: [],
-  bankLoanReceived: 0, // ✨ Initialize missing field
-  bankSettlementPaid: 0, // ✨ Initialize missing field
-  bankLoanDetails: [],
-  bankSettlementDetails: []
+    capitalAdded: 0,
+    loanGiven: 0,
+    income: 0,
+    expenses: 0,
+    expenseDetails: [],
+    bankLoanReceived: 0, // ✨ Initialize missing field
+    bankSettlementPaid: 0, // ✨ Initialize missing field
+    bankLoanDetails: [],
+    bankSettlementDetails: []
   });
 
   const [expenseAmount, setExpenseAmount] = useState("");
@@ -58,6 +58,12 @@ export default function TransactionTab() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [filterDate, setFilterDate] = useState("");
   const [allDailyStats, setAllDailyStats] = useState([]);
+
+  // Calculate active date based on filter or default to today's date
+  let activeDate = filterDate;
+  if (!activeDate) {
+    activeDate = new Date().toISOString().split('T')[0]; 
+  }
 
   // 🟢 HELPER: Calculates chronological running balance for all days safely
   const calculateRunningBalances = (stats) => {
@@ -159,21 +165,21 @@ export default function TransactionTab() {
 
           setDailyStats({
             date: transactionDate,
-    startingCash: carriedOver,
-    totalAmount: carriedOver,
-    capitalAdded: 0,
-    loanGiven: 0,
-    income: 0,
-    expenses: 0,
-    expenseDetails: [],
-    carriedOverBalance: carriedOver,
-    manuallyAddedCash: 0,
-    endingBalance: carriedOver,
-    cashDetails: [],
-    bankLoanReceived: 0, // ✨ Prevent NaN math issues
-    bankSettlementPaid: 0, // ✨ Prevent NaN math issues
-    bankLoanDetails: [],
-    bankSettlementDetails: []
+            startingCash: carriedOver,
+            totalAmount: carriedOver,
+            capitalAdded: 0,
+            loanGiven: 0,
+            income: 0,
+            expenses: 0,
+            expenseDetails: [],
+            carriedOverBalance: carriedOver,
+            manuallyAddedCash: 0,
+            endingBalance: carriedOver,
+            cashDetails: [],
+            bankLoanReceived: 0, // ✨ Prevent NaN math issues
+            bankSettlementPaid: 0, // ✨ Prevent NaN math issues
+            bankLoanDetails: [],
+            bankSettlementDetails: []
           });
           setTodayStartingCash(carriedOver);
         }
@@ -189,84 +195,482 @@ export default function TransactionTab() {
 
   const handleExportDailyExcel = async () => {
     try {
-      const token = localStorage.getItem("token");
+      // Use allDailyStats (or filteredStats if you want to export only the searched dates)
+      const statsToExport = allDailyStats; 
 
-      const res = await axios.post(
-        "http://localhost:5000/api/reports/excel-export",
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-
-      const backendData = res.data;
-      if (!backendData || backendData.length === 0) {
+      if (!statsToExport || statsToExport.length === 0) {
         return alert("No data to export!");
       }
 
-      const groupedData = backendData.reduce((acc, item) => {
-        const dateKey = new Date(item.createdAt).toLocaleDateString("ta-IN");
-        if (!acc[dateKey]) acc[dateKey] = [];
-        acc[dateKey].push(item);
-        return acc;
-      }, {});
-
       let finalExcelRows = [];
 
-      Object.keys(groupedData).forEach((date) => {
-        const dayTransactions = groupedData[date];
+      // Sort stats oldest to newest so the ledger flows chronologically
+      const sortedStats = [...statsToExport].sort((a, b) => new Date(a.date) - new Date(b.date));
 
+      sortedStats.forEach((stat) => {
+        let dayBookEntries = [];
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        // Helper to format Date + Time for individual entries
+        const formatDateTime = (isoDate) => {
+          const d = new Date(isoDate);
+          const datePart = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+          const timePart = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+          return `${datePart} - ${timePart}`;
+        };
+
+        const baseDateStr = new Date(stat.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        const baseStartOfDay = new Date(stat.date).setHours(0, 0, 0, 0);
+
+        // 1. CREDIT: Previous Day Carry Over
+        if (stat.carriedOverBalance > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay - 2000,
+            history: "Previous Day Carry Over Balance",
+            debit: 0,
+            credit: stat.carriedOverBalance,
+          });
+          totalCredit += stat.carriedOverBalance;
+        }
+
+        // 2. CREDIT: Daily Cash Added
+        if (stat.cashDetails && stat.cashDetails.length > 0) {
+          stat.cashDetails.forEach((cash) => {
+            const amt = Number(cash.amount) || 0;
+            dayBookEntries.push({
+              date: baseDateStr, 
+              rawDate: cash.date ? new Date(cash.date).getTime() : (baseStartOfDay - 1000),
+              history: cash.name || "Manually Added Cash",
+              debit: 0,
+              credit: amt,
+            });
+            totalCredit += amt;
+          });
+        } else if (stat.manuallyAddedCash > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay - 1000,
+            history: "Opening Balance / Cash In",
+            debit: 0,
+            credit: stat.manuallyAddedCash,
+          });
+          totalCredit += stat.manuallyAddedCash;
+        }
+
+        // 3. CREDIT: INDIVIDUAL Income / Interest Paid
+        if (stat.incomeDetails && stat.incomeDetails.length > 0) {
+          stat.incomeDetails.forEach((inc) => {
+            const amt = Number(inc.amount) || 0;
+            const incDate = inc.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(incDate),
+              rawDate: new Date(incDate).getTime(),
+              history: `LOAN/INTEREST PAID BY ${inc.customerName?.toUpperCase() || "CUSTOMER"} FOR ${inc.loanId || "N/A"}`,
+              debit: 0,
+              credit: amt,
+            });
+            totalCredit += amt;
+          });
+        } else if (stat.income > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay + 1000,
+            history: "Income (Loan Received / Interest Paid)",
+            debit: 0,
+            credit: Number(stat.income),
+          });
+          totalCredit += Number(stat.income);
+        }
+
+        // 4. CREDIT: INDIVIDUAL Bank Loan Taken (Locker Storage)
+        if (stat.bankLoanDetails && stat.bankLoanDetails.length > 0) {
+          stat.bankLoanDetails.forEach((bl) => {
+            const amt = Number(bl.amount) || 0;
+            const blDate = bl.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(blDate),
+              rawDate: new Date(blDate).getTime(),
+              history: `${bl.loanId || "N/A"} ${bl.productName?.toUpperCase() || "ITEM"} KEPT IN ${bl.bankName?.toUpperCase() || "BANK"} BANK LOCKER ${bl.lockerNo || "N/A"}`,
+              debit: 0,
+              credit: amt,
+            });
+            totalCredit += amt;
+          });
+        }
+
+        // 5. DEBIT: INDIVIDUAL Loan Given 
+        if (stat.loanDetails && stat.loanDetails.length > 0) {
+          stat.loanDetails.forEach((loan) => {
+            const amt = Number(loan.amount) || 0;
+            const loanDate = loan.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(loanDate),
+              rawDate: new Date(loanDate).getTime(),
+              history: `LOAN GIVEN TO ${loan.customerName?.toUpperCase() || "CUSTOMER"} FOR ${loan.loanId || "N/A"}`,
+              debit: amt,
+              credit: 0,
+            });
+            totalDebit += amt;
+          });
+        } else if (stat.loanGiven > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay + 2000,
+            history: "Loan Given (Cash Out)",
+            debit: Number(stat.loanGiven),
+            credit: 0,
+          });
+          totalDebit += Number(stat.loanGiven);
+        }
+
+        // 6. DEBIT: INDIVIDUAL Bank Settlement Paid
+        if (stat.bankSettlementDetails && stat.bankSettlementDetails.length > 0) {
+          stat.bankSettlementDetails.forEach((bs) => {
+            const amt = Number(bs.amount) || 0;
+            const bsDate = bs.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(bsDate),
+              rawDate: new Date(bsDate).getTime(),
+              history: `LOAN/INTEREST PAID TO THE ${bs.bankName?.toUpperCase() || "BANK"}`,
+              debit: amt,
+              credit: 0,
+            });
+            totalDebit += amt;
+          });
+        }
+
+        // 7. DEBIT: Expenses
+        if (stat.expenseDetails && stat.expenseDetails.length > 0) {
+          stat.expenseDetails.forEach((exp) => {
+            const amt = Number(exp.amount) || 0;
+            const expDate = exp.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(expDate),
+              rawDate: new Date(expDate).getTime(),
+              history: `Expense: ${exp.name}`,
+              debit: amt,
+              credit: 0,
+            });
+            totalDebit += amt;
+          });
+        } else if (stat.expenses > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay + 3000,
+            history: "Shop Expenses",
+            debit: Number(stat.expenses),
+            credit: 0,
+          });
+          totalDebit += Number(stat.expenses);
+        }
+
+        // Sort chronologically using rawDate (Just like your UI)
+        dayBookEntries.sort((a, b) => a.rawDate - b.rawDate);
+
+        // --- EXCEL SHEET CONSTRUCTION FOR THIS DAY ---
+        
+        // Day Header
         finalExcelRows.push({
-          "S.No": `📅 தேதி: ${date}`,
-          Time: "=================",
-          Type: "===========================",
-          Description: "===============================================",
-          Amount: "=======",
+          "Date & Time": `📅 தேதி: ${baseDateStr}`,
+          "Transaction History": "=========================================================",
+          "Debit (CASH OUT)": "=======",
+          "Credit (CASH IN)": "=======",
         });
 
-        dayTransactions.forEach((item, index) => {
-          const time = new Date(item.createdAt).toLocaleTimeString("ta-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-
+        // Insert actual transactions
+        dayBookEntries.forEach((entry) => {
           finalExcelRows.push({
-            "S.No": index + 1,
-            Time: time,
-            Type: item.type,
-            Description: item.description,
-            Amount: item.amount || 0,
+            "Date & Time": entry.date,
+            "Transaction History": entry.history,
+            "Debit (CASH OUT)": entry.debit > 0 ? entry.debit : "",
+            "Credit (CASH IN)": entry.credit > 0 ? entry.credit : "",
           });
         });
 
+        // Daily Footer Totals
+        const overallBalance = totalCredit - totalDebit;
         finalExcelRows.push({
-          "S.No": "",
-          Time: "",
-          Type: "",
-          Description: "",
-          Amount: "",
+          "Date & Time": "",
+          "Transaction History": "TOTAL TALLY:",
+          "Debit (CASH OUT)": totalDebit > 0 ? totalDebit : "",
+          "Credit (CASH IN)": totalCredit > 0 ? totalCredit : "",
+        });
+        
+        finalExcelRows.push({
+          "Date & Time": "",
+          "Transaction History": "CLOSING NET BALANCE:",
+          "Debit (CASH OUT)": "",
+          "Credit (CASH IN)": overallBalance,
+        });
+
+        // Blank space between days
+        finalExcelRows.push({
+          "Date & Time": "",
+          "Transaction History": "",
+          "Debit (CASH OUT)": "",
+          "Credit (CASH IN)": "",
         });
       });
 
+      // Generate the Excel Sheet
       const worksheet = XLSX.utils.json_to_sheet(finalExcelRows);
-
+      
+      // Set column widths for proper UI matching
       const columnWidths = [
-        { wch: 16 },
-        { wch: 18 },
-        { wch: 35 },
-        { wch: 55 },
-        { wch: 15 },
+        { wch: 25 }, // Date & Time
+        { wch: 80 }, // Transaction History (Made wider for customer details)
+        { wch: 18 }, // Debit
+        { wch: 18 }, // Credit
       ];
       worksheet["!cols"] = columnWidths;
 
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Ledger");
 
-      const fileDate = new Date()
-        .toLocaleDateString("en-GB")
-        .replace(/\//g, "-");
+      const fileDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-");
       XLSX.writeFile(workbook, `PawnShop_Ledger_${fileDate}.xlsx`);
+      
     } catch (error) {
       console.error("Excel generation failed:", error);
       alert("Error downloading Excel");
+    }
+  };
+
+  // ✨ NEW: EXPORTS ONLY THE TRANSACTIONS ASSOCIATED WITH THE SELECTED SEARCH FILTER DATE
+  const handleExportSelectedDateExcel = async () => {
+    try {
+      if (!allDailyStats || allDailyStats.length === 0) {
+        return alert("No data available!");
+      }
+
+      // Match selected search filter date, fallback to standard date format comparison
+      const targetStats = allDailyStats.filter((stat) => stat.date === activeDate);
+
+      if (!targetStats || targetStats.length === 0) {
+        return alert(`No transactions recorded for ${activeDate} yet!`);
+      }
+
+      let finalExcelRows = [];
+
+      targetStats.forEach((stat) => {
+        let dayBookEntries = [];
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        // Helper to format Date + Time for individual entries
+        const formatDateTime = (isoDate) => {
+          const d = new Date(isoDate);
+          const datePart = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+          const timePart = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+          return `${datePart} - ${timePart}`;
+        };
+
+        const baseDateStr = new Date(stat.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        const baseStartOfDay = new Date(stat.date).setHours(0, 0, 0, 0);
+
+        // 1. CREDIT: Previous Day Carry Over
+        if (stat.carriedOverBalance > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay - 2000,
+            history: "Previous Day Carry Over Balance",
+            debit: 0,
+            credit: stat.carriedOverBalance,
+          });
+          totalCredit += stat.carriedOverBalance;
+        }
+
+        // 2. CREDIT: Daily Cash Added
+        if (stat.cashDetails && stat.cashDetails.length > 0) {
+          stat.cashDetails.forEach((cash) => {
+            const amt = Number(cash.amount) || 0;
+            dayBookEntries.push({
+              date: baseDateStr, 
+              rawDate: cash.date ? new Date(cash.date).getTime() : (baseStartOfDay - 1000),
+              history: cash.name || "Manually Added Cash",
+              debit: 0,
+              credit: amt,
+            });
+            totalCredit += amt;
+          });
+        } else if (stat.manuallyAddedCash > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay - 1000,
+            history: "Opening Balance / Cash In",
+            debit: 0,
+            credit: stat.manuallyAddedCash,
+          });
+          totalCredit += stat.manuallyAddedCash;
+        }
+
+        // 3. CREDIT: INDIVIDUAL Income / Interest Paid
+        if (stat.incomeDetails && stat.incomeDetails.length > 0) {
+          stat.incomeDetails.forEach((inc) => {
+            const amt = Number(inc.amount) || 0;
+            const incDate = inc.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(incDate),
+              rawDate: new Date(incDate).getTime(),
+              history: `LOAN/INTEREST PAID BY ${inc.customerName?.toUpperCase() || "CUSTOMER"} FOR ${inc.loanId || "N/A"}`,
+              debit: 0,
+              credit: amt,
+            });
+            totalCredit += amt;
+          });
+        } else if (stat.income > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay + 1000,
+            history: "Income (Loan Received / Interest Paid)",
+            debit: 0,
+            credit: Number(stat.income),
+          });
+          totalCredit += Number(stat.income);
+        }
+
+        // 4. CREDIT: INDIVIDUAL Bank Loan Taken
+        if (stat.bankLoanDetails && stat.bankLoanDetails.length > 0) {
+          stat.bankLoanDetails.forEach((bl) => {
+            const amt = Number(bl.amount) || 0;
+            const blDate = bl.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(blDate),
+              rawDate: new Date(blDate).getTime(),
+              history: `${bl.loanId || "N/A"} ${bl.productName?.toUpperCase() || "ITEM"} KEPT IN ${bl.bankName?.toUpperCase() || "BANK"} BANK LOCKER ${bl.lockerNo || "N/A"}`,
+              debit: 0,
+              credit: amt,
+            });
+            totalCredit += amt;
+          });
+        }
+
+        // 5. DEBIT: INDIVIDUAL Loan Given 
+        if (stat.loanDetails && stat.loanDetails.length > 0) {
+          stat.loanDetails.forEach((loan) => {
+            const amt = Number(loan.amount) || 0;
+            const loanDate = loan.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(loanDate),
+              rawDate: new Date(loanDate).getTime(),
+              history: `LOAN GIVEN TO ${loan.customerName?.toUpperCase() || "CUSTOMER"} FOR ${loan.loanId || "N/A"}`,
+              debit: amt,
+              credit: 0,
+            });
+            totalDebit += amt;
+          });
+        } else if (stat.loanGiven > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay + 2000,
+            history: "Loan Given (Cash Out)",
+            debit: Number(stat.loanGiven),
+            credit: 0,
+          });
+          totalDebit += Number(stat.loanGiven);
+        }
+
+        // 6. DEBIT: INDIVIDUAL Bank Settlement Paid
+        if (stat.bankSettlementDetails && stat.bankSettlementDetails.length > 0) {
+          stat.bankSettlementDetails.forEach((bs) => {
+            const amt = Number(bs.amount) || 0;
+            const bsDate = bs.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(bsDate),
+              rawDate: new Date(bsDate).getTime(),
+              history: `LOAN/INTEREST PAID TO THE ${bs.bankName?.toUpperCase() || "BANK"}`,
+              debit: amt,
+              credit: 0,
+            });
+            totalDebit += amt;
+          });
+        }
+
+        // 7. DEBIT: Expenses
+        if (stat.expenseDetails && stat.expenseDetails.length > 0) {
+          stat.expenseDetails.forEach((exp) => {
+            const amt = Number(exp.amount) || 0;
+            const expDate = exp.date || stat.date;
+            dayBookEntries.push({
+              date: formatDateTime(expDate),
+              rawDate: new Date(expDate).getTime(),
+              history: `Expense: ${exp.name}`,
+              debit: amt,
+              credit: 0,
+            });
+            totalDebit += amt;
+          });
+        } else if (stat.expenses > 0) {
+          dayBookEntries.push({
+            date: baseDateStr,
+            rawDate: baseStartOfDay + 3000,
+            history: "Shop Expenses",
+            debit: Number(stat.expenses),
+            credit: 0,
+          });
+          totalDebit += Number(stat.expenses);
+        }
+
+        // Sort chronologically using rawDate
+        dayBookEntries.sort((a, b) => a.rawDate - b.rawDate);
+
+        // --- EXCEL SHEET CONSTRUCTION ---
+        finalExcelRows.push({
+          "Date & Time": `📅 தேதி: ${baseDateStr}`,
+          "Transaction History": "=========================================================",
+          "Debit (CASH OUT)": "=======",
+          "Credit (CASH IN)": "=======",
+        });
+
+        // Insert actual transactions
+        dayBookEntries.forEach((entry) => {
+          finalExcelRows.push({
+            "Date & Time": entry.date,
+            "Transaction History": entry.history,
+            "Debit (CASH OUT)": entry.debit > 0 ? entry.debit : "",
+            "Credit (CASH IN)": entry.credit > 0 ? entry.credit : "",
+          });
+        });
+
+        // Daily Footer Totals
+        const overallBalance = totalCredit - totalDebit;
+        finalExcelRows.push({
+          "Date & Time": "",
+          "Transaction History": "TOTAL TALLY:",
+          "Debit (CASH OUT)": totalDebit > 0 ? totalDebit : "",
+          "Credit (CASH IN)": totalCredit > 0 ? totalCredit : "",
+        });
+        
+        finalExcelRows.push({
+          "Date & Time": "",
+          "Transaction History": "CLOSING NET BALANCE:",
+          "Debit (CASH OUT)": "",
+          "Credit (CASH IN)": overallBalance,
+        });
+      });
+
+      // Generate the Excel Sheet
+      const worksheet = XLSX.utils.json_to_sheet(finalExcelRows);
+      
+      const columnWidths = [
+        { wch: 25 }, // Date & Time
+        { wch: 80 }, // Transaction History
+        { wch: 18 }, // Debit
+        { wch: 18 }, // Credit
+      ];
+      worksheet["!cols"] = columnWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Day Book");
+
+      const fileDate = new Date(activeDate).toLocaleDateString("en-GB").replace(/\//g, "-");
+      XLSX.writeFile(workbook, `PawnShop_DayBook_${fileDate}.xlsx`);
+      
+    } catch (error) {
+      console.error("Selected Day Excel generation failed:", error);
+      alert("Error downloading Selected Day Excel");
     }
   };
 
@@ -389,7 +793,7 @@ export default function TransactionTab() {
     } catch (error) {
       alert(
         error.response?.data?.message ||
-          "Failed to restore data. Invalid file.",
+          "Failed to restore data. Invalid file."
       );
     }
   };
@@ -412,7 +816,7 @@ export default function TransactionTab() {
       downloadAnchorNode.setAttribute("href", dataStr);
       downloadAnchorNode.setAttribute(
         "download",
-        `PawnShop_Backup_${new Date().toISOString().split("T")[0]}.json`,
+        `PawnShop_Backup_${new Date().toISOString().split("T")[0]}.json`
       );
       document.body.appendChild(downloadAnchorNode);
       downloadAnchorNode.click();
@@ -440,7 +844,7 @@ export default function TransactionTab() {
           name: dailyCashReason || "Opening Cash",
           date: transactionDate,
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setDailyCashInput("");
       setDailyCashReason(""); // Added to clean up form
@@ -459,7 +863,7 @@ export default function TransactionTab() {
       await axios.post(
         "http://localhost:5000/api/expenses",
         { name: expenseName, amount: expenseAmount, date: transactionDate },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setExpenseName("");
       setExpenseAmount("");
@@ -507,13 +911,8 @@ export default function TransactionTab() {
     fetchDailyLedgerStats();
   }, []);
 
- const totalExpenses = dailyStats?.expenses || 0;
+  const totalExpenses = dailyStats?.expenses || 0;
   const selectedDateStartingCash = dailyStats?.calculatedStartingBalance || 0;
-
-  let activeDate = filterDate;
-  if (!activeDate) {
-    activeDate = new Date().toISOString().split('T')[0]; 
-  }
 
   const filteredStats = allDailyStats.filter((stat) => stat.date === activeDate);
 
@@ -545,8 +944,6 @@ export default function TransactionTab() {
     }
   };
 
-  // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
-  // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
   // 🟢 NEW DAY BOOK LOGIC: Flatten stats into Day Book entries for the table
   let dayBookEntries = [];
   let totalDebit = 0;
@@ -1153,6 +1550,23 @@ export default function TransactionTab() {
               </tfoot>
             </table>
           </div>
+
+          {/* ✨ NEW: EXPORT DAY BOOK BUTTON AT THE TABLE'S CLOSING (FOOTER OF THE CARD) */}
+          <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs font-bold text-slate-500">
+              * This export applies strictly to the records matching the search date above.
+            </p>
+            <button
+              onClick={handleExportSelectedDateExcel}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 active:scale-95 w-full sm:w-auto"
+            >
+              <FileDown size={18} strokeWidth={2.5} className="animate-pulse" />
+              <span>
+                Export Day Book ({new Date(activeDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})
+              </span>
+            </button>
+          </div>
+
         </div>
       </div>
 

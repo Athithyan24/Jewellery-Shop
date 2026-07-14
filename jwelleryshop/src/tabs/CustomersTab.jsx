@@ -168,16 +168,13 @@ const [adminPassword, setAdminPassword] = useState("");
     const today = new Date().toLocaleDateString("en-CA"); // Gets today's date in YYYY-MM-DD format
     
     if (selectedLoanDate < today) {
-      // Prompt the user for a password
       const enteredPassword = window.prompt("⚠️ Past date selected! Please enter the Admin password to authorize this backdated loan:");
       
-      // Verification check (Replace 'admin123' with your actual password or state variable)
-      if (enteredPassword !== "admin123") {
+      if (enteredPassword !== adminPassword) {
         alert("❌ Authorization failed! Incorrect password. Loan creation cancelled.");
-        return; // This stops the function and prevents the loan from being submitted
+        return; 
       }
     }
-    // 👈 END OF NEW CODE
     try {
       const finalFirstInterest = parseFloat(e.target.firstinterest.value) || 0;
       const finalSecondInterest =
